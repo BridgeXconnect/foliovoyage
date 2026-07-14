@@ -1,0 +1,380 @@
+{
+  "home_hero": {
+    "file": "Oia_-_Santorini_2019.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Oia_-_Santorini_2019.jpg",
+    "artist": "User:Anna.Tsolidou",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bkk_hero": {
+    "file": "Templo_Wat_Arun,_Bangkok,_Tailandia,_2013-08-22,_DD_30.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Templo_Wat_Arun,_Bangkok,_Tailandia,_2013-08-22,_DD_30.jpg",
+    "artist": "Diego Delso",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "bkk_grand_palace": {
+    "file": "วัดพระศรีรัตนศาสดาราม_วัดพระแก้ว_กรุงเทพมหานคร_-_Wat_Phra_Kaew,_Temple_of_Emerald_Buddha,_Bangkok,_Thailand.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:%E0%B8%A7%E0%B8%B1%E0%B8%94%E0%B8%9E%E0%B8%A3%E0%B8%B0%E0%B8%A8%E0%B8%A3%E0%B8%B5%E0%B8%A3%E0%B8%B1%E0%B8%95%E0%B8%99%E0%B8%A8%E0%B8%B2%E0%B8%AA%E0%B8%94%E0%B8%B2%E0%B8%A3%E0%B8%B2%E0%B8%A1_%E0%B8%A7%E0%B8%B1%E0%B8%94%E0%B8%9E%E0%B8%A3%E0%B8%B0%E0%B9%81%E0%B8%81%E0%B9%89%E0%B8%A7_%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%E0%B8%A1%E0%B8%AB%E0%B8%B2%E0%B8%99%E0%B8%84%E0%B8%A3_-_Wat_Phra_Kaew,_Temple_of_Emerald_Buddha,_Bangkok,_Thailand.jpg",
+    "artist": "Basile Morin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bkk_wat_pho": {
+    "file": "Wat_Pho,_Bangkok,_Tailandia,_2013-08-22,_DD_07.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Wat_Pho,_Bangkok,_Tailandia,_2013-08-22,_DD_07.jpg",
+    "artist": "Diego Delso",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "bkk_wat_arun": {
+    "file": "Templo_Wat_Arun,_Bangkok,_Tailandia,_2013-08-22,_DD_30.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Templo_Wat_Arun,_Bangkok,_Tailandia,_2013-08-22,_DD_30.jpg",
+    "artist": "Diego Delso",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "bkk_chao_phraya": {
+    "file": "Chao_Phraya_River_Bangkok_(4).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Chao_Phraya_River_Bangkok_(4).jpg",
+    "artist": "Radosław Botev",
+    "license": "CC BY 3.0 pl",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/pl/deed.en"
+  },
+  "bkk_yaowarat": {
+    "file": "Yaowarat_at_night_(32455695783).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Yaowarat_at_night_(32455695783).jpg",
+    "artist": "Ninara from Helsinki, Finland",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "bkk_chatuchak": {
+    "file": "Chatuchak_Weekend_Market,_Bangkok,_Thailand_(4570440063).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Chatuchak_Weekend_Market,_Bangkok,_Thailand_(4570440063).jpg",
+    "artist": "yeowatzup",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "bkk_floating": {
+    "file": "Damnoen_Saduak_Floating_Market_in_Bangkok.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Damnoen_Saduak_Floating_Market_in_Bangkok.jpg",
+    "artist": "Ewong17",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bkk_ayutthaya": {
+    "file": "Buddha_head_in_bodhi_tree,_Wat_Mahathat.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Buddha_head_in_bodhi_tree,_Wat_Mahathat.jpg",
+    "artist": "Jatoo",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_hero": {
+    "file": "Kiyomizu-dera,_Kyoto,_November_2016_-01.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Kiyomizu-dera,_Kyoto,_November_2016_-01.jpg",
+    "artist": "Martin Falbisoner",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_fushimi": {
+    "file": "Torii_path_with_lantern_at_Fushimi_Inari_Taisha_Shrine,_Kyoto,_Japan.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Torii_path_with_lantern_at_Fushimi_Inari_Taisha_Shrine,_Kyoto,_Japan.jpg",
+    "artist": "Basile Morin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_kinkakuji": {
+    "file": "Kinkaku-ji_in_November_2016_-02.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Kinkaku-ji_in_November_2016_-02.jpg",
+    "artist": "Martin Falbisoner",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_arashiyama": {
+    "file": "Bamboo_Forest,_Arashiyama,_Kyoto,_Japan.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Bamboo_Forest,_Arashiyama,_Kyoto,_Japan.jpg",
+    "artist": "Basile Morin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_gion": {
+    "file": "A_view_of_Gion_corner_in_Geisha_district,_Kyoto,_Japan.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:A_view_of_Gion_corner_in_Geisha_district,_Kyoto,_Japan.jpg",
+    "artist": "Joli Rumi",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_nishiki": {
+    "file": "Nishiki_ichiba_kyoto.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Nishiki_ichiba_kyoto.jpg",
+    "artist": "Pitan",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "kyo_kiyomizu": {
+    "file": "Four_ladies_wearing_a_yukata_in_front_of_the_North_Gate_of_Kiyomizu-dera_temple_Kyoto_Japan.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Four_ladies_wearing_a_yukata_in_front_of_the_North_Gate_of_Kiyomizu-dera_temple_Kyoto_Japan.jpg",
+    "artist": "Basile Morin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_tea": {
+    "file": "Japanese_Tea_Ceremony_Serving_Tea.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Japanese_Tea_Ceremony_Serving_Tea.jpg",
+    "artist": "KuboBella",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "kyo_nara": {
+    "file": "Deer_at_Todaiji_(4).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Deer_at_Todaiji_(4).jpg",
+    "artist": "Immanuel Giel",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "lis_hero": {
+    "file": "View_from_Miradouro_de_Santa_Luzia,_Lisbon,_20250603_2016_9045.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:View_from_Miradouro_de_Santa_Luzia,_Lisbon,_20250603_2016_9045.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "lis_tram": {
+    "file": "Tram_28_Lisbon_Portuguese.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Tram_28_Lisbon_Portuguese.jpg",
+    "artist": "Ввласенко",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "lis_belem": {
+    "file": "Torre_Belém_April_2009-4a.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Torre_Bel%C3%A9m_April_2009-4a.jpg",
+    "artist": "Alvesgaspar",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "lis_jeronimos": {
+    "file": "Cloister_of_the_Jerónimos_Monastery_in_Belém,_Lisbon,_20250604_1313_9204.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Cloister_of_the_Jer%C3%B3nimos_Monastery_in_Bel%C3%A9m,_Lisbon,_20250604_1313_9204.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "lis_natas": {
+    "file": "Pastel_De_Nata.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Pastel_De_Nata.jpg",
+    "artist": "TheDumpy",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "lis_alfama": {
+    "file": "Alfama-CCBY.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Alfama-CCBY.jpg",
+    "artist": "Miguel Vieira [2]",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "lis_castle": {
+    "file": "Lisbon_Alfama_Sao_Vicente_Pantheon_from_Sao_Jorge_Castle,_20250604_1715_9412.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Lisbon_Alfama_Sao_Vicente_Pantheon_from_Sao_Jorge_Castle,_20250604_1715_9412.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "lis_sintra": {
+    "file": "Pena_Palace,_Sintra,_Portugal,_20250606_1037_0005.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Pena_Palace,_Sintra,_Portugal,_20250606_1037_0005.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "lis_timeout": {
+    "file": "Mercado_da_Ribeira,_Time_Out_Market,_Lisbon_-_49677105008.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Mercado_da_Ribeira,_Time_Out_Market,_Lisbon_-_49677105008.jpg",
+    "artist": "Sonse",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "rom_hero": {
+    "file": "Colosseum_in_Rome-April_2007-1-_copie_2B.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Colosseum_in_Rome-April_2007-1-_copie_2B.jpg",
+    "artist": "Diliff",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  },
+  "rom_colosseum": {
+    "file": "Cross_Colosseum_Rome_Italy.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Cross_Colosseum_Rome_Italy.jpg",
+    "artist": "Jebulon",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "rom_vatican": {
+    "file": "Basilica_di_San_Pietro_in_Vaticano_September_2015-1a.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Basilica_di_San_Pietro_in_Vaticano_September_2015-1a.jpg",
+    "artist": "Alvesgaspar",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "rom_forum": {
+    "file": "Forum_romanum_6k_(5760x2097).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Forum_romanum_6k_(5760x2097).jpg",
+    "artist": "BeBo86",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "rom_trastevere": {
+    "file": "Santa_Maria_in_Trastevere_church_in_Rome_(12).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Santa_Maria_in_Trastevere_church_in_Rome_(12).jpg",
+    "artist": "Krzysztof Golik",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "rom_trevi": {
+    "file": "Oceanus_(Trevi_fountain).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Oceanus_(Trevi_fountain).jpg",
+    "artist": "Wilfredor",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "rom_pantheon": {
+    "file": "Pantheon_Rom_1_cropped.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Pantheon_Rom_1_cropped.jpg",
+    "artist": "Rabax63",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "rom_borghese": {
+    "file": "Galleria_Borghese_in_Rome_08.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Galleria_Borghese_in_Rome_08.jpg",
+    "artist": "Krzysztof Golik",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "rom_testaccio": {
+    "file": "Spaghetti,_cacio_e_pepe_&_bitter_leaf_salad_-_Tutto_2024-04-04.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Spaghetti,_cacio_e_pepe_%26_bitter_leaf_salad_-_Tutto_2024-04-04.jpg",
+    "artist": "Andy Li",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "han_hoankiem": {
+    "file": "Lascar_The_Huc_Bridge_-_Hoan_Kiem_Lake_(4550416275).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Lascar_The_Huc_Bridge_-_Hoan_Kiem_Lake_(4550416275).jpg",
+    "artist": "Jorge Láscar from Australia",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "han_oldquarter": {
+    "file": "Street_seller_of_fingered_citrons_in_Old_Town_of_Hanoi,_20240204_1335_5772.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Street_seller_of_fingered_citrons_in_Old_Town_of_Hanoi,_20240204_1335_5772.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "han_trainstreet": {
+    "file": "Train_street_in_Hanoi.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Train_street_in_Hanoi.jpg",
+    "artist": "Kris Martyn",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "han_temple_lit": {
+    "file": "Main_gate_of_the_Temple_of_Literature,_Hanoi,_Vietnam,_20240123_0929_3068.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Main_gate_of_the_Temple_of_Literature,_Hanoi,_Vietnam,_20240123_0929_3068.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "han_puppet": {
+    "file": "Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg",
+    "artist": "CEphoto, Uwe Aranas",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "han_halong": {
+    "file": "Halong_Bay_in_Vietnam.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Halong_Bay_in_Vietnam.jpg",
+    "artist": "Thomas Hirsch / User:Ravn",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  "han_ninhbinh": {
+    "file": "Goats_in_Ninh_Hải,_Ninh_Binh_province,_Vietnam,_20240201_1521_4871.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Goats_in_Ninh_H%E1%BA%A3i,_Ninh_Binh_province,_Vietnam,_20240201_1521_4871.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "han_eggcoffee": {
+    "file": "CÀ_PHÊ_KEM_TRỨNG_(Egg_cream_coffee).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:C%C3%80_PH%C3%8A_KEM_TR%E1%BB%A8NG_(Egg_cream_coffee).jpg",
+    "artist": "Souradeep.Dasgupta",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "bal_hero": {
+    "file": "Rice_terraces,_Bali.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Rice_terraces,_Bali.jpg",
+    "artist": "Vyacheslav Argenberg",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "bal_tegallalang": {
+    "file": "Rice_terraces,_Bali.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Rice_terraces,_Bali.jpg",
+    "artist": "Vyacheslav Argenberg",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "bal_uluwatu": {
+    "file": "Luhur_Uluwatu_Temple,_Bali,_20220826_0953_1016.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Luhur_Uluwatu_Temple,_Bali,_20220826_0953_1016.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bal_tanahlot": {
+    "file": "Bali_-_Pura_Tanah_Lot,_20220827_0958_1114.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Bali_-_Pura_Tanah_Lot,_20220827_0958_1114.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bal_monkey": {
+    "file": "Macaca_fascicularis,_Ubud_Monkey_Forest,_Bali,_20220822_1012_9935.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Macaca_fascicularis,_Ubud_Monkey_Forest,_Bali,_20220822_1012_9935.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bal_waterfall": {
+    "file": "Tegenungan_Waterfall_in_the_jungle_of_Bali_island._Indonesia._(27813152747).jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Tegenungan_Waterfall_in_the_jungle_of_Bali_island._Indonesia._(27813152747).jpg",
+    "artist": "Artem Beliaikin from Moscow, Russia",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "bal_seminyak": {
+    "file": "Sunset,_Kuta,_Bali,_Indonesia,_20220825_1755_0879.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Sunset,_Kuta,_Bali,_Indonesia,_20220825_1755_0879.jpg",
+    "artist": "Jakub Hałun",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "bal_kecak": {
+    "file": "Kecak_dancers_cliffside_Uluwatu.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Kecak_dancers_cliffside_Uluwatu.jpg",
+    "artist": "Rollan Budi from Kuta, Bali,, Indonesia",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0"
+  },
+  "bal_batur": {
+    "file": "Sunrise_at_Mt_Batur,_Bali.jpg",
+    "descriptionUrl": "https://commons.wikimedia.org/wiki/File:Sunrise_at_Mt_Batur,_Bali.jpg",
+    "artist": "Olderthangoogle",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  }
+}

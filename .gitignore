@@ -1,0 +1,16 @@
+# OS / editor cruft
+.DS_Store
+*.swp
+
+# Env files (never commit secrets). frontend/.env.example is intentionally tracked.
+.env
+.env.*
+!frontend/.env.example
+
+# Safety net — frontend has its own .gitignore, but guard build artifacts here too.
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+*.tsbuildinfo
+.vercel
