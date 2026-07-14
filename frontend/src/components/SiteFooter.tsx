@@ -74,7 +74,10 @@ export function SiteFooter() {
             © {new Date().getFullYear()} {site.name}. All rights reserved.
           </p>
           <p className="text-[13px] text-muted">
-            Placeholder editorial · imagery via Wikimedia Commons
+            Reader-supported ·{" "}
+            <Link href="/legal/disclosure" className="underline hover:text-ink">
+              affiliate disclosure
+            </Link>
           </p>
         </div>
       </div>
