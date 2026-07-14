@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -57,7 +58,10 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${poppins.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
