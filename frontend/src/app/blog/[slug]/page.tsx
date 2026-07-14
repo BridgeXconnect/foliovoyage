@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { CovillaHeader } from "@/components/covilla/CovillaHeader";
 import { CovillaFooter } from "@/components/covilla/CovillaFooter";
 import { PromiseBand } from "@/components/covilla/PromiseBand";
+import { BlogBody } from "@/components/covilla/BlogBody";
 import {
   getNavDestinations,
   getDestination,
@@ -61,7 +62,11 @@ export default async function BlogPostPage({
     .map((id) => getPersona(id))
     .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
-  const [lead, ...rest] = p.body;
+  // First block is the lead paragraph (rendered large); the rest render as
+  // structured blocks (headings, lists, curated picks).
+  const [first, ...rest] = p.body;
+  const lead = first?.kind === "p" ? first.text : "";
+  const restBlocks = first?.kind === "p" ? rest : p.body;
 
   const author = p.author ?? FOLIO_AUTHOR;
   const reviewedDisplay = new Date(p.lastReviewed).toLocaleDateString("en-US", {
@@ -92,6 +97,9 @@ export default async function BlogPostPage({
       url: site.url,
       logo: { "@type": "ImageObject", url: `${site.url}/icon.svg` },
     },
+    ...(p.sources.length > 0 && {
+      citation: p.sources.map((s) => s.url),
+    }),
   };
 
   return (
@@ -197,17 +205,39 @@ export default async function BlogPostPage({
 
             {/* Article body */}
             <article>
-              <p className="text-[19px] leading-8 text-ink">{lead}</p>
+              {lead && (
+                <p className="text-[19px] leading-8 text-ink">{lead}</p>
+              )}
 
               <blockquote className="my-9 rounded-[8px] bg-surface p-7 text-[18px] leading-8 text-ink-soft md:p-9">
                 “{p.excerpt}”
               </blockquote>
 
-              <div className="space-y-6 text-[18px] leading-8 text-ink-soft">
-                {rest.map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
-              </div>
+              <BlogBody blocks={restBlocks} />
+
+              {/* Sources — verified citations (Authoritativeness signal) */}
+              {p.sources.length > 0 && (
+                <div className="mt-12 border-t border-line pt-6">
+                  <p className="eyebrow">Sources</p>
+                  <ul className="mt-3 space-y-2 text-[14px] leading-6 text-ink-soft">
+                    {p.sources.map((s) => (
+                      <li key={s.url}>
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-accent underline underline-offset-2 hover:text-accent-ink"
+                        >
+                          {s.label}
+                        </a>
+                        {s.publisher && (
+                          <span className="text-muted"> — {s.publisher}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Author / trust box — E-E-A-T authorship signal */}
               <div className="mt-12 rounded-[10px] border border-line bg-surface p-6">
