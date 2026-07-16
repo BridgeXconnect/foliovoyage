@@ -146,6 +146,12 @@ _Goal: users can find things. New concept: full-text search + faceting._
 ## M3 — The Map
 _Goal: map-first discovery (the moat). New concept: PostGIS geo queries._
 
+> **Direction update ([docs/11](11-map-and-planner-direction.md)).** EP-7 below is the
+> **2D clustered, PostGIS/bbox** discovery map — Full-Access-gated (it needs the backend that
+> TD-11 defers). The **buildable-now** slice is a **3D-first, client-side, curation-scoped** map
+> (curated-tour fly-through) driven by our own `lat`/`lng`, loaded on interaction. Build that
+> first; EP-7's clustered discovery map lands in the Full-Access era.
+
 ### EP-7 — Interactive map
 - **ST-19 (5)** — _As a traveler, I want a bbox geo endpoint, so that the map loads only pins in view._
   - Traces: FR-MAP-1, NFR-PERF-1.
@@ -280,6 +286,9 @@ _Goal: AI + planning. New concept: LLM integration + routing._
 - **ST-45 (8)** — _As a weekend traveler, I want a mapped, ordered itinerary, so that I plan efficiently._
   - Traces: FR-DEST-5, FR-MAP-4.
   - AC: Add stops → server orders (nearest-neighbor v1) → route + walking segments render → each stop keeps its affiliate CTA → itinerary saves (anonymous local first; server-side once authenticated).
+- **ST-45b (planned)** — _As a traveler, I want to chat to plan, so that the agent shows curated experiences on the 3D map and orders them into an itinerary._ (Reuses the `mcp-maps-3d` Gemini + MCP tool-loop pattern — see [docs/11](11-map-and-planner-direction.md).)
+  - Traces: FR-DEST-5, FR-MAP-4, TD-12.
+  - AC: The agent draws curated stops on the 3D map and orders them; suggestions for **uncovered** cities render behind the **provenance wall** (distinct marker, "not vetted" label, **no affiliate CTA**); prompts constrained to provided data (no fabricated prices/availability, per §12/EP-15); uncovered cities logged as curation demand signals.
 
 **M8 exit:** approved AI summaries, recommendations, working trip planner.
 
