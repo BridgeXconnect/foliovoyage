@@ -13,8 +13,8 @@ export default function ContactPage() {
   return (
     <LegalLayout title="Contact">
       <p>
-        We&apos;d love to hear from you — whether you&apos;re a traveller with a
-        question, a destination partner, or just want to say hello.
+        We&apos;d love to hear from you: travellers with a question, destination
+        partners, or anyone who just wants to say hello.
       </p>
 
       <h2>Email</h2>
@@ -34,8 +34,8 @@ export default function ContactPage() {
       <h2>Feedback &amp; corrections</h2>
       <p>
         Spotted something out of date, or been somewhere we feature and have a
-        tip? Corrections and first-hand notes from travellers genuinely improve
-        our guides — send them to{" "}
+        tip? Corrections and first-hand notes from travellers improve our
+        guides — send them to{" "}
         <a href={`mailto:${site.email}`}>{site.email}</a>.
       </p>
     </LegalLayout>

@@ -10,7 +10,7 @@ import { IMG } from "@/data/media";
 const steps = [
   {
     title: "Pick a destination",
-    body: "Start with a Folio Voyage city guide. Each one is written by hand around the experiences genuinely worth your time — landmarks, neighbourhoods, meals, and day trips.",
+    body: "Start with a Folio Voyage city guide. Each one is researched and checked around the experiences worth your time: landmarks, neighbourhoods, meals, and day trips.",
   },
   {
     title: "Shortlist the experiences",
@@ -49,7 +49,7 @@ export function HowItWorks() {
           </h2>
           <p className="mt-4 max-w-md text-[16px] leading-7 text-ink-soft">
             Four simple steps from &ldquo;where should we go?&rdquo; to a trip
-            you&apos;re genuinely excited about.
+            you&apos;re excited to take.
           </p>
           <Link
             href="/destinations"

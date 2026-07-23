@@ -4,7 +4,7 @@ const features = [
   {
     icon: Compass,
     title: "Hands-on curation",
-    body: "Every guide is researched and written by hand — considered recommendations, not an endless list to wade through.",
+    body: "Every guide is researched and vetted, one city at a time. Considered recommendations, not an endless list to wade through.",
   },
   {
     icon: Sparkles,
@@ -14,7 +14,7 @@ const features = [
   {
     icon: Wallet,
     title: "Value across budgets",
-    body: "Curated doesn't mean costly. We surface standout experiences at every price band and flag genuine value.",
+    body: "Curated doesn't mean costly. We surface standout experiences at every price band and flag real value.",
   },
   {
     icon: HeartHandshake,

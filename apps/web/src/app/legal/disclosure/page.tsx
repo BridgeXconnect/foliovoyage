@@ -31,8 +31,7 @@ export default function DisclosurePage() {
       <p>
         We work with reputable travel experience providers and aggregators.
         Commissions help fund our research and curation but do not dictate our
-        recommendations — we feature experiences we genuinely believe are worth
-        your time.
+        recommendations — we feature experiences we believe are worth your time.
       </p>
 
       <h2>FTC compliance</h2>

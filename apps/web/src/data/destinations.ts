@@ -2,8 +2,9 @@ import type { Destination } from "./types";
 import { IMG } from "./media";
 
 /**
- * Hand-written placeholder editorial. Every intro paragraph and experience
- * blurb is original. Images point at resolved Wikimedia Commons thumbnails
+ * Original placeholder editorial. Every intro paragraph and experience
+ * blurb is written for this site, researched and checked rather than reprinted.
+ * Images point at resolved Wikimedia Commons thumbnails
  * (see media.ts). When Viator / GetYourGuide are approved, each experience
  * gains `affiliateUrl` + `provider` and its CTA goes live — no other change.
  *
@@ -21,7 +22,7 @@ export const destinations: Destination[] = [
     heroImageAlt:
       "The prang spires of Wat Arun rising above the Chao Phraya River in Bangkok",
     intro: [
-      "Bangkok rewards travellers who lean into its contradictions. In a single day you can watch saffron-robed monks collect alms at dawn, thread through the incense and gold of the Grand Palace by mid-morning, and end up on a plastic stool in Chinatown at midnight eating some of the best food of your life. The city doesn't ask you to choose between old and new — it stacks them on top of each other and hands you a plate.",
+      "Bangkok rewards travellers who lean into its contradictions. In a single day you can watch saffron-robed monks collect alms at dawn, thread through the incense and gold of the Grand Palace by mid-morning, and end up on a plastic stool in Chinatown at midnight eating some of the best food of your life. The city doesn't ask you to choose between old and new. It stacks them on top of each other and hands you a plate.",
       "The river is the key to understanding it. For centuries the Chao Phraya and its network of khlongs (canals) were the roads, and the oldest, most rewarding sights still cluster along the water in Rattanakosin, the royal island. Hop the public express boat rather than sitting in a taxi and the geography of the city suddenly makes sense — temples, flower markets, and the old town all strung along the same brown, busy artery.",
       "Come hungry and come curious. Bangkok is one of the few great cities where the cheapest meal is often the best one, where a wrong turn down a soi leads somewhere better than where you were going, and where the heat forces a slower, smarter rhythm on you whether you like it or not. Plan the temples for morning, hide from the afternoon sun, and let the city come alive again after dark.",
     ],
@@ -131,7 +132,7 @@ export const destinations: Destination[] = [
         id: "damnoen-saduak-floating-market",
         title: "Floating market day trip",
         description:
-          "An early start gets you to the canals southwest of the city, where vendors paddle sampans laden with fruit, noodles, and coconut ice cream. Touristy, yes — but photogenic and genuinely fun if you go at opening time.",
+          "An early start gets you to the canals southwest of the city, where vendors paddle sampans laden with fruit, noodles, and coconut ice cream. Touristy, yes — but photogenic and good fun if you go at opening time.",
         image: IMG.bkk_floating,
         imageAlt:
           "Wooden boats loaded with fruit and produce at a floating market near Bangkok",
@@ -199,7 +200,7 @@ export const destinations: Destination[] = [
         id: "fushimi-inari",
         title: "Fushimi Inari's torii gates",
         description:
-          "Thousands of vermilion torii tunnel up a sacred mountain in an unforgettable procession. Climb past the crowded lower shrine to the quiet upper trails at dawn — it's free, open 24 hours, and best before 8am.",
+          "Thousands of vermilion torii tunnel up a sacred mountain in a seemingly endless procession. Climb past the crowded lower shrine to the quiet upper trails at dawn — it's free, open 24 hours, and best before 8am.",
         image: IMG.kyo_fushimi,
         imageAlt:
           "A tunnel of vermilion torii gates ascending the hillside at Fushimi Inari shrine, Kyoto",
@@ -305,7 +306,7 @@ export const destinations: Destination[] = [
       "Terracotta rooftops of the Alfama district tumbling toward the Tagus River in Lisbon",
     intro: [
       "Lisbon is a city of viewpoints. Built across seven hills above the wide Tagus estuary, it keeps handing you the same reward — climb a lane, round a corner, and the whole tiled, terracotta city opens up below you in the famous Atlantic light. It's a capital that feels sun-bleached and lived-in, where laundry hangs over cobbled alleys and the sound of fado drifts out of a doorway after dark.",
-      "It's also remarkably easy to love. Distances are short, the historic yellow trams do half the climbing for you, and the food — grilled sardines, salt cod a hundred ways, and the warm custard tart known as pastel de nata — is generous and cheap. The old quarters of Alfama and Mouraria survived the great 1755 earthquake and still ramble like a medieval village, while the grand riverside district of Belém tells the story of Portugal's age of exploration.",
+      "It's also remarkably easy to love. Distances are short, the historic yellow trams do half the climbing for you, and the food is generous and cheap: grilled sardines, salt cod a hundred ways, and the warm custard tart known as pastel de nata. The old quarters of Alfama and Mouraria survived the great 1755 earthquake and still ramble like a medieval village, while the grand riverside district of Belém tells the story of Portugal's age of exploration.",
       "Give it three or four days and it opens outward: the fairy-tale palaces of Sintra in the hills, the surf beaches of the Atlantic coast, and the port lodges of nearby regions are all within an easy day trip. Lisbon is a place to walk, climb, eat, and let the light do the rest.",
     ],
     knownFor: [
@@ -445,8 +446,8 @@ export const destinations: Destination[] = [
       "The ancient Colosseum amphitheatre lit against a dusk sky in Rome",
     intro: [
       "No city wears its history so openly as Rome. Here an ancient temple becomes a church becomes a fountain becomes the backdrop to your morning coffee — nearly three thousand years of empire, faith, and reinvention stacked one layer on the next. You don't visit Rome's past so much as walk straight through it, tripping over a fragment of the Forum on the way to lunch.",
-      "The headline sights earn their fame — the Colosseum, the Vatican, the Pantheon's impossible dome — but Rome's real pleasure is the everyday texture between them. The espresso taken standing at the bar; the trattorias of Trastevere and Testaccio serving cacio e pepe and carbonara the way they've always made them; the piazzas that fill with Romans at dusk. It's a city best measured in long walks and unhurried meals.",
-      "Come prepared to book ahead — the Vatican Museums and Colosseum reward timed tickets and early starts — but leave room to get lost. Rome is dense, walkable, and endlessly layered, and some of its best moments come when you round a corner with no plan and find a fountain, a facade, or a fresco you weren't looking for.",
+      "The headline sights earn their fame: the Colosseum, the Vatican, the Pantheon's impossible dome. But Rome's real pleasure is the everyday texture between them. The espresso taken standing at the bar; the trattorias of Trastevere and Testaccio serving cacio e pepe and carbonara the way they've always made them; the piazzas that fill with Romans at dusk. It's a city best measured in long walks and unhurried meals.",
+      "Come prepared to book ahead, since the Vatican Museums and Colosseum reward timed tickets and early starts, but leave room to get lost. Rome is dense, walkable, and endlessly layered, and some of its best moments come when you round a corner with no plan and find a fountain, a facade, or a fresco you weren't looking for.",
     ],
     knownFor: [
       "Ancient ruins",
@@ -515,7 +516,7 @@ export const destinations: Destination[] = [
         id: "trastevere-food-tour",
         title: "Trastevere food & wine tour",
         description:
-          "Graze through Rome's most characterful quarter after dark — suppli, cured meats, cacio e pepe, and Roman wine — while the cobbled lanes fill with locals. The tastiest way to learn how Romans really eat.",
+          "Graze through Rome's most characterful quarter after dark, past suppli, cured meats, cacio e pepe, and Roman wine, while the cobbled lanes fill with locals. The tastiest way to learn how Romans really eat.",
         image: IMG.rom_trastevere,
         imageAlt:
           "A narrow cobbled street lined with restaurants in Trastevere, Rome",
@@ -563,7 +564,7 @@ export const destinations: Destination[] = [
         id: "roman-cooking-class",
         title: "Roman pasta cooking class",
         description:
-          "Learn the four classic Roman pastas — carbonara, cacio e pepe, amatriciana, gricia — hands-on with a local cook, then sit down to eat what you made. You'll never order jarred sauce again.",
+          "Learn the four classic Roman pastas (carbonara, cacio e pepe, amatriciana, gricia) hands-on with a local cook, then sit down to eat what you made. You'll never order jarred sauce again.",
         image: IMG.rom_testaccio,
         imageAlt:
           "A plate of cacio e pepe pasta, a classic Roman dish",
@@ -590,7 +591,7 @@ export const destinations: Destination[] = [
     intro: [
       "Hanoi is a city of small, vivid moments. A grandmother ladling steaming pho at 6am; a scooter threading an impossible gap with a family of four and a fridge aboard; a plastic stool on a corner where the best meal of your trip costs a dollar. Vietnam's thousand-year-old capital moves fast and close to the ground, and the way to understand it is to slow down and let it swirl around you.",
       "At its centre sits Hoan Kiem Lake, a green lung ringed by joggers and card players, and beside it the Old Quarter — 36 ancient guild streets still loosely named for the trades once practised there. It's a glorious tangle of commerce, temples, faded French-colonial shopfronts, and food carts, and getting lost in it is the whole point. French rule left wide boulevards and elegant villas; the decades since left a fierce, resourceful street life layered on top.",
-      "Give the city a couple of days to work on you, then use it as a launchpad. Some of Vietnam's greatest landscapes — the limestone seascape of Ha Long Bay, the rice-paddy karsts of Ninh Binh — are within a few hours, making Hanoi both a destination and the perfect base for the north.",
+      "Give the city a couple of days to work on you, then use it as a launchpad. Some of Vietnam's greatest landscapes are within a few hours: the limestone seascape of Ha Long Bay, the rice-paddy karsts of Ninh Binh. That makes Hanoi both a destination and an ideal base for the north.",
     ],
     knownFor: [
       "Street food",
@@ -728,9 +729,9 @@ export const destinations: Destination[] = [
     heroImageAlt:
       "Sculpted green rice terraces descending a valley at Tegallalang, Bali",
     intro: [
-      "Bali packs an improbable amount into one small island: emerald rice terraces stepping down volcanic hillsides, sea temples clinging to surf-battered cliffs, jungle waterfalls, world-class breaks, and a Hindu culture that turns daily life into a run of offerings, processions, and temple festivals. It's beautiful, deeply spiritual, and — in the famous spots — very popular, so the trick is knowing where and when to go.",
-      "The island splits roughly into moods. Ubud, in the cultured highland interior, is the place for temples, terraces, yoga, and craft villages. The southern beaches — Seminyak, Canggu, Uluwatu — bring the surf, sunsets, and beach clubs. Further out, the volcanoes of the centre and the quieter east and north reward anyone willing to drive. Renting a scooter or a driver for the day opens all of it up.",
-      "Come for the landscapes and the surf, but stay for the culture. Time a visit around a temple ceremony, watch a fire-lit Kecak dance as the sun drops behind Uluwatu, or simply notice the small woven offerings left on every doorstep each morning — and Bali becomes far more than a beach.",
+      "Bali packs an improbable amount into one small island: emerald rice terraces stepping down volcanic hillsides, sea temples clinging to surf-battered cliffs, jungle waterfalls, world-class breaks, and a Hindu culture that turns daily life into a run of offerings, processions, and temple festivals. It's beautiful and, in the famous spots, very popular, so the trick is knowing where and when to go.",
+      "The island splits roughly into moods. Ubud, in the cultured highland interior, is the place for temples, terraces, yoga, and craft villages. The southern beaches of Seminyak, Canggu, and Uluwatu bring the surf, sunsets, and beach clubs. Further out, the volcanoes of the centre and the quieter east and north reward anyone willing to drive. Renting a scooter or a driver for the day opens all of it up.",
+      "The landscapes and the surf are the easy sell. The culture is the reason Bali stays with people. Time a visit around a temple ceremony, watch a fire-lit Kecak dance as the sun drops behind Uluwatu, or notice the small woven offerings left on every doorstep each morning, and the island becomes far more than a beach.",
     ],
     knownFor: [
       "Rice terraces",
@@ -835,7 +836,7 @@ export const destinations: Destination[] = [
         id: "kecak-fire-dance",
         title: "Balinese Kecak fire dance",
         description:
-          "Dozens of chanting men form a living, swaying chorus around a fire while dancers act out an episode of the Ramayana. Hypnotic and unforgettable — the most powerful hour of culture on the island.",
+          "Dozens of chanting men form a living, swaying chorus around a fire while dancers act out an episode of the Ramayana. Hypnotic and strange, and the most powerful hour of culture on the island.",
         image: IMG.bal_kecak,
         imageAlt:
           "Performers seated in a circle around a fire during a Balinese Kecak dance",

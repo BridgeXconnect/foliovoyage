@@ -30,7 +30,7 @@ export const testimonials: Testimonial[] = [
   },
   {
     quote:
-      "We write from time actually spent in these cities, not a template. The neighbourhood notes are the detail most sites skip.",
+      "We research these cities closely, not from a template. The neighbourhood notes are the detail most sites skip.",
     name: "Folio Voyage",
     location: "How we research",
   },

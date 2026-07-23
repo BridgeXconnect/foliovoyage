@@ -14,15 +14,15 @@ export function AboutSection() {
         <Reveal variant="right" delay={80} className="space-y-5 text-[17px] leading-8 text-ink-soft">
           <p>
             Folio Voyage exists because planning a trip has become a chore. The
-            information is all out there — scattered across listing sites, blogs,
-            maps, and forums — but no single place tells you what&apos;s genuinely
+            information is all out there, scattered across listing sites, blogs,
+            maps, and forums, but no single place tells you what&apos;s actually
             worth doing, where it is, and when to go.
           </p>
           <p>
             So we do the reading for you. Each destination is researched and
-            written by hand, built around the experiences we think are worth your
-            time, with honest notes on neighbourhoods, best seasons, and the
-            things most sites gloss over.
+            checked, built around the experiences we think are worth your time,
+            with honest notes on neighbourhoods, best seasons, and the things
+            most sites gloss over.
           </p>
           <p>
             We&apos;re reader-supported: as affiliate partnerships go live, we may
