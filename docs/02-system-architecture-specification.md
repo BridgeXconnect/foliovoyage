@@ -100,7 +100,7 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 - **FR-FILT-1 (Must):** Filters are composable, URL-reflected (shareable), applied to list + map simultaneously.
 
 ## 2.3 Map
-- **FR-MAP-1 (Must):** Render pins for all Experiences matching the active filter, clustered by zoom. _(BG-3)_
+- **FR-MAP-1 (Must):** Render pins for all Experiences matching the active filter, clustered by zoom. _(BG-3)_ _(Clustering is 2D-only; the 3D-first map used at curation scale has no cluster primitive — see [docs/11](11-map-and-planner-direction.md).)_
 - **FR-MAP-2 (Must):** Clicking a pin opens an Experience card without full reload.
 - **FR-MAP-3 (Should):** Show nearby attractions and (where data allows) restaurants for a selected pin.
 - **FR-MAP-4 (Should):** Walking radius + ordered route between Trip Planner stops.
@@ -342,6 +342,14 @@ Forward-only, CI-run on ephemeral DB, expand/contract for zero-downtime. All rea
 
 The map is a **query interface**, not decoration.
 
+> **Direction update (see [docs/11](11-map-and-planner-direction.md)).** The map is now
+> **3D-first** (Google Photorealistic 3D), **scoped to a curation** (a destination or a single
+> curated tour), rendered **client-side from our own `lat`/`lng`** and **loaded on interaction**
+> (Map Tiles cost + CWV — amplifies TD-7). The bbox/PostGIS, backend-driven, 2D-**clustered**
+> map described below is **deferred**, not dropped: it becomes the **Full-Access-era** discovery
+> surface for `/search` and cross-city browse (`Map3DElement` has no clustering primitive, and
+> the backend it needs does not exist at Basic Access — TD-11).
+
 - **Stack:** Google Maps JS API (base + globe/places) behind a `MapProvider` interface (MapLibre/Mapbox swappable). Client requests pins via `GET /map/experiences?bbox=…&filters` — **viewport drives the geo query**.
 - **Features:** markers styled by category/price; clustering by zoom; pin→card (no reload); nearby attractions/restaurants; walking radius/isochrone; itinerary routes; heat map; bbox→query; GeoJSON layers. (FR-MAP-1…5)
 - **Performance:** bbox-bounded + capped pin queries (cluster server-side beyond N); debounced pan/zoom; Redis cache by (bbox-grid, filter-hash); Maps key restricted by referrer + quota/alerts (cost — TD-7).
@@ -489,10 +497,12 @@ Budgets in [§3](#3-non-functional-requirements). Techniques:
 | TD-4 | Rule-based enrichment before LLM | Cost/quality control | M8 |
 | TD-5 | Single OTA at launch | Reduce integration surface | V1 |
 | TD-6 | Estimated commission (no booking visibility) | We don't own checkout | OTA reporting API |
-| TD-7 | **Google Maps cost exposure** | Moat feature | Caching (M6) + key restrictions + budget alerts **now** |
+| TD-7 | **Google Maps cost exposure** (amplified by 3D photoreal / Map Tiles — [docs/11](11-map-and-planner-direction.md)) | Moat feature | Load 3D map **on interaction** only + caching (M6) + key restrictions + budget alerts **now** |
 | TD-8 | No UGC reviews | Scope control | Post-V2 |
 | TD-9 | No multi-language | Focus | V3 (hreflang reserved) |
 | TD-10 | Nearby-restaurants data/cost risk | Places cost | Spike in M3 |
+| TD-11 | No backend/DB yet; frontend fetches & caches Viator data directly (Next.js ISR / build-time enrichment) | Basic Access lacks bulk ingestion (`/products/modified-since`), so a backend had nothing to manage — FR-IMPORT-1/2 deferred | Full Access approval |
+| TD-12 | AI trip-planner may surface **unvetted** place suggestions for uncovered cities ([docs/11](11-map-and-planner-direction.md)) | Planner UX beyond curated coverage; the moat is trust (BG-3, §7.3) | **Provenance wall required** (distinct marker/label, no affiliate CTA) before M8 planner ships; uncovered cities logged as curation demand signal |
 
 > **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) to control Maps cost (TD-7).
 
