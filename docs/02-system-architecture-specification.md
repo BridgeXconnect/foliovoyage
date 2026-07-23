@@ -349,10 +349,19 @@ The map is a **query interface**, not decoration.
 > map described below is **deferred**, not dropped: it becomes the **Full-Access-era** discovery
 > surface for `/search` and cross-city browse (`Map3DElement` has no clustering primitive, and
 > the backend it needs does not exist at Basic Access — TD-11).
+>
+> ⚠️ **Provider conflict — under review (BRI-161).** The 2D base map is now **MapLibre GL JS +
+> OpenFreeMap** (open-source, no per-load fee — see Stack below), but the 3D-first direction in
+> [docs/11](11-map-and-planner-direction.md) is built specifically on **Google Photorealistic 3D
+> Maps** (`Map3DElement` / Map Tiles API), a Google-proprietary feature MapLibre/OpenFreeMap does
+> not provide. The 3D-photoreal path therefore still carries Google billing and has not been
+> reconciled with the MapLibre decision. [docs/11](11-map-and-planner-direction.md) is left
+> unedited pending that review; see TD-7.
 
-- **Stack:** Google Maps JS API (base + globe/places) behind a `MapProvider` interface (MapLibre/Mapbox swappable). Client requests pins via `GET /map/experiences?bbox=…&filters` — **viewport drives the geo query**.
+- **Stack:** MapLibre GL JS (MIT-licensed, open-source Mapbox GL JS fork) rendering **OpenFreeMap** vector tiles (free, no API key, no usage cap, built on OpenStreetMap data) behind a `MapProvider` interface (**tile source swappable** — MapTiler or a self-hosted OpenFreeMap instance drop in without a component rewrite). Client requests pins via `GET /map/experiences?bbox=…&filters` — **viewport drives the geo query**.
+  - **Trade-off:** OpenFreeMap has **no SLA** (single-maintainer, donation-funded). Mitigation: MapLibre is provider-agnostic, so the tile source can be swapped to a paid host (MapTiler) or a self-hosted OpenFreeMap instance without changing map code — see the open question in Appendix E and the residual note in TD-7.
 - **Features:** markers styled by category/price; clustering by zoom; pin→card (no reload); nearby attractions/restaurants; walking radius/isochrone; itinerary routes; heat map; bbox→query; GeoJSON layers. (FR-MAP-1…5)
-- **Performance:** bbox-bounded + capped pin queries (cluster server-side beyond N); debounced pan/zoom; Redis cache by (bbox-grid, filter-hash); Maps key restricted by referrer + quota/alerts (cost — TD-7).
+- **Performance:** bbox-bounded + capped pin queries (cluster server-side beyond N); debounced pan/zoom; Redis cache by (bbox-grid, filter-hash). OpenFreeMap needs no API key or per-load quota, so tile caching is a **performance/resilience** lever (fewer round-trips, insulation from the no-SLA tile host), not a cost control.
 - **Trip Planner:** add stops → server orders (nearest-neighbor v1) → route + walking segments → per-stop affiliate CTA.
 
 ---
@@ -459,7 +468,7 @@ Budgets in [§3](#3-non-functional-requirements). Techniques:
 | Search | Postgres FTS → Meilisearch/Typesense |
 | Object storage | S3-compatible (R2/S3) |
 | CDN | Cloudflare/Vercel/image CDN |
-| Maps | Google Maps JS API (abstracted) |
+| Maps | MapLibre GL JS + OpenFreeMap vector tiles (tile source swappable) |
 | Container/CI | Docker + GitHub Actions |
 | Monitoring | Sentry + logs + uptime |
 
@@ -497,14 +506,14 @@ Budgets in [§3](#3-non-functional-requirements). Techniques:
 | TD-4 | Rule-based enrichment before LLM | Cost/quality control | M8 |
 | TD-5 | Single OTA at launch | Reduce integration surface | V1 |
 | TD-6 | Estimated commission (no booking visibility) | We don't own checkout | OTA reporting API |
-| TD-7 | **Google Maps cost exposure** (amplified by 3D photoreal / Map Tiles — [docs/11](11-map-and-planner-direction.md)) | Moat feature | Load 3D map **on interaction** only + caching (M6) + key restrictions + budget alerts **now** |
+| TD-7 | **Map tile-provider risk** (was "Google Maps cost exposure" — reframed BRI-161). The 2D base map moved to **MapLibre + OpenFreeMap**, which has **no per-load / per-tile fee**, so the original cost pressure is gone. Two residual concerns remain: (a) OpenFreeMap has **no SLA** (single-maintainer, donation-funded); (b) the **3D-photoreal path in [docs/11](11-map-and-planner-direction.md) still uses Google Map Tiles** (billed per session) and is **not yet reconciled** with the MapLibre decision. | Resilience + moat feature | (a) MapLibre is provider-agnostic — swap tile source to MapTiler / self-hosted OpenFreeMap if reliability demands it; (b) keep Google 3D loading **on interaction** only + caching (M6) **if** the 3D path survives review |
 | TD-8 | No UGC reviews | Scope control | Post-V2 |
 | TD-9 | No multi-language | Focus | V3 (hreflang reserved) |
 | TD-10 | Nearby-restaurants data/cost risk | Places cost | Spike in M3 |
 | TD-11 | No backend/DB yet; frontend fetches & caches Viator data directly (Next.js ISR / build-time enrichment) | Basic Access lacks bulk ingestion (`/products/modified-since`), so a backend had nothing to manage — FR-IMPORT-1/2 deferred | Full Access approval |
 | TD-12 | AI trip-planner may surface **unvetted** place suggestions for uncovered cities ([docs/11](11-map-and-planner-direction.md)) | Planner UX beyond curated coverage; the moat is trust (BG-3, §7.3) | **Provenance wall required** (distinct marker/label, no affiliate CTA) before M8 planner ships; uncovered cities logged as curation demand signal |
 
-> **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) to control Maps cost (TD-7).
+> **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) — now for **performance and resilience against OpenFreeMap's no-SLA tile host** rather than for base-map cost (TD-7); Google Map Tiles cost only applies if the 3D-photoreal path survives review.
 
 ---
 
@@ -567,7 +576,7 @@ OTA APIs → [Data Ingestion: workers/queue/normalize/dedup]
 
 ## E. Open technical questions
 1. Launch OTA: Viator or GetYourGuide? (program approval + API access — blocks M1)
-2. Google Maps vs Mapbox/MapLibre at scale? (abstract now; decide by M3 — TD-7)
+2. ~~Google Maps vs Mapbox/MapLibre at scale?~~ **Decided (BRI-161): MapLibre GL JS + OpenFreeMap** (open-source, no key, no usage cap). Residual question: does OpenFreeMap's no-SLA reliability hold under SEO-scale traffic, or do we pre-emptively move the tile source to MapTiler / self-hosted? (revisit by M3 — TD-7)
 3. Meilisearch vs Typesense at M6? (Typesense favored: geo + typo tolerance)
 4. Public accounts at M7: email/password + Google OAuth, or Google-only?
 5. Nearby-restaurants source/cost: Google Places vs OSM? (spike M3 — TD-10)
