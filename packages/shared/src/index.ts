@@ -1,11 +1,15 @@
 /**
- * Content model for the placeholder editorial layer.
+ * @folio/shared — cross-cutting domain types shared by the web app and API.
  *
- * This is the seam that makes the eventual Viator / GetYourGuide swap trivial:
- * an `Experience` is our curated concept; when real product data lands, each
- * card gains an `affiliateUrl` (and `provider`) and the CTA becomes live — a
- * one-line data change, not a component rebuild. Until then the CTA renders as
- * a non-functional "Coming soon" state (see ExperienceCard).
+ * These types began life in `apps/web/src/data/types.ts` (the placeholder
+ * editorial layer) and were lifted here so both `apps/web` and `apps/api`
+ * depend on a single source of truth. `apps/web/src/data/types.ts` now
+ * re-exports from this package, so existing `@/data/types` imports keep working.
+ *
+ * This is also the seam that makes the eventual Viator / GetYourGuide swap
+ * trivial: an `Experience` is our curated concept; when real product data
+ * lands, each card gains an `affiliateUrl` (and `provider`) and the CTA becomes
+ * live — a one-line data change, not a component rebuild.
  */
 
 /** Rough price signal, shown as a band rather than a fake exact price. */
