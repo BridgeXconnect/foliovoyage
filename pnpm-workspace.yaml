@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  '@tailwindcss/oxide': true
+  sharp: true
+  unrs-resolver: true
+
+# Native post-install builds we trust and require:
+# - @tailwindcss/oxide: Tailwind v4 engine (CSS build)
+# - sharp: Next.js image optimization
+# - unrs-resolver: eslint import resolver native binding
+onlyBuiltDependencies:
+  - "@tailwindcss/oxide"
+  - sharp
+  - unrs-resolver

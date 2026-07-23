@@ -1,0 +1,11 @@
+# compiled output
+/dist
+/node_modules
+
+# logs
+*.log
+
+# env
+.env
+.env.*
+!.env.example
