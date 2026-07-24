@@ -2,10 +2,11 @@
 .DS_Store
 *.swp
 
-# Env files (never commit secrets). apps/web/.env.example is intentionally tracked.
+# Env files (never commit secrets). *.env.example templates are intentionally tracked.
 .env
 .env.*
-!apps/web/.env.example
+!.env.example
+!**/.env.example
 
 # Safety net — apps have their own .gitignore, but guard build artifacts here too.
 **/node_modules/

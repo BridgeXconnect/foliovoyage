@@ -1,0 +1,55 @@
+# Local dev dependencies for Folio Voyage (ST-2 / BRI-97).
+# Brings up the two backing services the API needs: Postgres (with PostGIS +
+# pg_trgm) and Redis. Run from the repo root:
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# Values below fall back to sensible local defaults, so `up` works with zero
+# config. Override them via infra/.env (see infra/.env.example) if desired.
+# The resulting connection strings for the API are documented in .env.example
+# at the repo root (DATABASE_URL / REDIS_URL).
+
+name: folio-voyage
+
+services:
+  postgres:
+    # Pinned: PostGIS 3.4 on PostgreSQL 16 (Architecture §6.1).
+    image: postgis/postgis:16-3.4
+    container_name: folio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-folio}
+      POSTGRES_USER: ${POSTGRES_USER:-folio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-folio}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # First-init scripts run once, as the superuser (POSTGRES_USER), against
+      # POSTGRES_DB before the DB accepts app traffic — so extensions exist
+      # before any app migration runs. Mounted read-only.
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -q keeps output quiet; check the actual app DB/user.
+      test: ["CMD-SHELL", "pg_isready -q -U ${POSTGRES_USER:-folio} -d ${POSTGRES_DB:-folio}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: folio-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres-data:
+    name: folio-postgres-data
