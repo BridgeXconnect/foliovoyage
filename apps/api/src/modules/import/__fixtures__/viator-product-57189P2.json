@@ -1,0 +1,31 @@
+{
+  "productCode": "57189P2",
+  "title": "Small Group Hanoi Street Food Tour with a Real Foodie",
+  "description": "Sample classics, such as steamed pancakes, noodle soup, and more, on a small-group walking tour of Hanoi's Old Quarter with a local foodie guide. The tour starts in the Old Quarter, we also might visit Lake of the Restored Sword (Hoan Kiem Lake), Dong Xuan Market.",
+  "supplier": {
+    "name": "Ha Food Tours"
+  },
+  "reviews": {
+    "combinedAverageRating": 4.9705596,
+    "totalReviews": 5129,
+    "sources": [
+      { "provider": "VIATOR", "totalCount": 574, "averageRating": 4.9 },
+      { "provider": "TRIPADVISOR", "totalCount": 4555, "averageRating": 5.0 }
+    ]
+  },
+  "itinerary": {
+    "itineraryType": "STANDARD",
+    "duration": {
+      "fixedDurationInMinutes": 180
+    }
+  },
+  "pricing": {
+    "currency": "USD",
+    "summary": {
+      "fromPrice": 28,
+      "fromPriceBeforeDiscount": 28
+    }
+  },
+  "flags": ["FREE_CANCELLATION"],
+  "productUrl": "https://shop.live.rc.viator.com/tours/Hanoi/Small-Group-Hanoi-Street-Food-Tour-with-a-Real-Foodie/d351-57189P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0"
+}
