@@ -1,0 +1,49 @@
+// Prisma schema for the Folio Voyage API.
+//
+// ST-5 / BRI-100: deliberately minimal — just enough to prove the first
+// vertical slice (browser → web → API → Postgres) against one seeded row.
+// Real domain modelling is M1's job; resist growing this beyond what the
+// destination page actually renders (a title, a hero image, and a short list).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A destination city, addressed in the URL as /destinations/:country/:city.
+model City {
+  id           String       @id @default(cuid())
+  /// URL slug for the city, e.g. "paris".
+  slug         String
+  /// URL slug for the country, e.g. "france".
+  countrySlug  String
+  /// Display name, e.g. "Paris".
+  name         String
+  /// Display country, e.g. "France".
+  country      String
+  /// Absolute hero image URL.
+  heroImageUrl String
+  /// Hero image alt text (accessibility + SEO).
+  heroImageAlt String
+  experiences  Experience[]
+
+  /// A country+city slug pair uniquely identifies a destination.
+  @@unique([countrySlug, slug])
+}
+
+/// A single curated experience shown in the destination's list.
+model Experience {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  /// Sort order within the city's list.
+  position    Int    @default(0)
+  cityId      String
+  city        City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId])
+}

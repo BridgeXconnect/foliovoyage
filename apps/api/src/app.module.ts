@@ -3,7 +3,9 @@ import { ConfigModule } from "@nestjs/config";
 
 import { validateEnv } from "./config/env.validation";
 import { DatabaseModule } from "./database/database.module";
+import { DestinationModule } from "./destinations/destination.module";
 import { HealthModule } from "./health/health.module";
+import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./redis/redis.module";
 
 @Module({
@@ -16,7 +18,9 @@ import { RedisModule } from "./redis/redis.module";
     }),
     DatabaseModule,
     RedisModule,
+    PrismaModule,
     HealthModule,
+    DestinationModule,
   ],
 })
 export class AppModule {}
