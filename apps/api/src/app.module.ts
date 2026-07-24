@@ -5,6 +5,7 @@ import { validateEnv } from "./config/env.validation";
 import { DatabaseModule } from "./database/database.module";
 import { DestinationModule } from "./destinations/destination.module";
 import { HealthModule } from "./health/health.module";
+import { ImportModule } from "./modules/import/import.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./redis/redis.module";
 
@@ -21,6 +22,7 @@ import { RedisModule } from "./redis/redis.module";
     PrismaModule,
     HealthModule,
     DestinationModule,
+    ImportModule,
   ],
 })
 export class AppModule {}

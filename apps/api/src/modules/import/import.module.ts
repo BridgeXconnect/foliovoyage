@@ -1,0 +1,68 @@
+import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+
+import type { Env } from "../../config/env.validation";
+import { ViatorClient } from "./clients/viator.client";
+import { AllowlistFetch } from "./http/allowlist-fetch";
+import {
+  R2RawArchiveStore,
+  type RawArchiveStore,
+} from "./storage/raw-archive.store";
+
+/** DI token for the SSRF-safe fetcher scoped to the Viator host. */
+export const VIATOR_HTTP = Symbol("VIATOR_HTTP");
+/** DI token for the raw-payload archive store. */
+export const RAW_ARCHIVE_STORE = Symbol("RAW_ARCHIVE_STORE");
+
+/**
+ * Ingest module (ST-6 / BRI-103).
+ *
+ * Wires the Viator client together from validated env: an {@link AllowlistFetch}
+ * locked to the Viator API host, an R2-backed {@link RawArchiveStore}, and the
+ * {@link ViatorClient} itself. Downstream ingest stories (ST-7 normalization,
+ * ST-8 scheduling) consume {@link ViatorClient} from here.
+ */
+@Module({
+  providers: [
+    {
+      provide: VIATOR_HTTP,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>): AllowlistFetch => {
+        const baseUrl = config.get("VIATOR_API_BASE_URL", { infer: true });
+        // Only the Viator API host is reachable through this fetcher.
+        return new AllowlistFetch([new URL(baseUrl).hostname]);
+      },
+    },
+    {
+      provide: RAW_ARCHIVE_STORE,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>): RawArchiveStore =>
+        new R2RawArchiveStore({
+          endpoint: config.get("R2_ENDPOINT", { infer: true }),
+          bucket: config.get("R2_BUCKET", { infer: true }),
+          accessKeyId: config.get("R2_ACCESS_KEY_ID", { infer: true }),
+          secretAccessKey: config.get("R2_SECRET_ACCESS_KEY", { infer: true }),
+        }),
+    },
+    {
+      provide: ViatorClient,
+      inject: [ConfigService, VIATOR_HTTP, RAW_ARCHIVE_STORE],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        http: AllowlistFetch,
+        archive: RawArchiveStore,
+      ): ViatorClient =>
+        new ViatorClient(
+          {
+            baseUrl: config.get("VIATOR_API_BASE_URL", { infer: true }),
+            apiKey: config.get("VIATOR_API_KEY", { infer: true }),
+            language: config.get("VIATOR_API_LANGUAGE", { infer: true }),
+          },
+          http,
+          archive,
+        ),
+    },
+  ],
+  exports: [ViatorClient, VIATOR_HTTP, RAW_ARCHIVE_STORE],
+})
+export class ImportModule {}
