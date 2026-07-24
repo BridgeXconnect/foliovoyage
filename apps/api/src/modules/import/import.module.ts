@@ -15,6 +15,7 @@ import {
   R2RawArchiveStore,
   type RawArchiveStore,
 } from "./storage/raw-archive.store";
+import { TourUpsertService } from "./upsert";
 import { TourValidator, type QuarantineStore } from "./validator";
 
 /** DI token for the SSRF-safe fetcher scoped to the Viator host. */
@@ -112,6 +113,15 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
       useFactory: (store: QuarantineStore): TourValidator =>
         new TourValidator(store),
     },
+    {
+      // Writes validated rows to the live catalogue. The abort-guard threshold
+      // is passed per-run (from DELETE_GUARD_THRESHOLD_PCT) by the caller, so
+      // the service itself only needs Prisma.
+      provide: TourUpsertService,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): TourUpsertService =>
+        new TourUpsertService(prisma),
+    },
   ],
   exports: [
     ViatorClient,
@@ -121,6 +131,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     LocationResolver,
     QUARANTINE_STORE,
     TourValidator,
+    TourUpsertService,
   ],
 })
 export class ImportModule {}

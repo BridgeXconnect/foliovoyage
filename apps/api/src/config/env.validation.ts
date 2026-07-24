@@ -77,6 +77,22 @@ export const envSchema = z.object({
 
   /** R2 secret access key (S3-compatible credential). */
   R2_SECRET_ACCESS_KEY: z.string().min(1),
+
+  // --- Ingest / mass-deletion abort guard (ST-9 / BRI-106) -----------------
+
+  /**
+   * Mass-deletion abort threshold, as a percentage (0–100). If a single import
+   * run would soft-delete **more than** this share of a provider's currently
+   * active catalogue, the whole run aborts — no upserts, no soft-deletes — on
+   * the assumption that a truncated upstream response is the likelier cause than
+   * a real, sudden catalogue collapse. Tunable per-provider volatility without a
+   * code change; defaults to 10%.
+   */
+  DELETE_GUARD_THRESHOLD_PCT: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .default(10),
 });
 
 /** Fully-parsed, typed environment. */

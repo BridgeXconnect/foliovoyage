@@ -48,6 +48,75 @@ model Experience {
   @@index([cityId])
 }
 
+/// A published tour in the live catalogue (ST-9 / BRI-106).
+///
+/// This is where validated, location-resolved rows land: the ingest pipeline
+/// upserts each run's `TourDTO` here, keyed on the immutable
+/// `(provider, providerTourId)` pair. Re-running an import is therefore
+/// idempotent — a row already present is updated in place, never duplicated.
+///
+/// Deletion is **soft**: a tour that disappears from a later run has `deletedAt`
+/// set to the run time rather than being removed, so history is preserved and a
+/// bad upstream response can be undone. All read paths MUST filter
+/// `deletedAt: null`; a soft-deleted row is invisible to the public site. A
+/// reappearing tour is revived (its `deletedAt` cleared) on the next upsert.
+///
+/// Columns mirror the provider-owned + provenance slice of `TourDTO`
+/// (normalizer, ST-7). Atlas-owned editorial fields (editor rating, curated
+/// tags, slug, curation status) are intentionally absent — ingest never writes
+/// them (docs/02 §1.3 ownership boundary).
+model Tour {
+  id             String    @id @default(cuid())
+  /// Source OTA, from the DTO's `provider`. Always "viator" today.
+  provider       String
+  /// Provider's immutable product id, from `provider_tour_id`. Never changes
+  /// once set — it is the natural key half that makes re-imports idempotent.
+  providerTourId String
+  /// Provider-sourced supplier title (backs a NOT NULL column; the validator
+  /// quarantines titleless tours upstream, so this is always present here).
+  title          String
+  /// Provider-sourced description; null when the payload omits it.
+  description    String?
+  /// Duration in minutes, or null for variable-duration products.
+  durationMin    Int?
+  /// Imported aggregate rating (Viator + TripAdvisor), or null when unrated.
+  ratingAvg      Float?
+  /// Imported aggregate review count, or null when unrated.
+  ratingCount    Int?
+  /// "From" price in minor units (e.g. cents). Non-null here — the validator
+  /// quarantines missing/non-positive prices upstream.
+  priceMinor     Int?
+  /// ISO-4217 currency code, or null when unpriced.
+  currency       String?
+  /// Provider deep link (affiliate params intact), or null when absent.
+  affiliateUrl   String?
+  /// Provider's opaque start-location reference, or null.
+  locationRef    String?
+  /// Resolved start latitude (WGS-84), or null when unresolved (BRI-163: a
+  /// null-geo tour is legitimately published, not quarantined).
+  latitude       Float?
+  /// Resolved start longitude (WGS-84), or null when unresolved.
+  longitude      Float?
+  /// Provenance: when the raw page was fetched (from the DTO, ST-6 crawl time).
+  fetchedAt      DateTime
+  /// Provenance: SHA-256 of the normalized content. Lets a re-import detect an
+  /// unchanged row without a field-by-field compare.
+  sourceHash     String
+  /// When this row was first written.
+  createdAt      DateTime  @default(now())
+  /// When this row was last upserted.
+  updatedAt      DateTime  @updatedAt
+  /// Soft-delete tombstone: non-null once the tour vanished from a later run.
+  /// Read paths filter on `deletedAt: null`; cleared again if the tour returns.
+  deletedAt      DateTime?
+
+  /// The immutable natural key. Makes upserts idempotent and gives the
+  /// soft-delete diff a stable identity to match rows on.
+  @@unique([provider, providerTourId])
+  /// Active-catalogue reads and the run diff both scope by provider + liveness.
+  @@index([provider, deletedAt])
+}
+
 /// A normalized tour that failed validation and was quarantined instead of
 /// published (ST-8 / BRI-105). The full payload is retained verbatim (`payload`)
 /// alongside the reason(s) it failed, so the row is reviewable later — Admin
