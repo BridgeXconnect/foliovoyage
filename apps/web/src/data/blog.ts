@@ -80,7 +80,7 @@ export const posts: BlogPost[] = [
     lastReviewed: "2026-07-14",
     category: "City guide",
     excerpt:
-      "A curated, practical guide to Bangkok's best experiences — the temples, the river, the markets and the street food — with what each one costs, when to go, and how to string them together.",
+      "A curated, practical guide to Bangkok's best experiences: the temples, the river, the markets and the street food, with what each one costs, when to go, and how to string them together.",
     image: IMG.bkk_grand_palace,
     imageAlt:
       "Golden spires and ornate rooftops of Wat Phra Kaew inside the Grand Palace, Bangkok",
@@ -145,7 +145,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "The river is the key to the old city, and the cheapest way to see it. The dedicated Chao Phraya Tourist Boat (blue flag) runs an all-day hop-on-hop-off pass between Sathorn and Phra Athit piers roughly every half hour, linking the Grand Palace, Wat Pho, Wat Arun and Chinatown. For modern Bangkok — the malls, rooftop bars and Sukhumvit — the BTS Skytrain and MRT metro are fast, air-conditioned and beat the notorious traffic. Metered taxis and ride-hailing apps fill the gaps; agree on the meter before you set off.",
+        text: "The river is the key to the old city, and the cheapest way to see it. The dedicated Chao Phraya Tourist Boat (blue flag) runs an all-day hop-on-hop-off pass between Sathorn and Phra Athit piers roughly every half hour, linking the Grand Palace, Wat Pho, Wat Arun and Chinatown. For modern Bangkok (the malls, rooftop bars and Sukhumvit) the BTS Skytrain and MRT metro are fast, air-conditioned and beat the notorious traffic. Metered taxis and ride-hailing apps fill the gaps; agree on the meter before you set off.",
       },
       {
         kind: "h2",
@@ -157,7 +157,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "For the full write-up — every experience, neighbourhood notes on where to base yourself, and the best time to visit in detail — see our complete Bangkok guide. Booking links go live as our partner programs are approved; until then, treat this as an independent planning guide.",
+        text: "For the full write-up, with every experience, neighbourhood notes on where to base yourself, and the best time to visit in detail, see our complete Bangkok guide. Booking links go live as our partner programs are approved; until then, treat this as an independent planning guide.",
       },
     ],
     sources: [
@@ -196,7 +196,7 @@ export const posts: BlogPost[] = [
     body: [
       {
         kind: "p",
-        text: "For over a thousand years Kyoto was Japan's imperial capital, and it still feels like the country's cultural conscience — the place where tea ceremony, Zen gardens and the geisha districts were refined into something close to art. Its rewards are quiet ones, and they go to travellers who slow down, start early, and leave gaps in the day. Here is our curated shortlist of what is genuinely worth your time, and how to see it before the crowds arrive.",
+        text: "For over a thousand years Kyoto was Japan's imperial capital, and it still feels like the country's cultural conscience — the place where tea ceremony, Zen gardens and the geisha districts were refined into something close to art. Its rewards are quiet ones, and they go to travellers who slow down, start early, and leave gaps in the day. Here is our curated shortlist of what is worth your time, and how to see it before the crowds arrive.",
       },
       {
         kind: "h2",
@@ -213,7 +213,7 @@ export const posts: BlogPost[] = [
       {
         kind: "pick",
         title: "Fushimi Inari's torii gates",
-        note: "Thousands of vermilion torii tunnel up a sacred mountain in an unforgettable procession. It is free and open 24 hours — which is its secret: come at dawn (it is a five-minute walk from JR Inari station) and climb past the crowded lower shrine to the near-empty upper trails. The full loop to the 233-metre summit takes two to three hours.",
+        note: "Thousands of vermilion torii tunnel up a sacred mountain in a seemingly endless procession. It is free and open 24 hours — which is its secret: come at dawn (it is a five-minute walk from JR Inari station) and climb past the crowded lower shrine to the near-empty upper trails. The full loop to the 233-metre summit takes two to three hours.",
         meta: "Free · 2–3 hours",
         href: "/destinations/kyoto",
       },
@@ -263,7 +263,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "For the complete picture — all the experiences, where to base yourself, and the day trip to Nara — see our full Kyoto guide.",
+        text: "For the complete picture, with all the experiences, where to base yourself, and the day trip to Nara, see our full Kyoto guide.",
       },
     ],
     sources: [
@@ -361,7 +361,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "Rome has four classic pastas — cacio e pepe, carbonara, amatriciana and gricia — and the rule for eating them well is to leave the sights behind. A real carbonara has no cream, only guanciale (cured pork cheek), pecorino and raw egg yolk; a real cacio e pepe is little more than pecorino, pepper and starchy pasta water, and it is harder to do well than it looks. Head for the trattorias of Testaccio and Trastevere, where locals eat every day, rather than the tourist-priced tables beside the big monuments — and, as ever, follow the queue of Romans on their lunch break.",
+        text: "Rome has four classic pastas (cacio e pepe, carbonara, amatriciana and gricia) and the rule for eating them well is to leave the sights behind. A real carbonara has no cream, only guanciale (cured pork cheek), pecorino and raw egg yolk; a real cacio e pepe is little more than pecorino, pepper and starchy pasta water, and it is harder to do well than it looks. Head for the trattorias of Testaccio and Trastevere, where locals eat every day, rather than the tourist-priced tables beside the big monuments, and, as ever, follow the queue of Romans on their lunch break.",
       },
       {
         kind: "h2",
@@ -429,7 +429,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "Morning belongs to Rattanakosin, the historic royal island. The Grand Palace opens at 08:30 and is transformed by being early — the gilded courtyards are near-empty, the light is kind, and the heat hasn't arrived. Dress for it: shoulders and knees must be covered, it is enforced at the gate, and the sarong-rental queue is its own small penance. From there it is a short walk to Wat Pho and its 46-metre Reclining Buddha, the birthplace of Thai massage — a good place to book a massage once the sun is high.",
+        text: "Morning belongs to Rattanakosin, the historic royal island. The Grand Palace opens at 08:30 and is transformed by being early: the gilded courtyards are near-empty, the light is kind, and the heat hasn't arrived. Dress for it: shoulders and knees must be covered, it is enforced at the gate, and the sarong-rental queue is its own small penance. From there it is a short walk to Wat Pho and its 46-metre Reclining Buddha, the birthplace of Thai massage — a good place to book a massage once the sun is high.",
       },
       {
         kind: "h2",
@@ -437,7 +437,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "By late morning the pavement turns hostile, so do what Bangkok has done for centuries and take to the river. The Chao Phraya Tourist Boat runs an all-day pass up and down the water, and it sets you up to cross by ferry to Wat Arun, the Temple of Dawn, which catches the late-afternoon light beautifully. Use the hottest hours the way locals do — slowly, indoors, over a long lunch — and save your energy for the evening.",
+        text: "By late morning the pavement turns hostile, so do what Bangkok has done for centuries and take to the river. The Chao Phraya Tourist Boat runs an all-day pass up and down the water, and it sets you up to cross by ferry to Wat Arun, the Temple of Dawn, which catches the late-afternoon light beautifully. Use the hottest hours the way locals do, slowly, indoors, over a long lunch, and save your energy for the evening.",
       },
       {
         kind: "h2",
@@ -445,7 +445,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "As the temperature drops, head to Yaowarat — Chinatown — where the main street becomes one long open-air kitchen. The method is simple: walk it once without stopping to see which stalls the locals are queuing at, then double back and graze your way down. End your first day here and you will have both the best meal of the trip and a real feel for the city's pulse.",
+        text: "As the temperature drops, head to Yaowarat, or Chinatown, where the main street becomes one long open-air kitchen. The method is simple: walk it once without stopping to see which stalls the locals are queuing at, then double back and graze your way down. End your first day here and you will have both the best meal of the trip and a real feel for the city's pulse.",
       },
       {
         kind: "pick",
@@ -484,7 +484,7 @@ export const posts: BlogPost[] = [
     lastReviewed: "2026-07-14",
     category: "Food & drink",
     excerpt:
-      "The single most reliable rule for eating well while travelling costs nothing and works almost everywhere. Here's why the queue — and who's in it — is your best guide, city by city.",
+      "The single most reliable rule for eating well while travelling costs nothing and works almost everywhere. Here's why the queue, and who's in it, is your best guide, city by city.",
     image: IMG.han_eggcoffee,
     imageAlt:
       "A glass of Vietnamese egg coffee topped with whipped egg-yolk cream",
@@ -571,7 +571,7 @@ export const posts: BlogPost[] = [
     body: [
       {
         kind: "p",
-        text: "Ask people who travel for a living when they go, and you will almost never hear \"peak season.\" The shoulder — the weeks just before the crowds arrive and just after they leave — is quietly the best window to be almost anywhere, and the reasons are not a vibe, they are mechanics.",
+        text: "Ask people who travel for a living when they go, and you will almost never hear \"peak season.\" The shoulder, the weeks just before the crowds arrive and just after they leave, is quietly the best window to be almost anywhere, and the reasons are not a vibe, they are mechanics.",
       },
       {
         kind: "h2",
@@ -579,7 +579,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "Three things move together off-peak. Prices for stays and experiences soften as demand drops — in Rome, for instance, hotel rates in the shoulder months typically run well below the July–August peak. The queues at the headline sights shrink, which changes not just your wait but the whole feel of a place. And the destination stops performing for a peak-season crowd and goes back to being itself. Kyoto's temples in the quiet weeks, or Rome's Forum in October, are a genuinely different, better visit than the same sights shoulder-to-shoulder in high summer.",
+        text: "Three things move together off-peak. Prices for stays and experiences soften as demand drops — in Rome, for instance, hotel rates in the shoulder months typically run well below the July–August peak. The queues at the headline sights shrink, which changes not just your wait but the whole feel of a place. And the destination stops performing for a peak-season crowd and goes back to being itself. Kyoto's temples in the quiet weeks, or Rome's Forum in October, are a different, better visit than the same sights shoulder-to-shoulder in high summer.",
       },
       {
         kind: "h2",
@@ -719,7 +719,7 @@ export const posts: BlogPost[] = [
       },
       {
         kind: "p",
-        text: "We write from research, not press releases: cross-checking the practical details — opening hours, fares, ticketing rules, the honest best time to go — against official and authoritative sources, and citing them so you can check for yourself. Facts like these change, so we date every post with a \"last reviewed\" line and tell you to confirm the time-sensitive specifics before you travel. Where we recommend a specific experience, it is because it clears the bar above, not because it is easy to link to.",
+        text: "We write from research, not press releases: cross-checking the practical details (opening hours, fares, ticketing rules, the honest best time to go) against official and authoritative sources, and citing them so you can check for yourself. Facts like these change, so we date every post with a \"last reviewed\" line and tell you to confirm the time-sensitive specifics before you travel. Where we recommend a specific experience, it is because it clears the bar above, not because it is easy to link to.",
       },
       {
         kind: "h2",

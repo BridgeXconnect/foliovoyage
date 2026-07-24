@@ -8,7 +8,7 @@ const features = [
   {
     icon: Compass,
     title: "Hands-on curation",
-    body: "Every guide is researched and written by hand — considered picks, not an endless list to wade through.",
+    body: "Every guide is researched and vetted, one city at a time. Considered picks, not an endless list to wade through.",
   },
   {
     icon: Sparkles,
