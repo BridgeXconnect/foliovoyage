@@ -57,7 +57,7 @@ describe("validateTour — title", () => {
   });
 });
 
-describe("validateTour — price (non-positive is invalid; missing is a gap)", () => {
+describe("validateTour — price (missing OR non-positive quarantines)", () => {
   it("quarantines a zero price", () => {
     expect(codes(makeTour({ price_minor: 0 }))).toEqual(["NON_POSITIVE_PRICE"]);
   });
@@ -68,14 +68,14 @@ describe("validateTour — price (non-positive is invalid; missing is a gap)", (
     ]);
   });
 
-  it("passes a positive price", () => {
-    expect(validateTour(makeTour({ price_minor: 1 })).ok).toBe(true);
+  it("quarantines a null (missing) price with MISSING_PRICE", () => {
+    // Unlike null geo, a missing price quarantines: a priceless tour can't
+    // function on an affiliate-booking site. Distinct reason code from ≤0.
+    expect(codes(makeTour({ price_minor: null }))).toEqual(["MISSING_PRICE"]);
   });
 
-  it("passes a null (missing) price — a gap, not corruption", () => {
-    // A missing price is a data gap, not bad data. Distinct from a ≤0 price,
-    // which is corruption. Do not collapse the two.
-    expect(validateTour(makeTour({ price_minor: null })).ok).toBe(true);
+  it("passes a positive price", () => {
+    expect(validateTour(makeTour({ price_minor: 1 })).ok).toBe(true);
   });
 });
 
@@ -144,12 +144,23 @@ describe("validateTour — null geo passes through (THE corrected BRI-163 rule)"
     expect(validateTour(tour).ok).toBe(true);
   });
 
-  it("still quarantines a null-geo row for an UNRELATED reason (bad price)", () => {
-    // Null geo alone is fine, but it must not mask a genuine failure elsewhere.
-    const codesFor = codes(
-      makeTour({ latitude: null, longitude: null, price_minor: 0 }),
+  it("but null PRICE is NOT a pass — the two fields differ (asymmetry)", () => {
+    // The deliberate contrast, kept next to the null-geo tests: null geo passes
+    // (a routine data-source gap), null price quarantines (a priceless tour
+    // can't function on an affiliate-booking site).
+    expect(validateTour(makeTour({ latitude: null, longitude: null })).ok).toBe(
+      true,
     );
-    expect(codesFor).toEqual(["NON_POSITIVE_PRICE"]);
+    expect(codes(makeTour({ price_minor: null }))).toEqual(["MISSING_PRICE"]);
+  });
+
+  it("still quarantines a null-geo row for an UNRELATED reason (null price)", () => {
+    // Null geo alone is fine, but it must not mask a genuine failure elsewhere:
+    // a null-geo, null-price row quarantines for the price reason only.
+    const codesFor = codes(
+      makeTour({ latitude: null, longitude: null, price_minor: null }),
+    );
+    expect(codesFor).toEqual(["MISSING_PRICE"]);
   });
 });
 

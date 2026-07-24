@@ -19,15 +19,19 @@ import type { TourDTO } from "./normalizer";
  *   a titleless tour is unusable, so absence itself is fatal. (The ST-7
  *   normalizer already throws on a missing title, so reaching here is
  *   defence-in-depth.)
- * - **`price`** — a *non-positive* price (`≤ 0`) quarantines: that is corrupt
- *   data. A *missing* price (`null`) is a gap, not corruption, and passes
- *   through — a tour can still deep-link to the provider without a "from" price.
+ * - **`price`** — quarantines when missing (`null`) **or** non-positive (`≤ 0`).
+ *   Unlike geo, price-absence is **not** a routine data-source gap, and a tour
+ *   with no price cannot function on a site whose whole point is affiliate
+ *   booking — so a priceless tour is quarantined, not published. Missing vs.
+ *   non-positive are still recorded as distinct reason codes (`MISSING_PRICE`
+ *   vs. `NON_POSITIVE_PRICE`) for review, but both quarantine.
  * - **coordinates** — coordinates that are *present but out of range* quarantine:
  *   real corruption. Coordinates that are *entirely absent* (`null` lat/lng) pass
  *   through with null geo. This is the BRI-163 finding: ~1 in 15 tours resolve to
  *   a Google-provider location with no coordinates at all — a structural gap in
  *   the data source, not bad data, so it must **not** be quarantined for that
- *   reason alone.
+ *   reason alone. This is the one field where absence is deliberately *not* a
+ *   failure; do not make price behave the same way (see above).
  */
 
 /** Valid WGS-84 coordinate bounds. */
@@ -39,6 +43,7 @@ export const LONGITUDE_MAX = 180;
 /** Machine-readable class of a quarantine trigger. */
 export type QuarantineReasonCode =
   | "MISSING_TITLE"
+  | "MISSING_PRICE"
   | "NON_POSITIVE_PRICE"
   | "COORDINATES_OUT_OF_RANGE";
 
@@ -74,9 +79,15 @@ export function validateTour(tour: TourDTO): ValidationResult {
     });
   }
 
-  // Price: a present-but-non-positive price is corrupt. A null price is a gap,
-  // not corruption — it passes (see the class notes above).
-  if (tour.price_minor !== null && tour.price_minor <= 0) {
+  // Price: a priceless tour can't function on an affiliate-booking site, so both
+  // a missing price and a non-positive one quarantine — recorded as distinct
+  // reason codes. (Unlike geo, price-absence is not a routine data-source gap.)
+  if (tour.price_minor === null) {
+    reasons.push({
+      code: "MISSING_PRICE",
+      message: "Tour has no price.",
+    });
+  } else if (tour.price_minor <= 0) {
     reasons.push({
       code: "NON_POSITIVE_PRICE",
       message: `Price must be positive; got ${tour.price_minor}.`,
