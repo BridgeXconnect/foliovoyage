@@ -1,0 +1,131 @@
+name: CI
+
+# Gates every PR into master on lint / typecheck / unit tests, plus a Prisma
+# migration check against an ephemeral PostGIS Postgres. Also runs on pushes to
+# master so the default branch always has a green baseline.
+#
+# No secrets live in this file. The Postgres credentials below are throwaway
+# values for a CI-only container that is destroyed when the job ends — they are
+# not real secrets. Anything genuinely sensitive must come from GitHub Actions
+# secrets (`${{ secrets.* }}`), never hard-coded here.
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+# Least privilege: CI only needs to read the repo.
+permissions:
+  contents: read
+
+# A newer commit on the same PR/branch cancels the older, still-running job.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep CI output clean and hermetic (no remote-cache/telemetry calls).
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+
+jobs:
+  lint-typecheck-test:
+    name: lint-typecheck-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so Turborepo's --affected can find the merge base.
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # On PRs, only run tasks for workspaces affected by the diff against the
+      # base branch (keeps CI fast). On pushes to master, run the full pipeline
+      # so the default branch is always fully validated.
+      - name: Lint, typecheck, test
+        run: pnpm turbo run lint typecheck test ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+
+  migrate:
+    name: migrate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Match the tag pinned by ST-2 (infra/docker-compose.yml): PostGIS 3.4
+        # on PostgreSQL 16, so CI validates migrations against the same engine
+        # used in local dev.
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: folio
+          POSTGRES_USER: folio
+          POSTGRES_PASSWORD: folio
+        ports:
+          - 5432:5432
+        # Job steps don't start until the DB reports healthy.
+        options: >-
+          --health-cmd "pg_isready -q -U folio -d folio"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Mirrors the format documented in the repo-root .env.example (ST-2).
+      DATABASE_URL: postgres://folio:folio@localhost:5432/folio
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Mirror infra/postgres/init/01-init-extensions.sql: the app schema needs
+      # PostGIS + pg_trgm. GitHub service containers can't mount init scripts, so
+      # we create the extensions here (psql ships preinstalled on ubuntu-latest).
+      - name: Enable required Postgres extensions
+        run: |
+          PGPASSWORD=folio psql -h localhost -U folio -d folio -v ON_ERROR_STOP=1 \
+            -c "CREATE EXTENSION IF NOT EXISTS postgis;" \
+            -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+      # ST-5 (BRI-...) hasn't landed yet, so apps/api/prisma/migrations may not
+      # exist. Guard on that: if there are real migration folders, validate them
+      # for real with `prisma migrate deploy`; otherwise log clearly and pass.
+      # Once ST-5 adds migrations, this starts validating them with no edits.
+      - name: Prisma migrate deploy (guarded until ST-5 lands)
+        working-directory: apps/api
+        run: |
+          if [ -d prisma/migrations ] && [ -n "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null)" ]; then
+            echo "Prisma migrations detected — validating them against the ephemeral Postgres."
+            npx prisma migrate deploy
+          else
+            echo "no migrations yet — ST-5 not landed; skipping prisma migrate deploy (passing cleanly)."
+          fi
