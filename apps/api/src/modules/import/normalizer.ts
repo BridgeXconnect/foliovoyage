@@ -53,6 +53,28 @@ export interface TourDTO {
   /** Provider deep link (Viator `productUrl`, affiliate params intact). */
   affiliate_url: string | null;
   /**
+   * Provider's location-reference id for the tour's **start** point
+   * (`logistics.start[0].location.ref`, e.g. `"LOC-abc123"`), or `null` when the
+   * payload carries no structured start location. Viator's product payload does
+   * **not** embed coordinates — only this opaque reference — so the reference is
+   * what {@link latitude}/{@link longitude} are resolved from downstream
+   * (ST-7b / `/locations/bulk`). Part of {@link source_hash}: if the start
+   * reference changes, the tour's location content has changed.
+   */
+  location_ref: string | null;
+  /**
+   * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
+   * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
+   * is pure and never touches the network, so it leaves this `null` and the
+   * ST-7b location resolver fills it in from {@link location_ref}. Deliberately
+   * excluded from {@link source_hash}: it is a resolved projection of
+   * `location_ref` (already hashed), not independent content, and it is populated
+   * asynchronously after the hash is computed.
+   */
+  latitude: number | null;
+  /** Resolved longitude of the start location; see {@link latitude}. */
+  longitude: number | null;
+  /**
    * Provenance: when the raw page was fetched. **Injected** by the caller (the
    * ST-6 crawl timestamp) rather than read from the clock, so normalization stays
    * pure and deterministic. Excluded from {@link source_hash}.
@@ -73,8 +95,17 @@ export interface NormalizeContext {
   fetchedAt: string;
 }
 
-/** The content fields hashed into {@link TourDTO.source_hash}, in stable order. */
-type TourContent = Omit<TourDTO, "fetched_at" | "source_hash">;
+/**
+ * The content fields hashed into {@link TourDTO.source_hash}, in stable order.
+ * `latitude`/`longitude` are excluded alongside the provenance fields: they are
+ * resolved from `location_ref` (which *is* hashed) after normalization, so
+ * hashing them would make an otherwise-unchanged tour's hash depend on
+ * resolution timing.
+ */
+type TourContent = Omit<
+  TourDTO,
+  "fetched_at" | "source_hash" | "latitude" | "longitude"
+>;
 
 /**
  * Normalize one raw Viator product into a {@link TourDTO}.
@@ -101,10 +132,16 @@ export function normalizeViatorProduct(
     price_minor: extractPriceMinor(raw),
     currency: extractCurrency(raw),
     affiliate_url: optionalString(raw["productUrl"]),
+    location_ref: extractLocationRef(raw),
   };
 
   return {
     ...content,
+    // Coordinates are resolved from `location_ref` by ST-7b, not here — a pure
+    // function can't call `/locations/bulk`. They start null and are filled in
+    // downstream.
+    latitude: null,
+    longitude: null,
     fetched_at: ctx.fetchedAt,
     source_hash: hashContent(content),
   };
@@ -127,6 +164,7 @@ function hashContent(content: TourContent): string {
     content.price_minor,
     content.currency,
     content.affiliate_url,
+    content.location_ref,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -174,6 +212,23 @@ function extractPriceMinor(raw: ViatorProduct): number | null {
 /** ISO-4217 currency code from `pricing.currency`. */
 function extractCurrency(raw: ViatorProduct): string | null {
   return optionalString(asRecord(raw["pricing"])?.["currency"]);
+}
+
+/**
+ * The start-location reference from `logistics.start`. Viator's product detail
+ * models a tour's start point(s) as `logistics.start: [{ location: { ref } }]`
+ * (confirmed against docs.viator.com/partner-api/technical) — an opaque
+ * `"LOC-…"` reference, not coordinates. We take the **first** start entry (a
+ * tour has one start point for map purposes) and read `location.ref`. Products
+ * with legacy `UNSTRUCTURED` itineraries carry no such reference and normalize
+ * to `null`. The reference is resolved to real lat/lng by the ST-7b resolver.
+ */
+function extractLocationRef(raw: ViatorProduct): string | null {
+  const logistics = asRecord(raw["logistics"]);
+  const start = logistics?.["start"];
+  if (!Array.isArray(start) || start.length === 0) return null;
+  const location = asRecord(asRecord(start[0])?.["location"]);
+  return optionalString(location?.["ref"]);
 }
 
 // ---- small, total helpers (no throwing except the two required fields) ----

@@ -1,0 +1,329 @@
+import { describe, expect, it, jest } from "@jest/globals";
+
+import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
+import {
+  LocationResolver,
+  MAX_LOCATIONS_PER_REQUEST,
+  type LocationCache,
+  type LocationResolverConfig,
+  type ResolvedLocation,
+} from "./location-resolver";
+import { normalizeViatorProduct } from "./normalizer";
+
+const CONFIG: LocationResolverConfig = {
+  baseUrl: "https://api.viator.com/partner",
+  apiKey: "test-key",
+  language: "en-US",
+};
+
+/** In-memory {@link LocationCache}; the persistent store is faked in tests. */
+class FakeCache implements LocationCache {
+  readonly store = new Map<string, ResolvedLocation>();
+  readonly puts: ResolvedLocation[][] = [];
+
+  seed(...locations: ResolvedLocation[]): this {
+    for (const loc of locations) this.store.set(loc.reference, loc);
+    return this;
+  }
+
+  getMany(references: string[]): Promise<Map<string, ResolvedLocation>> {
+    const hit = new Map<string, ResolvedLocation>();
+    for (const ref of references) {
+      const loc = this.store.get(ref);
+      if (loc) hit.set(ref, loc);
+    }
+    return Promise.resolve(hit);
+  }
+
+  putMany(locations: ResolvedLocation[]): Promise<void> {
+    this.puts.push(locations);
+    for (const loc of locations) this.store.set(loc.reference, loc);
+    return Promise.resolve();
+  }
+}
+
+/** One `center`-bearing location, as `/locations/bulk` returns it. */
+function apiLocation(reference: string, lat: number, lng: number) {
+  return {
+    reference,
+    name: `Name ${reference}`,
+    address: { city: "Somewhere" }, // extra field the resolver must tolerate
+    center: { latitude: lat, longitude: lng },
+  };
+}
+
+/**
+ * A fetch stub for `/locations/bulk`. Echoes back a `center` for every reference
+ * in the request body, and records each request's parsed body so tests can
+ * assert on batch composition and call count.
+ */
+function bulkFetch(): {
+  fetchImpl: jest.Mock<FetchLike>;
+  bodies: string[][];
+} {
+  const bodies: string[][] = [];
+  const fetchImpl = jest.fn<FetchLike>((_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { locations: string[] };
+    bodies.push(body.locations);
+    const locations = body.locations.map((ref, i) =>
+      apiLocation(ref, 10 + i, 20 + i),
+    );
+    return Promise.resolve(
+      new Response(JSON.stringify({ locations }), { status: 200 }),
+    );
+  });
+  return { fetchImpl, bodies };
+}
+
+function makeResolver(
+  fetchImpl: jest.Mock<FetchLike>,
+  cache: FakeCache = new FakeCache(),
+): { resolver: LocationResolver; cache: FakeCache } {
+  const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
+  return { resolver: new LocationResolver(CONFIG, http, cache), cache };
+}
+
+describe("LocationResolver — resolve", () => {
+  it("resolves references to coordinates via /locations/bulk", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a", "LOC-b"]);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // Hit the right endpoint with a POST and the references in the body.
+    expect(fetchImpl.mock.calls[0][0].toString()).toBe(
+      "https://api.viator.com/partner/locations/bulk",
+    );
+    expect(fetchImpl.mock.calls[0][1]?.method).toBe("POST");
+    expect(bodies[0]).toEqual(["LOC-a", "LOC-b"]);
+
+    expect(resolved.get("LOC-a")).toEqual({
+      reference: "LOC-a",
+      latitude: 10,
+      longitude: 20,
+      name: "Name LOC-a",
+    });
+    expect(resolved.get("LOC-b")?.latitude).toBe(11);
+  });
+
+  it("dedupes and drops empty references before requesting", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    await resolver.resolve(["LOC-a", "LOC-a", "", "LOC-b"]);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toEqual(["LOC-a", "LOC-b"]);
+  });
+
+  it("persists freshly-resolved locations to the cache", async () => {
+    const { fetchImpl } = bulkFetch();
+    const { resolver, cache } = makeResolver(fetchImpl);
+
+    await resolver.resolve(["LOC-a"]);
+
+    expect(cache.store.get("LOC-a")?.latitude).toBe(10);
+    expect(cache.puts).toHaveLength(1);
+  });
+
+  it("skips locations returned without usable center coordinates", async () => {
+    // One with a center, one without — the second must be dropped, not crash.
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            locations: [
+              apiLocation("LOC-a", 1, 2),
+              { reference: "LOC-nocenter", name: "No coords" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const { resolver } = makeResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a", "LOC-nocenter"]);
+
+    expect(resolved.has("LOC-a")).toBe(true);
+    expect(resolved.has("LOC-nocenter")).toBe(false);
+  });
+
+  it("throws on a non-OK response from /locations/bulk", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(
+        new Response("Maximum number of locations 500 exceeded", {
+          status: 400,
+          statusText: "Bad Request",
+        }),
+      ),
+    );
+    const { resolver } = makeResolver(fetchImpl);
+
+    await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(/400/);
+  });
+});
+
+describe("LocationResolver — caching (no re-fetch on a hit)", () => {
+  it("does NOT call /locations/bulk when every reference is already cached", async () => {
+    const { fetchImpl } = bulkFetch();
+    const cache = new FakeCache().seed({
+      reference: "LOC-a",
+      latitude: 48.85,
+      longitude: 2.35,
+      name: "Paris",
+    });
+    const { resolver } = makeResolver(fetchImpl, cache);
+
+    const resolved = await resolver.resolve(["LOC-a"]);
+
+    // The whole point of the cache: a hit must not hit the API at all.
+    expect(fetchImpl).toHaveBeenCalledTimes(0);
+    expect(resolved.get("LOC-a")?.latitude).toBe(48.85);
+  });
+
+  it("fetches only the cache misses, not the hits", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const cache = new FakeCache().seed({
+      reference: "LOC-cached",
+      latitude: 1,
+      longitude: 2,
+      name: null,
+    });
+    const { resolver } = makeResolver(fetchImpl, cache);
+
+    const resolved = await resolver.resolve(["LOC-cached", "LOC-fresh"]);
+
+    // Only the miss is requested; the hit is served from cache.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toEqual(["LOC-fresh"]);
+    expect(resolved.get("LOC-cached")?.latitude).toBe(1);
+    expect(resolved.get("LOC-fresh")).toBeDefined();
+  });
+});
+
+describe("LocationResolver — 500-per-request batching", () => {
+  it("splits a batch over 500 references into multiple requests", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    // 1200 refs → 500 + 500 + 200 across three requests.
+    const refs = Array.from({ length: 1200 }, (_, i) => `LOC-${i}`);
+    const resolved = await resolver.resolve(refs);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(bodies.map((b) => b.length)).toEqual([500, 500, 200]);
+    // No batch exceeds Viator's hard limit.
+    for (const b of bodies) expect(b.length).toBeLessThanOrEqual(MAX_LOCATIONS_PER_REQUEST);
+    // Every reference resolved.
+    expect(resolved.size).toBe(1200);
+  });
+
+  it("sends exactly one request for a full 500-reference batch", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const refs = Array.from({ length: 500 }, (_, i) => `LOC-${i}`);
+    await resolver.resolve(refs);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toHaveLength(500);
+  });
+});
+
+describe("LocationResolver — attachLocations (Tour DTO enrichment)", () => {
+  const FETCHED_AT = "2026-07-18T00:00:00.000Z";
+
+  /** A real normalized tour carrying a start reference (ST-7 → ST-7b seam). */
+  function tourWithRef(code: string, ref: string) {
+    return normalizeViatorProduct(
+      {
+        productCode: code,
+        title: `Tour ${code}`,
+        logistics: { start: [{ location: { ref } }] },
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+  }
+
+  it("attaches resolved lat/lng to a normalized tour with a start reference", async () => {
+    const { fetchImpl } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const tour = tourWithRef("57189P2", "LOC-a");
+    expect(tour.location_ref).toBe("LOC-a");
+    expect(tour.latitude).toBeNull(); // normalization leaves it unresolved
+
+    const [enriched] = await resolver.attachLocations([tour]);
+
+    expect(enriched.latitude).toBe(10);
+    expect(enriched.longitude).toBe(20);
+    // Provider fields are preserved untouched.
+    expect(enriched.provider_tour_id).toBe("57189P2");
+  });
+
+  it("leaves coordinates null for a tour with no start reference", async () => {
+    const { fetchImpl } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const tour = normalizeViatorProduct(
+      { productCode: "X1", title: "No location" },
+      { fetchedAt: FETCHED_AT },
+    );
+
+    const [enriched] = await resolver.attachLocations([tour]);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(0);
+    expect(enriched.latitude).toBeNull();
+    expect(enriched.longitude).toBeNull();
+  });
+
+  it("resolves references across many tours in one batched pass", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const tours = [
+      tourWithRef("A", "LOC-a"),
+      tourWithRef("B", "LOC-b"),
+      tourWithRef("C", "LOC-a"), // shares a ref with A → deduped
+    ];
+
+    const enriched = await resolver.attachLocations(tours);
+
+    // One request, two unique references.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toEqual(["LOC-a", "LOC-b"]);
+    expect(enriched[0].latitude).toBe(enriched[2].latitude); // same resolved ref
+    expect(enriched[1].location_ref).toBe("LOC-b");
+  });
+
+  it("does not mutate the input DTOs", async () => {
+    const { fetchImpl } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const tour = tourWithRef("A", "LOC-a");
+    const snapshot = JSON.stringify(tour);
+
+    await resolver.attachLocations([tour]);
+
+    expect(JSON.stringify(tour)).toBe(snapshot);
+  });
+});
+
+describe("LocationResolver — SSRF enforcement", () => {
+  it("routes through the host allowlist (rejects a non-allowlisted base)", async () => {
+    const { fetchImpl } = bulkFetch();
+    const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
+    const resolver = new LocationResolver(
+      { ...CONFIG, baseUrl: "https://evil.example.com/partner" },
+      http,
+      new FakeCache(),
+    );
+
+    await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(
+      /non-allowlisted host/,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});

@@ -122,5 +122,58 @@ describe("normalizeViatorProduct — field handling", () => {
     expect(tour.price_minor).toBeNull();
     expect(tour.currency).toBeNull();
     expect(tour.affiliate_url).toBeNull();
+    expect(tour.location_ref).toBeNull();
+    expect(tour.latitude).toBeNull();
+    expect(tour.longitude).toBeNull();
+  });
+});
+
+describe("normalizeViatorProduct — start location reference (ST-7b)", () => {
+  it("extracts logistics.start[0].location.ref as location_ref", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "X1",
+        title: "Tour with a start point",
+        logistics: {
+          start: [
+            { location: { ref: "LOC-abc123" }, description: "Meet at gate" },
+            { location: { ref: "LOC-second" } },
+          ],
+        },
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+
+    // First start entry wins (the tour's single map start point).
+    expect(tour.location_ref).toBe("LOC-abc123");
+    // Coordinates are resolved later by the ST-7b resolver, not by normalization.
+    expect(tour.latitude).toBeNull();
+    expect(tour.longitude).toBeNull();
+  });
+
+  it("normalizes a legacy UNSTRUCTURED itinerary (no start ref) to null", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "X1",
+        title: "Legacy tour",
+        logistics: { start: [] },
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+
+    expect(tour.location_ref).toBeNull();
+  });
+
+  it("folds the start reference into source_hash (location is content)", () => {
+    const base = normalizeViatorProduct(
+      { productCode: "X1", title: "T", logistics: { start: [{ location: { ref: "LOC-a" } }] } },
+      { fetchedAt: FETCHED_AT },
+    );
+    const moved = normalizeViatorProduct(
+      { productCode: "X1", title: "T", logistics: { start: [{ location: { ref: "LOC-b" } }] } },
+      { fetchedAt: FETCHED_AT },
+    );
+
+    expect(moved.source_hash).not.toBe(base.source_hash);
   });
 });
