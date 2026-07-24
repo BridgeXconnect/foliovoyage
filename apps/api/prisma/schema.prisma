@@ -47,3 +47,26 @@ model Experience {
 
   @@index([cityId])
 }
+
+/// Cache of provider location references resolved to coordinates
+/// (ST-7b / BRI-163). Viator's product payload carries only an opaque location
+/// reference (`logistics.start[].location.ref`) — never coordinates — so we
+/// resolve each reference once via `/locations/bulk` and persist the result
+/// here. The cache survives across import runs: a reference resolved on a
+/// previous crawl is a hit today, so it is never re-fetched. Location data
+/// changes infrequently (Viator's guidance: refresh monthly), so rows carry no
+/// short-lived invalidation.
+model ProviderLocation {
+  /// Provider location reference, e.g. "LOC-abc123". Natural primary key.
+  reference  String   @id
+  /// Source OTA. Always "viator" today; kept explicit for future providers.
+  provider   String   @default("viator")
+  /// Resolved latitude (WGS-84 decimal degrees), from `center.latitude`.
+  latitude   Float
+  /// Resolved longitude (WGS-84 decimal degrees), from `center.longitude`.
+  longitude  Float
+  /// Location display name, when the provider supplies one.
+  name       String?
+  /// When this reference was last resolved (refreshed on re-resolve).
+  resolvedAt DateTime @default(now()) @updatedAt
+}

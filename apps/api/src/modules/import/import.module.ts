@@ -2,8 +2,14 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import type { Env } from "../../config/env.validation";
+import { PrismaService } from "../../prisma/prisma.service";
 import { ViatorClient } from "./clients/viator.client";
 import { AllowlistFetch } from "./http/allowlist-fetch";
+import { PrismaLocationCache } from "./location-cache.prisma";
+import {
+  LocationResolver,
+  type LocationCache,
+} from "./location-resolver";
 import {
   R2RawArchiveStore,
   type RawArchiveStore,
@@ -13,6 +19,8 @@ import {
 export const VIATOR_HTTP = Symbol("VIATOR_HTTP");
 /** DI token for the raw-payload archive store. */
 export const RAW_ARCHIVE_STORE = Symbol("RAW_ARCHIVE_STORE");
+/** DI token for the persistent resolved-location cache. */
+export const LOCATION_CACHE = Symbol("LOCATION_CACHE");
 
 /**
  * Ingest module (ST-6 / BRI-103).
@@ -62,7 +70,39 @@ export const RAW_ARCHIVE_STORE = Symbol("RAW_ARCHIVE_STORE");
           archive,
         ),
     },
+    {
+      provide: LOCATION_CACHE,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): LocationCache =>
+        new PrismaLocationCache(prisma),
+    },
+    {
+      // Reuses VIATOR_HTTP — the same host-allowlisted fetcher ST-6 uses — so
+      // /locations/bulk is subject to the same SSRF guard as the crawl.
+      provide: LocationResolver,
+      inject: [ConfigService, VIATOR_HTTP, LOCATION_CACHE],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        http: AllowlistFetch,
+        cache: LocationCache,
+      ): LocationResolver =>
+        new LocationResolver(
+          {
+            baseUrl: config.get("VIATOR_API_BASE_URL", { infer: true }),
+            apiKey: config.get("VIATOR_API_KEY", { infer: true }),
+            language: config.get("VIATOR_API_LANGUAGE", { infer: true }),
+          },
+          http,
+          cache,
+        ),
+    },
   ],
-  exports: [ViatorClient, VIATOR_HTTP, RAW_ARCHIVE_STORE],
+  exports: [
+    ViatorClient,
+    VIATOR_HTTP,
+    RAW_ARCHIVE_STORE,
+    LOCATION_CACHE,
+    LocationResolver,
+  ],
 })
 export class ImportModule {}
