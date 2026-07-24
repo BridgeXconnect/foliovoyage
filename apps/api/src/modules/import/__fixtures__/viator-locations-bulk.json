@@ -1,0 +1,25 @@
+{
+  "locations": [
+    {
+      "provider": "TRIPADVISOR",
+      "reference": "LOC-6eKJ+or5y8o99Qw0C8xWyMHzSYSyYSMn5ptFi+dSfPo=",
+      "name": "La Aurora Hang Hanh",
+      "address": {
+        "street": "4A Hang Hanh",
+        "administrativeArea": "Hanoi",
+        "country": "Vietnam",
+        "countryCode": "VN",
+        "postcode": "100000"
+      },
+      "center": {
+        "latitude": 21.036959,
+        "longitude": 105.8509
+      }
+    },
+    {
+      "provider": "GOOGLE",
+      "reference": "LOC-o0AXGEKPN4wJ9sIG0RAn5FDU2yNvK2GN0H/H4Yo4vgdufEilvC2zBg6045n2CAQq",
+      "providerReference": "ChIJH8sL6b2rNTERpSXCSOGkoig"
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it, jest } from "@jest/globals";
 
 import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
@@ -308,6 +311,52 @@ describe("LocationResolver — attachLocations (Tour DTO enrichment)", () => {
     await resolver.attachLocations([tour]);
 
     expect(JSON.stringify(tour)).toBe(snapshot);
+  });
+});
+
+describe("LocationResolver — against the real recorded /locations/bulk payload", () => {
+  // A verbatim production response (Viator, 2026-07-24): one TRIPADVISOR
+  // location that carries real coordinates, and one GOOGLE location that carries
+  // only a providerReference (Google Place ID) and NO center. This is the shape
+  // reality returns — proven by a live call, not the docs.
+  const realResponse = readFileSync(
+    join(__dirname, "__fixtures__", "viator-locations-bulk.json"),
+    "utf8",
+  );
+  const TRIPADVISOR_REF = "LOC-6eKJ+or5y8o99Qw0C8xWyMHzSYSyYSMn5ptFi+dSfPo=";
+  const GOOGLE_REF =
+    "LOC-o0AXGEKPN4wJ9sIG0RAn5FDU2yNvK2GN0H/H4Yo4vgdufEilvC2zBg6045n2CAQq";
+
+  function realFetch(): jest.Mock<FetchLike> {
+    return jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response(realResponse, { status: 200 })),
+    );
+  }
+
+  it("resolves a TRIPADVISOR location to its real coordinates", async () => {
+    const { resolver } = makeResolver(realFetch());
+
+    const resolved = await resolver.resolve([TRIPADVISOR_REF, GOOGLE_REF]);
+
+    // The field names the code assumes (center.latitude/longitude) are the ones
+    // the live API actually returns.
+    expect(resolved.get(TRIPADVISOR_REF)).toEqual({
+      reference: TRIPADVISOR_REF,
+      latitude: 21.036959,
+      longitude: 105.8509,
+      name: "La Aurora Hang Hanh",
+    });
+  });
+
+  it("leaves a GOOGLE location (no center, only a Place ID) unresolved", async () => {
+    const { resolver } = makeResolver(realFetch());
+
+    const resolved = await resolver.resolve([TRIPADVISOR_REF, GOOGLE_REF]);
+
+    // GOOGLE-provider locations have no coordinates in the Viator response, so
+    // they are dropped rather than crashing the batch — the tour keeps null lat/lng.
+    expect(resolved.has(GOOGLE_REF)).toBe(false);
+    expect(resolved.size).toBe(1);
   });
 });
 

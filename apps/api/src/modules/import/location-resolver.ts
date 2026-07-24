@@ -24,11 +24,24 @@ import type { TourDTO } from "./normalizer";
  * - **SSRF-safe** — every request goes through the same {@link AllowlistFetch}
  *   the ST-6 client uses, locked to the Viator API host.
  *
- * Request/response shape is grounded in docs.viator.com/partner-api/technical
- * and partnerresources.viator.com: the request body is `{ locations: [ref…] }`
- * (max **500** references per request — more returns `BAD_REQUEST`), and each
- * returned location carries its `reference` plus a `center` object with
- * `latitude`/`longitude`.
+ * Request/response shape is **verified against the live production API** (Viator
+ * product 57189P2 + a 30-product Hanoi sample, 2026-07-24), not just the docs:
+ *
+ * - Request body is `{ locations: [ref…] }` — confirmed (200 OK, echoed back),
+ *   max **500** references per request (more returns `BAD_REQUEST`).
+ * - Response is `{ locations: [ … ] }`, each item keyed by `reference`, but its
+ *   **shape depends on `provider`**:
+ *     - `TRIPADVISOR` (and Viator-native) locations carry a `center` object with
+ *       `latitude`/`longitude` (plus `name`/`address`) — the coordinates we want.
+ *       This is the dominant case (~28 of 30 in the live sample).
+ *     - `GOOGLE`-provider locations carry **no `center`** — only a
+ *       `providerReference` (a Google Place ID like `ChIJ…`). Viator does not
+ *       return coordinates for these; resolving them would need a separate Google
+ *       Places lookup, which is out of scope here. Such references simply resolve
+ *       to "no coordinates" and leave the tour's lat/lng `null` (a later story can
+ *       resolve Place IDs if it becomes necessary).
+ *
+ * So a reference not resolving is an expected, structural outcome — not an error.
  */
 
 /** Viator's hard limit: at most 500 references per `/locations/bulk` request. */
@@ -75,11 +88,13 @@ export interface LocationResolverConfig {
 }
 
 /**
- * Schema for the `/locations/bulk` response. We validate only what we need — the
- * `locations` array, each item's `reference`, and its `center` coordinates — and
- * tolerate everything else Viator returns (address, provider, etc.). An item
- * without usable coordinates is dropped by {@link toResolvedLocation} rather than
- * failing the whole batch.
+ * Schema for the `/locations/bulk` response, matched to the **live** payload. We
+ * validate the `locations` array and each item's `reference`, `provider`,
+ * `center` (present for coordinate-bearing providers), and `providerReference`
+ * (present for `GOOGLE` locations instead of `center`) — and tolerate everything
+ * else Viator returns (`address`, etc.). `center` is optional by design: a
+ * `GOOGLE` item legitimately has none, so it is dropped by
+ * {@link toResolvedLocation} rather than failing the whole batch.
  */
 const locationsBulkResponseSchema = z.object({
   locations: z
@@ -87,6 +102,8 @@ const locationsBulkResponseSchema = z.object({
       z
         .object({
           reference: z.string(),
+          provider: z.string().optional(),
+          providerReference: z.string().optional(),
           name: z.string().optional(),
           center: z
             .object({
@@ -95,7 +112,7 @@ const locationsBulkResponseSchema = z.object({
             })
             .optional(),
         })
-        // Unknown/extra fields (address, provider, …) are ignored, not rejected.
+        // Unknown/extra fields (address, …) are ignored, not rejected.
         .passthrough(),
     )
     .default([]),
@@ -195,12 +212,18 @@ export class LocationResolver {
     const out: ResolvedLocation[] = [];
     for (const item of parsed.locations) {
       const loc = toResolvedLocation(item);
-      if (loc) out.push(loc);
-      else {
-        this.logger.warn(
-          `Location "${item.reference}" returned without usable center coordinates; skipping`,
-        );
+      if (loc) {
+        out.push(loc);
+        continue;
       }
+      // No coordinates. For GOOGLE-provider locations this is expected (Viator
+      // returns a Google Place ID, not a center), so log at debug — not warn —
+      // to avoid spamming production for a normal, structural case.
+      this.logger.debug(
+        `Location "${item.reference}" (provider=${item.provider ?? "unknown"}` +
+          `${item.providerReference ? `, providerReference=${item.providerReference}` : ""})` +
+          ` has no center coordinates; left unresolved`,
+      );
     }
     return out;
   }
@@ -212,9 +235,15 @@ export class LocationResolver {
   }
 }
 
-/** Narrow a parsed response item to a {@link ResolvedLocation}, or `null`. */
+/**
+ * Narrow a parsed response item to a {@link ResolvedLocation}, or `null` when it
+ * carries no coordinates (e.g. a `GOOGLE`-provider location, which has a
+ * `providerReference` instead of a `center`).
+ */
 function toResolvedLocation(item: {
   reference: string;
+  provider?: string;
+  providerReference?: string;
   name?: string;
   center?: { latitude: number; longitude: number };
 }): ResolvedLocation | null {
