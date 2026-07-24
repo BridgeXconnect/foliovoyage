@@ -12,6 +12,7 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:integration": "jest --config jest.integration.config.js",
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed"
