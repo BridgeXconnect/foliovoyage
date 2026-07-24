@@ -342,21 +342,21 @@ Forward-only, CI-run on ephemeral DB, expand/contract for zero-downtime. All rea
 
 The map is a **query interface**, not decoration.
 
-> **Direction update (see [docs/11](11-map-and-planner-direction.md)).** The map is now
-> **3D-first** (Google Photorealistic 3D), **scoped to a curation** (a destination or a single
-> curated tour), rendered **client-side from our own `lat`/`lng`** and **loaded on interaction**
-> (Map Tiles cost + CWV — amplifies TD-7). The bbox/PostGIS, backend-driven, 2D-**clustered**
-> map described below is **deferred**, not dropped: it becomes the **Full-Access-era** discovery
-> surface for `/search` and cross-city browse (`Map3DElement` has no clustering primitive, and
-> the backend it needs does not exist at Basic Access — TD-11).
+> **Direction update (see [docs/11](11-map-and-planner-direction.md)).** The map is
+> **3D-first**, **scoped to a curation** (a destination or a single curated tour), rendered
+> **client-side from our own `lat`/`lng`** and **loaded on interaction** (CWV — heavy 3D assets
+> kept off the SEO landing path). The 3D scene is **MapLibre-native**: terrain (`raster-dem`) +
+> `fill-extrusion` building massing over OpenFreeMap + a `flyTo`/`easeTo` camera + hand-placed
+> Three.js GLTF models for a destination's 3–5 hero landmarks. The bbox/PostGIS, backend-driven,
+> 2D-**clustered** map described below is **deferred**, not dropped: it becomes the
+> **Full-Access-era** discovery surface for `/search` and cross-city browse (a pitched 3D scene
+> has no clustering primitive, and the backend it needs does not exist at Basic Access — TD-11).
 >
-> ⚠️ **Provider conflict — under review (BRI-161).** The 2D base map is now **MapLibre GL JS +
-> OpenFreeMap** (open-source, no per-load fee — see Stack below), but the 3D-first direction in
-> [docs/11](11-map-and-planner-direction.md) is built specifically on **Google Photorealistic 3D
-> Maps** (`Map3DElement` / Map Tiles API), a Google-proprietary feature MapLibre/OpenFreeMap does
-> not provide. The 3D-photoreal path therefore still carries Google billing and has not been
-> reconciled with the MapLibre decision. [docs/11](11-map-and-planner-direction.md) is left
-> unedited pending that review; see TD-7.
+> ✅ **Provider reconciled (BRI-162).** The earlier Google Photorealistic 3D dependency is
+> **dropped**; the 3D story now lives entirely inside **MapLibre GL JS + OpenFreeMap + Three.js** —
+> no new keys, accounts, or per-session billing. Google Photorealistic 3D is retained only as a
+> **deferred future option** for citywide photoreal imagery. See
+> [docs/11](11-map-and-planner-direction.md) and TD-7.
 
 - **Stack:** MapLibre GL JS (MIT-licensed, open-source Mapbox GL JS fork) rendering **OpenFreeMap** vector tiles (free, no API key, no usage cap, built on OpenStreetMap data) behind a `MapProvider` interface (**tile source swappable** — MapTiler or a self-hosted OpenFreeMap instance drop in without a component rewrite). Client requests pins via `GET /map/experiences?bbox=…&filters` — **viewport drives the geo query**.
   - **Trade-off:** OpenFreeMap has **no SLA** (single-maintainer, donation-funded). Mitigation: MapLibre is provider-agnostic, so the tile source can be swapped to a paid host (MapTiler) or a self-hosted OpenFreeMap instance without changing map code — see the open question in Appendix E and the residual note in TD-7.
@@ -506,14 +506,14 @@ Budgets in [§3](#3-non-functional-requirements). Techniques:
 | TD-4 | Rule-based enrichment before LLM | Cost/quality control | M8 |
 | TD-5 | Single OTA at launch | Reduce integration surface | V1 |
 | TD-6 | Estimated commission (no booking visibility) | We don't own checkout | OTA reporting API |
-| TD-7 | **Map tile-provider risk** (was "Google Maps cost exposure" — reframed BRI-161). The 2D base map moved to **MapLibre + OpenFreeMap**, which has **no per-load / per-tile fee**, so the original cost pressure is gone. Two residual concerns remain: (a) OpenFreeMap has **no SLA** (single-maintainer, donation-funded); (b) the **3D-photoreal path in [docs/11](11-map-and-planner-direction.md) still uses Google Map Tiles** (billed per session) and is **not yet reconciled** with the MapLibre decision. | Resilience + moat feature | (a) MapLibre is provider-agnostic — swap tile source to MapTiler / self-hosted OpenFreeMap if reliability demands it; (b) keep Google 3D loading **on interaction** only + caching (M6) **if** the 3D path survives review |
+| TD-7 | **Map tile-provider risk** (was "Google Maps cost exposure" — reframed BRI-161; 3D path reconciled BRI-162). The stack is **MapLibre + OpenFreeMap** (2D basemap) plus a **MapLibre-native 3D** scene (terrain + `fill-extrusion` + Three.js landmark models — [docs/11](11-map-and-planner-direction.md)), all with **no per-load / per-tile / per-session fee**. The residual concern is reliability: OpenFreeMap has **no SLA** (single-maintainer, donation-funded) and the terrain `raster-dem` host is a separate free endpoint. | Resilience | MapLibre is provider-agnostic — swap tile / DEM source to MapTiler or a self-hosted instance if reliability demands it; cache hot tiles (M6). Google Photorealistic 3D stays a **deferred paid option**, only if citywide photoreal is ever wanted. |
 | TD-8 | No UGC reviews | Scope control | Post-V2 |
 | TD-9 | No multi-language | Focus | V3 (hreflang reserved) |
 | TD-10 | Nearby-restaurants data/cost risk | Places cost | Spike in M3 |
 | TD-11 | No backend/DB yet; frontend fetches & caches Viator data directly (Next.js ISR / build-time enrichment) | Basic Access lacks bulk ingestion (`/products/modified-since`), so a backend had nothing to manage — FR-IMPORT-1/2 deferred | Full Access approval |
 | TD-12 | AI trip-planner may surface **unvetted** place suggestions for uncovered cities ([docs/11](11-map-and-planner-direction.md)) | Planner UX beyond curated coverage; the moat is trust (BG-3, §7.3) | **Provenance wall required** (distinct marker/label, no affiliate CTA) before M8 planner ships; uncovered cities logged as curation demand signal |
 
-> **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) — now for **performance and resilience against OpenFreeMap's no-SLA tile host** rather than for base-map cost (TD-7); Google Map Tiles cost only applies if the 3D-photoreal path survives review.
+> **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) — now for **performance and resilience against OpenFreeMap's no-SLA tile host** rather than for base-map cost (TD-7); the MapLibre-native 3D scene adds no per-session cost either (reconciled BRI-162).
 
 ---
 
