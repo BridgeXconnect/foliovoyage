@@ -1,16 +1,20 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ViatorClient } from "./clients/viator.client";
 import { AllowlistFetch } from "./http/allowlist-fetch";
+import { ImportRunService } from "./import-run.service";
+import { ImportPipeline } from "./import.pipeline";
 import { PrismaLocationCache } from "./location-cache.prisma";
 import {
   LocationResolver,
   type LocationCache,
 } from "./location-resolver";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
+import { ImportScheduler } from "./scheduler";
 import {
   R2RawArchiveStore,
   type RawArchiveStore,
@@ -36,6 +40,9 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
  * ST-8 scheduling) consume {@link ViatorClient} from here.
  */
 @Module({
+  // ScheduleModule.forRoot() sets up the SchedulerRegistry the ImportScheduler
+  // registers the nightly cron job on. It is idempotent to include once here.
+  imports: [ScheduleModule.forRoot()],
   providers: [
     {
       provide: VIATOR_HTTP,
@@ -122,6 +129,41 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
       useFactory: (prisma: PrismaService): TourUpsertService =>
         new TourUpsertService(prisma),
     },
+    {
+      // ST-10: threads the stages above into one straight-through run.
+      provide: ImportPipeline,
+      inject: [
+        ViatorClient,
+        LocationResolver,
+        TourValidator,
+        TourUpsertService,
+      ],
+      useFactory: (
+        client: ViatorClient,
+        resolver: LocationResolver,
+        validator: TourValidator,
+        upsert: TourUpsertService,
+      ): ImportPipeline =>
+        new ImportPipeline(client, resolver, validator, upsert),
+    },
+    {
+      // ST-10: runs the pipeline and records each run as an `import_run`. The
+      // abort threshold is read from validated env and injected as config.
+      provide: ImportRunService,
+      inject: [PrismaService, ImportPipeline, ConfigService],
+      useFactory: (
+        prisma: PrismaService,
+        pipeline: ImportPipeline,
+        config: ConfigService<Env, true>,
+      ): ImportRunService =>
+        new ImportRunService(prisma, pipeline, {
+          deleteGuardThresholdPct: config.get("DELETE_GUARD_THRESHOLD_PCT", {
+            infer: true,
+          }),
+        }),
+    },
+    // ST-10: registers the nightly cron trigger at boot (env-gated).
+    ImportScheduler,
   ],
   exports: [
     ViatorClient,
@@ -132,6 +174,8 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     QUARANTINE_STORE,
     TourValidator,
     TourUpsertService,
+    ImportPipeline,
+    ImportRunService,
   ],
 })
 export class ImportModule {}
