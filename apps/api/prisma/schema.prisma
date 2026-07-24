@@ -48,6 +48,30 @@ model Experience {
   @@index([cityId])
 }
 
+/// A normalized tour that failed validation and was quarantined instead of
+/// published (ST-8 / BRI-105). The full payload is retained verbatim (`payload`)
+/// alongside the reason(s) it failed, so the row is reviewable later — Admin
+/// surfacing is a future story. Rows here never reach the public site.
+model QuarantinedTour {
+  id             String   @id @default(cuid())
+  /// Source OTA, from the payload's `provider`. Always "viator" today.
+  provider       String
+  /// Provider product id, from the payload's `provider_tour_id`.
+  providerTourId String
+  /// Content hash from the payload's `source_hash` (dedupes repeat quarantines).
+  sourceHash     String
+  /// Machine-readable reason codes, e.g. ["MISSING_TITLE","NON_POSITIVE_PRICE"].
+  reasonCodes    String[]
+  /// The reasons in full (code + human message), as captured at validation time.
+  reasons        Json
+  /// The complete TourDTO payload, retained verbatim for review.
+  payload        Json
+  /// When the row was quarantined.
+  quarantinedAt  DateTime @default(now())
+
+  @@index([provider, providerTourId])
+}
+
 /// Cache of provider location references resolved to coordinates
 /// (ST-7b / BRI-163). Viator's product payload carries only an opaque location
 /// reference (`logistics.start[].location.ref`) — never coordinates — so we

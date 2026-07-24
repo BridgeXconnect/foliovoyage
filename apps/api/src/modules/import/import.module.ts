@@ -10,10 +10,12 @@ import {
   LocationResolver,
   type LocationCache,
 } from "./location-resolver";
+import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import {
   R2RawArchiveStore,
   type RawArchiveStore,
 } from "./storage/raw-archive.store";
+import { TourValidator, type QuarantineStore } from "./validator";
 
 /** DI token for the SSRF-safe fetcher scoped to the Viator host. */
 export const VIATOR_HTTP = Symbol("VIATOR_HTTP");
@@ -21,6 +23,8 @@ export const VIATOR_HTTP = Symbol("VIATOR_HTTP");
 export const RAW_ARCHIVE_STORE = Symbol("RAW_ARCHIVE_STORE");
 /** DI token for the persistent resolved-location cache. */
 export const LOCATION_CACHE = Symbol("LOCATION_CACHE");
+/** DI token for the persistent quarantine store. */
+export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
 
 /**
  * Ingest module (ST-6 / BRI-103).
@@ -96,6 +100,18 @@ export const LOCATION_CACHE = Symbol("LOCATION_CACHE");
           cache,
         ),
     },
+    {
+      provide: QUARANTINE_STORE,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): QuarantineStore =>
+        new PrismaQuarantineStore(prisma),
+    },
+    {
+      provide: TourValidator,
+      inject: [QUARANTINE_STORE],
+      useFactory: (store: QuarantineStore): TourValidator =>
+        new TourValidator(store),
+    },
   ],
   exports: [
     ViatorClient,
@@ -103,6 +119,8 @@ export const LOCATION_CACHE = Symbol("LOCATION_CACHE");
     RAW_ARCHIVE_STORE,
     LOCATION_CACHE,
     LocationResolver,
+    QUARANTINE_STORE,
+    TourValidator,
   ],
 })
 export class ImportModule {}
