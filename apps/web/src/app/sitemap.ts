@@ -21,6 +21,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${site.url}/legal/contact`, priority: 0.3, lastModified: now },
   ];
 
+  // BRI-166: only the canonical short `/destinations/:slug` shape is listed.
+  // The DB-backed `/destinations/:country/:city` alias 308-redirects to this
+  // canonical URL, so it is deliberately never emitted here (no duplicate URLs
+  // for crawlers).
   const destinationRoutes: MetadataRoute.Sitemap = getAllDestinations().map(
     (d) => ({
       url: `${site.url}/destinations/${d.slug}`,
