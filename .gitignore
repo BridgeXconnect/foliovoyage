@@ -2,6 +2,14 @@
 .DS_Store
 *.swp
 
+# Local agent / editor tooling state — per-developer, not shared project config.
+.claude/
+.cursor/
+
+# npm cruft — this is a pnpm workspace (pnpm-lock.yaml is the lockfile). A stray
+# package-lock.json is accidental and can mislead contributors/CI.
+/package-lock.json
+
 # Env files (never commit secrets). *.env.example templates are intentionally tracked.
 .env
 .env.*
