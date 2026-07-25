@@ -11,14 +11,22 @@
 //      matches are left unset (the card keeps its "Booking coming soon" state).
 //   4. Write the results to two files the app reads at build time:
 //        src/data/viator-destinations.json  — { slug: destinationId }
-//        src/data/viator-links.json         — { "<slug>/<expId>": { affiliateUrl, provider } }
+//        src/data/viator-links.json         — { "<slug>/<expId>": { affiliateUrl,
+//          provider, fromPrice?, currency?, rating?, ratingCount?, freeCancel? } }
+//          (the commerce fields are additive card badges — BRI-168.)
 //
 // It never touches the editorial title/description, never rewrites Viator's
 // pid/mcid/medium params, and needs no database (that's Full Access territory).
 //
+// A re-run PRESERVES every already-curated match and only refreshes its commerce
+// badges (fromPrice/rating/freeCancel) — it never silently re-points a reviewed
+// card. Auto-matching only fills experiences that still have no link. Set
+// ENRICH_ONLY=1 to refresh badges alone and add no new (uncurated) matches.
+//
 // Usage:
-//   1. Put your key in frontend/.env.local:  VIATOR_API_KEY=xxxxx
-//   2. From frontend/:  node scripts/fetch-viator-links.mjs
+//   1. Put your key in apps/web/.env.local:  VIATOR_API_KEY=xxxxx
+//   2. From apps/web/:  node scripts/fetch-viator-links.mjs
+//        (badge-only refresh:  ENRICH_ONLY=1 node scripts/fetch-viator-links.mjs)
 //   3. Review the printed match report and the JSON diff, then rebuild.
 //
 // Nothing here runs at request time. Review the output before shipping.
@@ -38,6 +46,10 @@ const API_BASE = "https://api.viator.com/partner";
 const API_VERSION = "2.0";
 const CURRENCY = "USD";
 const MATCH_THRESHOLD = 0.5; // min match score to accept; tune after first run.
+// ENRICH_ONLY=1 → keep the curated match set exactly as-is and only refresh
+// commerce badges; never auto-add a new (uncurated) match. Use this for a
+// badge-refresh run (BRI-168); leave unset to bootstrap / extend coverage.
+const ENRICH_ONLY = process.env.ENRICH_ONLY === "1";
 
 // Some destination names are ambiguous across countries (e.g. "Bali" is both an
 // Indonesian region and a village in Crete). Pin the expected country per slug
@@ -213,6 +225,41 @@ function withCampaign(productUrl, slug) {
   return `${productUrl}${sep}campaign=${campaign}`;
 }
 
+// Provider commerce signals from a /products/search summary (BRI-168), for the
+// card badges. All optional and only included when present — this is pure
+// enrichment (docs/07 "match, don't overwrite"); nothing here touches the
+// editorial title/description. `fromPrice`/`currency` come from the summary's
+// `pricing.summary.fromPrice` + `pricing.currency`; `rating`/`ratingCount` from
+// the aggregate `reviews` object; `freeCancel` from the `FREE_CANCELLATION` flag.
+// Pull the Viator productCode out of a stored affiliate URL, e.g.
+// ".../d343-66102P2?mcid=..." → "66102P2". Used to re-find a *curated* match in
+// fresh search results so its badges can be refreshed without re-matching.
+function productCodeFromUrl(url) {
+  const m = String(url).match(/\/d\d+-([0-9A-Za-z]+)(?:[/?#]|$)/);
+  return m ? m[1] : null;
+}
+
+function commerceFields(p) {
+  const out = {};
+  const fromPrice = p?.pricing?.summary?.fromPrice;
+  if (typeof fromPrice === "number" && Number.isFinite(fromPrice)) {
+    out.fromPrice = fromPrice;
+    if (typeof p?.pricing?.currency === "string") out.currency = p.pricing.currency;
+  }
+  const rating = p?.reviews?.combinedAverageRating;
+  if (typeof rating === "number" && Number.isFinite(rating)) {
+    out.rating = Math.round(rating * 10) / 10;
+    const count = p?.reviews?.totalReviews;
+    if (typeof count === "number" && Number.isFinite(count)) {
+      out.ratingCount = Math.trunc(count);
+    }
+  }
+  if (Array.isArray(p?.flags) && p.flags.includes("FREE_CANCELLATION")) {
+    out.freeCancel = true;
+  }
+  return out;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────--
 async function main() {
   const destinations = parseDestinations();
@@ -222,10 +269,20 @@ async function main() {
   const byId = new Map(index.map((d) => [d.destinationId, d]));
   console.log(`Fetched ${index.length} Viator destinations\n`);
 
+  // Load already-curated links so a re-run **preserves the human-reviewed match**
+  // for each experience and only refreshes its commerce badges (BRI-168). A wrong
+  // match is worse than none (docs/07), so we never silently re-point a curated
+  // card; auto-matching only fills experiences that have no link yet.
+  const linksPath = join(dataDir, "viator-links.json");
+  const existingLinks = existsSync(linksPath)
+    ? JSON.parse(readFileSync(linksPath, "utf8"))
+    : {};
+
   const destMap = {};
   const links = {};
   const review = {}; // slug/expId → { expTitle, candidates:[{title,productCode,score,productUrl}] }
   let matched = 0;
+  let enriched = 0;
   let missed = 0;
 
   for (const d of destinations) {
@@ -247,6 +304,7 @@ async function main() {
       continue;
     }
     console.log(`  ${products.length} products returned`);
+    const byCode = new Map(products.map((p) => [p.productCode, p]));
 
     for (const exp of d.experiences) {
       const ranked = rankMatches(exp.title, products);
@@ -261,11 +319,34 @@ async function main() {
         })),
       };
 
+      // Preserve a curated match: keep the human-chosen affiliate link, just
+      // refresh its commerce badges from the same product in fresh results.
+      const prior = existingLinks[key];
+      if (prior?.affiliateUrl) {
+        const prod = byCode.get(productCodeFromUrl(prior.affiliateUrl));
+        links[key] = { ...prior, ...(prod ? commerceFields(prod) : {}) };
+        enriched += 1;
+        console.log(
+          `  ↻ ${exp.title} — kept curated match, ` +
+            `${prod ? "refreshed badges" : "product not in fresh results, badges unchanged"}`,
+        );
+        continue;
+      }
+
+      // No curated link yet → auto-match (bootstrap / new coverage). Auto-matches
+      // are a starting point to curate, not a final answer (docs/07). Skipped
+      // under ENRICH_ONLY so a badge-refresh run never adds uncurated matches.
+      if (ENRICH_ONLY) {
+        missed += 1;
+        console.log(`  · ${exp.title} — no curated link; skipped (ENRICH_ONLY)`);
+        continue;
+      }
       const top = ranked[0];
       if (top && top.s >= MATCH_THRESHOLD && top.p.productUrl) {
         links[key] = {
           affiliateUrl: withCampaign(top.p.productUrl, d.slug),
           provider: "Viator",
+          ...commerceFields(top.p),
         };
         matched += 1;
         console.log(
@@ -295,7 +376,8 @@ async function main() {
   );
 
   console.log(
-    `\nAuto-matched ${matched} at threshold ${MATCH_THRESHOLD}, ${missed} left unset.\n` +
+    `\nPreserved + badge-refreshed ${enriched} curated match(es); ` +
+      `auto-matched ${matched} new at threshold ${MATCH_THRESHOLD}; ${missed} left unset.\n` +
       `Wrote viator-destinations.json, viator-links.json, and scripts/viator-match-review.json.\n` +
       `IMPORTANT: auto-matches are a starting point — curate viator-links.json against\n` +
       `the review file before building. A wrong match is worse than none (docs/07).`,
