@@ -1,78 +1,171 @@
 {
   "bangkok/grand-palace-wat-phra-kaew": {
     "affiliateUrl": "https://www.viator.com/tours/Bangkok/One-Day-Bangkok-Everything-In/d343-66102P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bangkok-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 233.81,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 94,
+    "freeCancel": true
   },
   "bangkok/wat-pho-reclining-buddha": {
     "affiliateUrl": "https://www.viator.com/tours/Bangkok/One-Day-Bangkok-Everything-In/d343-66102P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bangkok-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 233.81,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 94,
+    "freeCancel": true
   },
   "bangkok/wat-arun-sunset": {
     "affiliateUrl": "https://www.viator.com/tours/Bangkok/Private-tour-to-Temples-and-Canal-Tour/d343-5585303P26?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bangkok-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 159,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 51,
+    "freeCancel": true
   },
   "bangkok/damnoen-saduak-floating-market": {
     "affiliateUrl": "https://www.viator.com/tours/Bangkok/Private-Tour-to-Railway-Market-Floating-Market-and-Ayutthaya/d343-5585303P8?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bangkok-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 180,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 110,
+    "freeCancel": true
   },
   "kyoto/fushimi-inari": {
     "affiliateUrl": "https://www.viator.com/tours/Kyoto/Hidden-Trails-at-Fushimi-Inari-An-Early-Morning-Walking-Tour/d332-5554270P1?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=kyoto-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 93.64,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 40,
+    "freeCancel": true
   },
   "kyoto/arashiyama-bamboo": {
     "affiliateUrl": "https://www.viator.com/tours/Kyoto/Arashiyama-Bamboo-Forest-Family-Bike-Tour/d332-103013P7?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=kyoto-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 436.98,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 32,
+    "freeCancel": true
   },
   "kyoto/tea-ceremony": {
     "affiliateUrl": "https://www.viator.com/tours/Kyoto/Tea-ceremony-and-sake-tasting-in-300-year-old-Kyoto-samurai-house/d332-402518P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=kyoto-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 124.85,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 189
   },
   "lisbon/sintra-day-trip": {
     "affiliateUrl": "https://www.viator.com/tours/Lisbon/Full-day-tour-Sintra-Cape-Roca-Cascais-and-Estoril/d538-373150P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=lisbon-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 579.53,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 109,
+    "freeCancel": true
   },
   "rome/colosseum-forum": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/Full-day-private-guided-tour-of-Rome-by-golf-cart-and-Colosseum-and-Roman-Forum/d511-7377P19?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 1581.64,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 88
   },
   "rome/roman-forum-walk": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/7-hour-Ancient-Rome-driving-tour/d511-20217P4?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 448.67,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 161,
+    "freeCancel": true
   },
   "rome/pantheon": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/Sightseeing-at-Sunrise-Morning-Rome-Small-Group-Walking-Tour/d511-6718P38?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 149.52,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 108,
+    "freeCancel": true
   },
   "rome/roman-cooking-class": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/Pasta-and-Tiramisu-semi-private-cooking-class-with-a-Masterchef/d511-6718P277?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 161.11,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 106,
+    "freeCancel": true
   },
   "hanoi/old-quarter-street-food": {
     "affiliateUrl": "https://www.viator.com/tours/Hanoi/7-Tasting-Hanoi-Street-Food-Tour-By-Motorbike-Sightseeing/d351-348173P3?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=hanoi-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 46.73,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 83,
+    "freeCancel": true
   },
   "hanoi/train-street": {
     "affiliateUrl": "https://www.viator.com/tours/Hanoi/Hanoi-Sightseeing-And-Food-Tour-By-Scooter/d351-86461P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=hanoi-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 55,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 83,
+    "freeCancel": true
   },
   "hanoi/ha-long-bay": {
     "affiliateUrl": "https://www.viator.com/tours/Hanoi/Explore-Halong-on-Day-Luxury-Cruise-Included-Transfer-Sung-Sot-Cave-and-Kayak/d351-179411P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=hanoi-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 179,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 79,
+    "freeCancel": true
   },
   "hanoi/ninh-binh": {
     "affiliateUrl": "https://www.viator.com/tours/Hanoi/Luxury-Ninh-Binh-Full-Day-Tour-From-Hanoi-Limousine-Transfer/d351-252399P16?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=hanoi-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 80,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 294,
+    "freeCancel": true
   },
   "bali/tanah-lot": {
     "affiliateUrl": "https://www.viator.com/tours/Seminyak/Ultimate-Monkey-Forest-Tour/d34198-109615P11?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bali-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 127,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 93,
+    "freeCancel": true
   },
   "bali/monkey-forest-ubud": {
     "affiliateUrl": "https://www.viator.com/tours/Kuta/Private-Ubud-Tour-With-Jungle-Swing/d22290-68435P16?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bali-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 36,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 90,
+    "freeCancel": true
   },
   "bali/mount-batur-sunrise": {
     "affiliateUrl": "https://www.viator.com/tours/Ubud/Best-Mount-Batur-Sunrise-Trekking-with-Breakfast/d5467-417033P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=bali-card",
-    "provider": "Viator"
+    "provider": "Viator",
+    "fromPrice": 19,
+    "currency": "USD",
+    "rating": 5,
+    "ratingCount": 99,
+    "freeCancel": true
   }
 }

@@ -22,6 +22,12 @@ type ViatorEnrichment = {
   /** Optional overrides when the real product data differs meaningfully. */
   priceBand?: Experience["priceBand"];
   duration?: string;
+  /** Provider commerce signals from the matched product summary (BRI-168). */
+  fromPrice?: number;
+  currency?: string;
+  rating?: number;
+  ratingCount?: number;
+  freeCancel?: boolean;
 };
 
 const links = viatorLinks as Record<string, ViatorEnrichment>;
@@ -35,6 +41,14 @@ function enrichExperience(slug: string, e: Experience): Experience {
     provider: hit.provider ?? "Viator",
     ...(hit.priceBand ? { priceBand: hit.priceBand } : {}),
     ...(hit.duration ? { duration: hit.duration } : {}),
+    // Provider commerce signals (BRI-168) — additive; editorial fields untouched.
+    ...(typeof hit.fromPrice === "number" ? { fromPrice: hit.fromPrice } : {}),
+    ...(hit.currency ? { currency: hit.currency } : {}),
+    ...(typeof hit.rating === "number" ? { rating: hit.rating } : {}),
+    ...(typeof hit.ratingCount === "number"
+      ? { ratingCount: hit.ratingCount }
+      : {}),
+    ...(hit.freeCancel ? { freeCancel: true } : {}),
   };
 }
 

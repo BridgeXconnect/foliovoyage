@@ -1,15 +1,36 @@
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
 import type { Experience } from "@/data/types";
+
+/** Format a provider "from" price as e.g. "From $28" (no fake precision). */
+function formatFromPrice(amount: number, currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // Unknown currency code — fall back to a plain amount.
+    return `${amount}`;
+  }
+}
 
 /**
  * Horizontal experience card in the Covilla "vacation" style (image left,
  * details right) for the destination page's right column. Keeps the affiliate
  * seam: a live `sponsored nofollow` booking link when `affiliateUrl` is set,
  * otherwise a clearly non-functional "Booking coming soon" state.
+ *
+ * When a card is matched to a real Viator product (BRI-168) it surfaces the
+ * provider's commerce signals — "from" price, aggregate rating, free-cancellation
+ * — as additive badges. These never replace the editorial `title`/`description`
+ * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before.
  */
 export function ExperienceRowCard({ experience: e }: { experience: Experience }) {
   const live = Boolean(e.affiliateUrl);
+  const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
+  const hasRating = typeof e.rating === "number" && e.rating > 0;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-[3px] border border-line bg-white transition-shadow duration-300 hover:shadow-[0_18px_40px_-28px_rgba(15,19,38,0.45)] sm:flex-row">
@@ -32,13 +53,37 @@ export function ExperienceRowCard({ experience: e }: { experience: Experience })
           {e.description}
         </p>
 
+        {/* Provider signals (BRI-168) — only when matched to a real product. */}
+        {(hasRating || e.freeCancel) && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
+            {hasRating && (
+              <span className="inline-flex items-center gap-1 text-ink">
+                <Star size={14} className="fill-current text-amber-500" aria-hidden />
+                <span className="font-medium">{e.rating!.toFixed(1)}</span>
+                {typeof e.ratingCount === "number" && (
+                  <span className="text-muted">
+                    ({e.ratingCount.toLocaleString("en-US")})
+                  </span>
+                )}
+                <span className="sr-only">average rating</span>
+              </span>
+            )}
+            {e.freeCancel && (
+              <span className="inline-flex items-center gap-1 text-emerald-700">
+                <ShieldCheck size={14} aria-hidden />
+                Free cancellation
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-5 flex items-end justify-between border-t border-line pt-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.16em] text-muted">
-              Price
+              {hasPrice ? "From" : "Price"}
             </p>
             <p className="text-[15px] font-medium text-ink">
-              {e.priceBand}
+              {hasPrice ? formatFromPrice(e.fromPrice!, e.currency) : e.priceBand}
               {e.duration && (
                 <span className="ml-2 text-[13px] font-normal text-muted">
                   · {e.duration}

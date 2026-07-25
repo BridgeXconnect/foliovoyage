@@ -48,6 +48,22 @@ export interface Experience {
    */
   affiliateUrl?: string;
   provider?: "Viator" | "GetYourGuide";
+  /**
+   * Provider-sourced commerce signals, merged in from the matched OTA product
+   * summary (BRI-168, "match don't overwrite" — docs/07). All optional: absent
+   * until a card is matched, and never a substitute for the editorial
+   * `title`/`description`/`priceBand`, which the enrichment layer never touches.
+   */
+  /** Real "from" price in major currency units (e.g. 28 = $28), when matched. */
+  fromPrice?: number;
+  /** ISO-4217 currency for {@link fromPrice} (e.g. "USD"). */
+  currency?: string;
+  /** Aggregate rating (Viator + TripAdvisor), 0–5, one decimal. */
+  rating?: number;
+  /** Aggregate review count backing {@link rating}. */
+  ratingCount?: number;
+  /** True when the matched product carries Viator's FREE_CANCELLATION flag. */
+  freeCancel?: boolean;
 }
 
 export interface Destination {
