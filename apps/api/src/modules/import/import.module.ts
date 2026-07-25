@@ -14,6 +14,7 @@ import {
   LocationResolver,
   type LocationCache,
 } from "./location-resolver";
+import { PriceResolver } from "./price-resolver";
 import { ExperiencePromoter } from "./promote-experience.service";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import { ImportScheduler } from "./scheduler";
@@ -111,6 +112,26 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         ),
     },
     {
+      // BRI-165: resolves the "from" price per product from
+      // `/availability/schedules/{code}`. Reuses VIATOR_HTTP — the same
+      // host-allowlisted fetcher — so schedules calls share the SSRF guard. No
+      // persistent cache: a "from" price is volatile, so it is fetched per run.
+      provide: PriceResolver,
+      inject: [ConfigService, VIATOR_HTTP],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        http: AllowlistFetch,
+      ): PriceResolver =>
+        new PriceResolver(
+          {
+            baseUrl: config.get("VIATOR_API_BASE_URL", { infer: true }),
+            apiKey: config.get("VIATOR_API_KEY", { infer: true }),
+            language: config.get("VIATOR_API_LANGUAGE", { infer: true }),
+          },
+          http,
+        ),
+    },
+    {
       provide: QUARANTINE_STORE,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService): QuarantineStore =>
@@ -151,6 +172,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
       inject: [
         ViatorClient,
         LocationResolver,
+        PriceResolver,
         TourValidator,
         TourUpsertService,
         ExperienceLinker,
@@ -158,11 +180,19 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
       useFactory: (
         client: ViatorClient,
         resolver: LocationResolver,
+        priceResolver: PriceResolver,
         validator: TourValidator,
         upsert: TourUpsertService,
         linker: ExperienceLinker,
       ): ImportPipeline =>
-        new ImportPipeline(client, resolver, validator, upsert, linker),
+        new ImportPipeline(
+          client,
+          resolver,
+          priceResolver,
+          validator,
+          upsert,
+          linker,
+        ),
     },
     {
       // ST-10: runs the pipeline and records each run as an `import_run`. The
@@ -189,6 +219,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     RAW_ARCHIVE_STORE,
     LOCATION_CACHE,
     LocationResolver,
+    PriceResolver,
     QUARANTINE_STORE,
     TourValidator,
     TourUpsertService,

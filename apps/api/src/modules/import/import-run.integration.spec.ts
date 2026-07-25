@@ -8,6 +8,7 @@ import { ImportPipeline } from "./import.pipeline";
 import { ImportRunService } from "./import-run.service";
 import type { LocationResolver } from "./location-resolver";
 import type { TourDTO } from "./normalizer";
+import type { PriceResolver } from "./price-resolver";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import type { PrismaService } from "../../prisma/prisma.service";
 import { TourUpsertService } from "./upsert";
@@ -18,8 +19,8 @@ import { TourValidator } from "./validator";
  * Postgres**. It drives the exact production path a manual/scheduled trigger
  * takes — {@link ImportRunService.execute} → {@link ImportPipeline} →
  * (real validator + real upsert + real Prisma) — with only the Viator network
- * legs (product fetch, location resolve) stubbed, since those need live
- * credentials. It proves the acceptance criteria that can't be faked:
+ * legs (product fetch, location resolve, price resolve) stubbed, since those need
+ * live credentials. It proves the acceptance criteria that can't be faked:
  *
  * - every run leaves one `ImportRun` record with accurate status/counts/timestamps;
  * - a run actually writes validated tours to the live catalogue;
@@ -45,7 +46,7 @@ function rawProduct(code: string, overrides: Record<string, unknown> = {}): Viat
     productCode: code,
     title: `Tour ${code}`,
     description: `Description ${code}`,
-    pricing: { currency: "USD", summary: { fromPrice: 25 } },
+    // No price in the payload (BRI-165) — the price resolver attaches it below.
     reviews: { combinedAverageRating: 4.5, totalReviews: 100 },
     productUrl: `https://www.viator.com/tours/${code}`,
     ...overrides,
@@ -72,7 +73,30 @@ const resolver = {
     tours.map((t) => ({ ...t })),
 } as unknown as LocationResolver;
 
-function makeService(deleteGuardThresholdPct: number, products: ViatorProduct[]) {
+/**
+ * A price resolver stub (the schedules network leg is stubbed out). Prices every
+ * tour at a valid positive amount by default; `priceFor` returning `null` leaves
+ * a tour unpriced so it quarantines.
+ */
+function priceResolverFor(
+  priceFor: (code: string) => number | null = () => 2500,
+): PriceResolver {
+  return {
+    attachPrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+      tours.map((t) => {
+        const price = priceFor(t.provider_tour_id);
+        return price === null
+          ? { ...t }
+          : { ...t, price_minor: price, currency: "USD" };
+      }),
+  } as unknown as PriceResolver;
+}
+
+function makeService(
+  deleteGuardThresholdPct: number,
+  products: ViatorProduct[],
+  priceFor?: (code: string) => number | null,
+) {
   // The bare PrismaClient satisfies the store's query surface; it only lacks
   // PrismaService's Nest lifecycle hooks, which this test doesn't exercise.
   const validator = new TourValidator(
@@ -83,6 +107,7 @@ function makeService(deleteGuardThresholdPct: number, products: ViatorProduct[])
   const pipeline = new ImportPipeline(
     client(products),
     resolver,
+    priceResolverFor(priceFor),
     validator,
     upsert,
     linker,
@@ -133,11 +158,12 @@ describe("ImportRunService end-to-end", () => {
   });
 
   it("counts a quarantined tour and keeps it out of the catalogue", async () => {
-    // "B" has price 0 → quarantined by the real validator.
-    const service = makeService(10, [
-      rawProduct("A"),
-      rawProduct("B", { pricing: { currency: "USD", summary: { fromPrice: 0 } } }),
-    ]);
+    // "B" resolves to no price → quarantined by the real validator (MISSING_PRICE).
+    const service = makeService(
+      10,
+      [rawProduct("A"), rawProduct("B")],
+      (code) => (code === "B" ? null : 2500),
+    );
 
     const run = await service.execute("manual");
 

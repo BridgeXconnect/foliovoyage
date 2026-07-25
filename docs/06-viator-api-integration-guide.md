@@ -62,6 +62,18 @@ TripAdvisor), `flags` (e.g. `FREE_CANCELLATION`, `PRIVATE_TOUR`), `duration`, `i
 `description`. What is Full-Access-gated is the dedicated **`/reviews/product`** endpoint (review
 *content* / individual reviews), not the aggregate rating in the search summary.
 
+**Critical correction — price is endpoint-specific (verified live, 2026-07-25, BRI-165):** the
+`pricing.summary.fromPrice` shape above is real **only for the `POST /products/search` _summary_**.
+The Full-Access **product _detail_** shape (`GET /products/{code}` and the `/products/modified-since`
+crawl the ingest pipeline consumes) does **not** carry a price at all — a real detail payload has
+`pricingInfo` = `{ type, ageBands }` (booking constraints only, no amount), and a deep scan of a full
+product turns up no price/amount field anywhere. The "from" price for a detail-ingested product lives
+in a **separate per-product endpoint**, `GET /availability/schedules/{code}` →
+`{ "currency": "USD", "summary": { "fromPrice": 28 } }`. The ingest normalizer therefore leaves
+price null and a dedicated price resolver (ST-7c) attaches it from `/availability/schedules`, exactly
+as the location resolver attaches coordinates. Do not assume the search-summary price path holds for
+detail payloads — it doesn't, and assuming it did quarantined 100% of real imports.
+
 So `fromPrice`, star rating, and a free-cancellation badge are all **safe to surface now** — they
 carry no duplicate-content risk (unlike Viator's supplier `title`/`description`/`images`, which we
 deliberately do not show; see [docs/07](07-viator-integration-brief.md)). We currently persist only

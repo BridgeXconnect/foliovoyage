@@ -6,6 +6,7 @@ import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { TourDTO } from "./normalizer";
+import type { PriceResolver } from "./price-resolver";
 import {
   MassDeletionAbortError,
   type TourUpsertService,
@@ -26,12 +27,15 @@ import {
  * later stage throws*, so an aborted run can still be recorded accurately.
  */
 
-/** A raw Viator product the normalizer will accept. */
+/**
+ * A raw Viator product the normalizer will accept. No price: a real product
+ * payload carries none (BRI-165) — price is attached later by the price resolver,
+ * faked below.
+ */
 function rawProduct(code: string, overrides: Record<string, unknown> = {}): ViatorProduct {
   return {
     productCode: code,
     title: `Tour ${code}`,
-    pricing: { currency: "USD", summary: { fromPrice: 25 } },
     ...overrides,
   };
 }
@@ -57,6 +61,28 @@ const passthroughResolver = {
   attachLocations: async (tours: TourDTO[]): Promise<TourDTO[]> =>
     tours.map((t) => ({ ...t })),
 } as unknown as LocationResolver;
+
+/**
+ * A price resolver fake. By default it attaches a valid positive price to every
+ * tour (so the real validator passes them). Pass `priceFor` to control the price
+ * per product code — return `null` to leave a tour unpriced (→ quarantined).
+ */
+function fakePriceResolver(
+  priceFor: (code: string) => number | null = () => 2500,
+): PriceResolver {
+  return {
+    attachPrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+      tours.map((t) => {
+        const price = priceFor(t.provider_tour_id);
+        return price === null
+          ? { ...t }
+          : { ...t, price_minor: price, currency: "USD" };
+      }),
+  } as unknown as PriceResolver;
+}
+
+/** The default price resolver: every tour gets a valid positive price. */
+const pricingResolver = fakePriceResolver();
 
 /** A linker that no-ops (these unit tests have no curated tours / DB). */
 const noopLinker = {
@@ -118,7 +144,7 @@ describe("ImportPipeline", () => {
       activeCountBefore: 4,
     });
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -134,20 +160,17 @@ describe("ImportPipeline", () => {
   });
 
   it("counts a quarantined tour and keeps it out of the upsert batch", async () => {
-    // "B" has a non-positive price → quarantined by the real validator.
-    const client = fakeClient([
-      [
-        rawProduct("A"),
-        rawProduct("B", { pricing: { currency: "USD", summary: { fromPrice: 0 } } }),
-      ],
-    ]);
+    // "B" resolves to no price → quarantined by the real validator (MISSING_PRICE).
+    const client = fakeClient([[rawProduct("A"), rawProduct("B")]]);
     const { service: upsert, calls } = fakeUpsert({
       upserted: 1,
       softDeleted: 0,
       activeCountBefore: 1,
     });
+    // Price "A" normally, leave "B" unpriced.
+    const priceResolver = fakePriceResolver((code) => (code === "B" ? null : 2500));
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
+    const pipeline = new ImportPipeline(client, passthroughResolver, priceResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -168,7 +191,7 @@ describe("ImportPipeline", () => {
       activeCountBefore: 1,
     });
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -181,6 +204,7 @@ describe("ImportPipeline", () => {
     const pipeline = new ImportPipeline(
       client,
       passthroughResolver,
+      pricingResolver,
       validator,
       abortingUpsert(),
       noopLinker,

@@ -12,10 +12,14 @@ import type { ViatorProduct } from "./clients/viator.types";
  * unit-tested against a recorded payload in isolation.
  *
  * Ownership boundary (docs/02 §1.3): this function only sets **provider-sourced**
- * fields (title, description, price, duration, aggregate rating, booking URL)
- * plus provenance. It deliberately does **not** set Atlas-owned fields — editor
+ * fields (title, description, duration, aggregate rating, booking URL) plus
+ * provenance. It deliberately does **not** set Atlas-owned fields — editor
  * rating, curated categories/tags, slug, curation status, `experience_id` — which
- * belong to editorial/enrichment and the dedup service, not to ingest.
+ * belong to editorial/enrichment and the dedup service, not to ingest. Two
+ * provider-sourced fields it also leaves `null`, because the product payload does
+ * not contain them, are resolved by dedicated post-normalization steps:
+ * coordinates (ST-7b, from `/locations/bulk`) and price/currency (ST-7c, from
+ * `/availability/schedules/{code}` — the payload's `pricingInfo` holds no amount).
  */
 
 /**
@@ -46,9 +50,22 @@ export interface TourDTO {
   rating_avg: number | null;
   /** Imported aggregate review count, or `null` when unrated. */
   rating_count: number | null;
-  /** "From" price in minor units (e.g. cents), or `null` when unpriced. */
+  /**
+   * "From" price in minor units (e.g. cents), or `null` when unpriced. **Not**
+   * set by {@link normalizeViatorProduct}: the Viator product payload carries no
+   * price at all (its `pricingInfo` is booking constraints only — verified live,
+   * BRI-165), so like {@link latitude}/{@link longitude} this is left `null` by
+   * the pure normalizer and filled in by the ST-7c price resolver from
+   * `/availability/schedules/{code}`. Deliberately excluded from
+   * {@link source_hash}: a "from" price is volatile and would churn the content
+   * hash of an otherwise-unchanged tour on every price move.
+   */
   price_minor: number | null;
-  /** ISO-4217 currency code, or `null` when unpriced. */
+  /**
+   * ISO-4217 currency code, or `null` when unpriced. Set alongside
+   * {@link price_minor} by the price resolver, not the normalizer; excluded from
+   * {@link source_hash} for the same reason.
+   */
   currency: string | null;
   /** Provider deep link (Viator `productUrl`, affiliate params intact). */
   affiliate_url: string | null;
@@ -115,14 +132,22 @@ export interface NormalizeContext {
 
 /**
  * The content fields hashed into {@link TourDTO.source_hash}, in stable order.
- * `latitude`/`longitude` are excluded alongside the provenance fields: they are
- * resolved from `location_ref` (which *is* hashed) after normalization, so
- * hashing them would make an otherwise-unchanged tour's hash depend on
- * resolution timing.
+ * Excluded alongside the provenance fields:
+ * - `latitude`/`longitude` — resolved from `location_ref` (which *is* hashed)
+ *   after normalization, so hashing them would make an otherwise-unchanged tour's
+ *   hash depend on resolution timing.
+ * - `price_minor`/`currency` — resolved from `/availability/schedules` after
+ *   normalization *and* volatile, so hashing them would churn the content hash of
+ *   an unchanged tour every time its "from" price moved.
  */
 type TourContent = Omit<
   TourDTO,
-  "fetched_at" | "source_hash" | "latitude" | "longitude"
+  | "fetched_at"
+  | "source_hash"
+  | "latitude"
+  | "longitude"
+  | "price_minor"
+  | "currency"
 >;
 
 /**
@@ -147,8 +172,6 @@ export function normalizeViatorProduct(
     duration_min: extractDurationMin(raw),
     rating_avg: extractRatingAvg(raw),
     rating_count: extractRatingCount(raw),
-    price_minor: extractPriceMinor(raw),
-    currency: extractCurrency(raw),
     affiliate_url: optionalString(raw["productUrl"]),
     location_ref: extractLocationRef(raw),
     image_url: extractCoverImageUrl(raw),
@@ -158,9 +181,13 @@ export function normalizeViatorProduct(
 
   return {
     ...content,
-    // Coordinates are resolved from `location_ref` by ST-7b, not here — a pure
-    // function can't call `/locations/bulk`. They start null and are filled in
-    // downstream.
+    // Price/currency and coordinates are resolved from separate endpoints after
+    // normalization, not here — a pure function can't call the network. They
+    // start null and are filled in downstream: coordinates by the ST-7b location
+    // resolver (`/locations/bulk`), price/currency by the ST-7c price resolver
+    // (`/availability/schedules/{code}`; the product payload has no price).
+    price_minor: null,
+    currency: null,
     latitude: null,
     longitude: null,
     fetched_at: ctx.fetchedAt,
@@ -182,8 +209,6 @@ function hashContent(content: TourContent): string {
     content.duration_min,
     content.rating_avg,
     content.rating_count,
-    content.price_minor,
-    content.currency,
     content.affiliate_url,
     content.location_ref,
     content.image_url,
@@ -219,23 +244,6 @@ function extractRatingAvg(raw: ViatorProduct): number | null {
 /** Combined aggregate review count. */
 function extractRatingCount(raw: ViatorProduct): number | null {
   return optionalInteger(asRecord(raw["reviews"])?.["totalReviews"]);
-}
-
-/**
- * "From" price in minor units. Reads `pricing.summary.fromPrice` (a major-unit
- * amount, per docs/06) and converts to integer minor units. `null` when absent.
- */
-function extractPriceMinor(raw: ViatorProduct): number | null {
-  const fromPrice = asRecord(asRecord(raw["pricing"])?.["summary"])?.[
-    "fromPrice"
-  ];
-  if (typeof fromPrice !== "number" || !Number.isFinite(fromPrice)) return null;
-  return Math.round(fromPrice * 100);
-}
-
-/** ISO-4217 currency code from `pricing.currency`. */
-function extractCurrency(raw: ViatorProduct): string | null {
-  return optionalString(asRecord(raw["pricing"])?.["currency"]);
 }
 
 /**
