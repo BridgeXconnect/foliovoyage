@@ -89,6 +89,7 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 - **FR-DEST-3 (Must):** Each Experience card shows title, primary image, editor rating, price band, top categories/tags, affiliate CTA. _(BG-2, BG-3)_
 - **FR-DEST-4 (Should):** Allow comparison of 2–4 Tours by price, duration, rating, provider, inclusions.
 - **FR-DEST-5 (Should):** Users save Experiences to a Collection/Itinerary, persisted anonymously (local + server once authenticated).
+- **FR-DEST-6 (Must):** A destination has **one canonical URL: `/destinations/:slug`** (the short, editorial, Atlas-owned surface). The DB-backed ingest path `/destinations/:country/:city` (ST-11) is a permanent alias that **308-redirects** to the canonical URL; the sitemap lists only the canonical form. Editorial title/description remain Atlas-owned on the canonical page (§1.3) — the provider title/description the linker seeds onto DB Experiences are never the canonical public copy; the ingested Tour supplies only price/image/`affiliateUrl` onto editorial cards ("match, don't overwrite", docs/07). _(BRI-166; BG-1, BG-2)_
 
 ## 2.2 Search & filters
 - **FR-SRCH-1 (Must):** Global search returns Experiences and Destinations ranked by relevance + popularity. _(BG-1)_
