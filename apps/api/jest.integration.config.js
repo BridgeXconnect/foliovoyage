@@ -21,4 +21,8 @@ module.exports = {
   testEnvironment: "node",
   // A real DB round-trip per case; give it more than the 5s default.
   testTimeout: 30000,
+  // Every integration spec shares one Postgres and scopes its fixtures by
+  // `provider: "viator"`. Running spec files in parallel workers would let one
+  // file's `deleteMany` clobber another's rows mid-test, so serialize them.
+  maxWorkers: 1,
 };

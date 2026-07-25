@@ -141,6 +141,72 @@ model QuarantinedTour {
   @@index([provider, providerTourId])
 }
 
+/// Terminal state of a single import run (ST-10 / BRI-107).
+///
+/// `aborted` is deliberately distinct from `failed`: it is the specific outcome
+/// of ST-9's mass-deletion guard tripping (a `MassDeletionAbortError`), where the
+/// run rolled back *on purpose* to protect the catalogue — not an unexpected
+/// crash. Keeping them separate lets an operator tell "the safety guard did its
+/// job" apart from "something broke".
+enum ImportRunStatus {
+  /// The run is in flight (row created, pipeline not yet finished).
+  running
+  /// The pipeline completed and the upsert transaction committed.
+  succeeded
+  /// The pipeline threw an unexpected error; nothing partial is left running.
+  failed
+  /// ST-9's mass-deletion guard tripped; the upsert rolled back by design.
+  aborted
+}
+
+/// One execution of the ingest pipeline (ST-10 / BRI-107).
+///
+/// A row is written the moment a run starts (status `running`) and updated in
+/// place with the final status, counts, and `finishedAt` when it ends — whether
+/// it succeeds, fails, or is aborted by the mass-deletion guard. It is the
+/// durable audit trail for both the nightly scheduled crawl and any manual
+/// trigger: every run leaves exactly one record, so a run is never silently
+/// missing and never stuck as `running`.
+///
+/// The counts mirror what each pipeline stage already reports — `fetched` from
+/// the ST-6 client, `normalized` from the ST-7 normalizer, `quarantined` from
+/// the ST-8 validator, `upserted`/`softDeleted` from the ST-9 upsert — rather
+/// than being recomputed here. On an aborted run the upsert commits nothing, so
+/// `upserted`/`softDeleted` stay 0 while the earlier stages' counts are retained.
+model ImportRun {
+  id          String          @id @default(cuid())
+  /// Source OTA this run crawled. Always "viator" today.
+  provider    String          @default("viator")
+  /// How the run was kicked off: "scheduled" (nightly cron) or "manual" (CLI).
+  trigger     String
+  /// Terminal state; starts `running`, updated once on completion.
+  status      ImportRunStatus @default(running)
+  /// Raw products pulled from the provider (ST-6).
+  fetched     Int             @default(0)
+  /// Products that normalized to a TourDTO without error (ST-7).
+  normalized  Int             @default(0)
+  /// Tours the validator quarantined instead of publishing (ST-8).
+  quarantined Int             @default(0)
+  /// Rows inserted or updated in the live catalogue (ST-9).
+  upserted    Int             @default(0)
+  /// Rows soft-deleted this run (active before, absent now) (ST-9).
+  softDeleted Int             @default(0)
+  /// Last pagination cursor observed. The ST-6 client walks the cursor to
+  /// completion within a run, so this is null on a clean finish; it retains the
+  /// cursor reached if a crawl breaks off early. (M1 is synchronous — there is
+  /// no resume yet; this only records where the run got to.)
+  cursor      String?
+  /// Human-readable failure/abort message, when status is `failed` or `aborted`.
+  error       String?
+  /// When the run started (row created).
+  startedAt   DateTime        @default(now())
+  /// When the run reached a terminal state; null while `running`.
+  finishedAt  DateTime?
+
+  /// Recent-runs listing scopes by provider, newest first.
+  @@index([provider, startedAt])
+}
+
 /// Cache of provider location references resolved to coordinates
 /// (ST-7b / BRI-163). Viator's product payload carries only an opaque location
 /// reference (`logistics.start[].location.ref`) — never coordinates — so we

@@ -93,6 +93,26 @@ export const envSchema = z.object({
     .min(0)
     .max(100)
     .default(10),
+
+  // --- Ingest / nightly scheduler (ST-10 / BRI-107) ------------------------
+
+  /**
+   * Cron expression for the nightly import. Standard 5-field crontab syntax
+   * (min hour dom mon dow). Defaults to 03:00 daily — off-peak, after any
+   * upstream nightly catalogue refresh. Tunable without a code change.
+   */
+  IMPORT_CRON_SCHEDULE: z.string().min(1).default("0 3 * * *"),
+
+  /**
+   * Whether the nightly scheduled import is registered at boot. `true` in real
+   * environments; set `false` in local dev / CI so a background crawl never
+   * fires unexpectedly (a manual trigger still works regardless). Accepts
+   * `true`/`false`/`1`/`0`; anything else (and unset) is treated as enabled.
+   */
+  IMPORT_CRON_ENABLED: z
+    .string()
+    .default("true")
+    .transform((v) => v !== "false" && v !== "0"),
 });
 
 /** Fully-parsed, typed environment. */
