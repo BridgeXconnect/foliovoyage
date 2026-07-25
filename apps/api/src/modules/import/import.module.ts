@@ -5,6 +5,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ViatorClient } from "./clients/viator.client";
+import { ExperienceLinker } from "./experience-linker";
 import { AllowlistFetch } from "./http/allowlist-fetch";
 import { ImportRunService } from "./import-run.service";
 import { ImportPipeline } from "./import.pipeline";
@@ -13,6 +14,7 @@ import {
   LocationResolver,
   type LocationCache,
 } from "./location-resolver";
+import { ExperiencePromoter } from "./promote-experience.service";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import { ImportScheduler } from "./scheduler";
 import {
@@ -130,6 +132,20 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         new TourUpsertService(prisma),
     },
     {
+      // ST-11: auto-creates/links draft Experiences from imported tours.
+      provide: ExperienceLinker,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): ExperienceLinker =>
+        new ExperienceLinker(prisma),
+    },
+    {
+      // ST-11: the manual draft→published promoter (stand-in for Admin review).
+      provide: ExperiencePromoter,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): ExperiencePromoter =>
+        new ExperiencePromoter(prisma),
+    },
+    {
       // ST-10: threads the stages above into one straight-through run.
       provide: ImportPipeline,
       inject: [
@@ -137,14 +153,16 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         LocationResolver,
         TourValidator,
         TourUpsertService,
+        ExperienceLinker,
       ],
       useFactory: (
         client: ViatorClient,
         resolver: LocationResolver,
         validator: TourValidator,
         upsert: TourUpsertService,
+        linker: ExperienceLinker,
       ): ImportPipeline =>
-        new ImportPipeline(client, resolver, validator, upsert),
+        new ImportPipeline(client, resolver, validator, upsert, linker),
     },
     {
       // ST-10: runs the pipeline and records each run as an `import_run`. The
@@ -174,6 +192,8 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     QUARANTINE_STORE,
     TourValidator,
     TourUpsertService,
+    ExperienceLinker,
+    ExperiencePromoter,
     ImportPipeline,
     ImportRunService,
   ],

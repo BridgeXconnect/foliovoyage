@@ -4,6 +4,15 @@
 // vertical slice (browser → web → API → Postgres) against one seeded row.
 // Real domain modelling is M1's job; resist growing this beyond what the
 // destination page actually renders (a title, a hero image, and a short list).
+//
+// BRI-164 / ST-11: the first cross-model links land here — `Tour.experienceId`
+// (a Tour is linked to at most one Experience) and the Experience lifecycle
+// `status` (auto-created Experiences start `draft`, promoted to `published` by
+// an explicit CLI standing in for Admin review, M7). Geo is stored as plain
+// `Float` lat/lng throughout (City centroid, Experience point), *not* PostGIS —
+// a deliberate divergence from docs/02's `geography(Point,4326)` DDL, chosen to
+// match the existing `Tour`/`ProviderLocation` Float columns and stay
+// Prisma-native (no `postgisExtensions` preview feature, no raw-SQL geometry).
 
 generator client {
   provider = "prisma-client-js"
@@ -16,36 +25,87 @@ datasource db {
 
 /// A destination city, addressed in the URL as /destinations/:country/:city.
 model City {
-  id           String       @id @default(cuid())
+  id            String       @id @default(cuid())
   /// URL slug for the city, e.g. "paris".
-  slug         String
+  slug          String
   /// URL slug for the country, e.g. "france".
-  countrySlug  String
+  countrySlug   String
   /// Display name, e.g. "Paris".
-  name         String
+  name          String
   /// Display country, e.g. "France".
-  country      String
+  country       String
   /// Absolute hero image URL.
-  heroImageUrl String
+  heroImageUrl  String
   /// Hero image alt text (accessibility + SEO).
-  heroImageAlt String
-  experiences  Experience[]
+  heroImageAlt  String
+  /// Viator destination ref this curated city maps to (e.g. "343" for Bangkok),
+  /// or null for a hand-authored city with no imported inventory. This is the
+  /// key the import linker matches a Tour's `destinationRefs` against to decide
+  /// which City an imported Experience belongs to (BRI-164 exact-ref linkage).
+  viatorDestRef String?      @unique
+  /// City centroid latitude (WGS-84), from Viator's `/destinations` `center`.
+  /// Used as the geo fallback when an imported Tour has no resolved coordinates
+  /// (BRI-163): the auto-created Experience's required point falls back to this.
+  centroidLat   Float?
+  /// City centroid longitude (WGS-84); see {@link centroidLat}.
+  centroidLng   Float?
+  experiences   Experience[]
 
   /// A country+city slug pair uniquely identifies a destination.
   @@unique([countrySlug, slug])
 }
 
 /// A single curated experience shown in the destination's list.
+///
+/// BRI-164 / ST-11: an Experience is Atlas's curated concept. The import linker
+/// auto-creates one per imported `Tour` that maps to a curated city, starting in
+/// `status: "draft"` — never `published` (there is no review step yet; an
+/// explicit CLI, standing in for Admin review in M7, promotes it). Only
+/// `published` Experiences are visible on the public site.
 model Experience {
-  id          String @id @default(cuid())
-  title       String
-  description String
+  id           String @id @default(cuid())
+  title        String
+  description  String
+  /// Lifecycle state. Minimal for now — `draft` (auto-created / not yet
+  /// reviewed) or `published` (visible on the site). Deliberately a plain
+  /// String, not an enum: docs/02 §1.2's full lifecycle
+  /// (draft→enriched→published→featured?→archived) is aspirational, and this
+  /// story only needs the two states, addable-to without a schema change.
+  status       String @default("draft")
+  /// Experience point latitude (WGS-84). NOT NULL by design: an Experience
+  /// always has a location. For an auto-created one it is the linked Tour's
+  /// resolved latitude, falling back to the parent City's centroid when the Tour
+  /// has none (BRI-163). The linker fails loudly if neither is available rather
+  /// than writing a null.
+  latitude     Float
+  /// Experience point longitude (WGS-84); see {@link latitude}.
+  longitude    Float
+  /// Atlas-owned editorial rating (0–5), distinct from the provider's
+  /// `Tour.ratingAvg`. Null until an editor sets it — ingest never writes it
+  /// (docs/02 §1.3 ownership boundary), so auto-created Experiences carry null.
+  editorRating Float?
   /// Sort order within the city's list.
-  position    Int    @default(0)
-  cityId      String
-  city        City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  position     Int    @default(0)
+  cityId       String
+  city         City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  /// Tours linked to this Experience. The FK lives on {@link Tour.experienceId};
+  /// the import linker keeps this 1:1 in practice (one auto-created Experience
+  /// per source Tour), while the schema leaves room for docs/02's future
+  /// many-Tours-per-Experience model.
+  tours        Tour[]
 
+  /// Provenance of an auto-created Experience: the provider + product id of the
+  /// Tour it was created from. This is the idempotency key that makes
+  /// auto-creation safe to re-run and race-safe under concurrent imports — a
+  /// second run for the same Tour collides here instead of creating a duplicate.
+  /// Null for hand-seeded (non-imported) Experiences.
+  sourceProvider       String?
+  sourceProviderTourId String?
+
+  @@unique([sourceProvider, sourceProviderTourId])
   @@index([cityId])
+  /// The public read path filters published rows for a city.
+  @@index([cityId, status])
 }
 
 /// A published tour in the live catalogue (ST-9 / BRI-106).
@@ -66,55 +126,73 @@ model Experience {
 /// tags, slug, curation status) are intentionally absent — ingest never writes
 /// them (docs/02 §1.3 ownership boundary).
 model Tour {
-  id             String    @id @default(cuid())
+  id              String      @id @default(cuid())
   /// Source OTA, from the DTO's `provider`. Always "viator" today.
-  provider       String
+  provider        String
   /// Provider's immutable product id, from `provider_tour_id`. Never changes
   /// once set — it is the natural key half that makes re-imports idempotent.
-  providerTourId String
+  providerTourId  String
   /// Provider-sourced supplier title (backs a NOT NULL column; the validator
   /// quarantines titleless tours upstream, so this is always present here).
-  title          String
+  title           String
   /// Provider-sourced description; null when the payload omits it.
-  description    String?
+  description     String?
   /// Duration in minutes, or null for variable-duration products.
-  durationMin    Int?
+  durationMin     Int?
   /// Imported aggregate rating (Viator + TripAdvisor), or null when unrated.
-  ratingAvg      Float?
+  ratingAvg       Float?
   /// Imported aggregate review count, or null when unrated.
-  ratingCount    Int?
+  ratingCount     Int?
   /// "From" price in minor units (e.g. cents). Non-null here — the validator
   /// quarantines missing/non-positive prices upstream.
-  priceMinor     Int?
+  priceMinor      Int?
   /// ISO-4217 currency code, or null when unpriced.
-  currency       String?
+  currency        String?
   /// Provider deep link (affiliate params intact), or null when absent.
-  affiliateUrl   String?
+  affiliateUrl    String?
   /// Provider's opaque start-location reference, or null.
-  locationRef    String?
+  locationRef     String?
   /// Resolved start latitude (WGS-84), or null when unresolved (BRI-163: a
   /// null-geo tour is legitimately published, not quarantined).
-  latitude       Float?
+  latitude        Float?
   /// Resolved start longitude (WGS-84), or null when unresolved.
-  longitude      Float?
+  longitude       Float?
+  /// Provider cover-image URL (the `isCover` image's mid-size variant), or null
+  /// when the payload carries no imagery. Provider-owned content, surfaced on the
+  /// linked Experience's card (ST-11). BRI-164.
+  imageUrl        String?
+  /// Alt text for {@link imageUrl} (the image caption), or null.
+  imageAlt        String?
+  /// Provider destination refs this product is filed under, e.g. `["343"]`
+  /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
+  /// import linker matches these against curated `City.viatorDestRef` to decide
+  /// which City an imported Experience belongs to (BRI-164). Empty when absent.
+  destinationRefs String[]    @default([])
+  /// FK to the Atlas Experience this Tour was linked to (BRI-164), or null until
+  /// the import linker creates/links one. `SetNull` on delete: a Tour outlives
+  /// the unlinking of its Experience rather than being cascaded away.
+  experienceId    String?
+  experience      Experience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
   /// Provenance: when the raw page was fetched (from the DTO, ST-6 crawl time).
-  fetchedAt      DateTime
+  fetchedAt       DateTime
   /// Provenance: SHA-256 of the normalized content. Lets a re-import detect an
   /// unchanged row without a field-by-field compare.
-  sourceHash     String
+  sourceHash      String
   /// When this row was first written.
-  createdAt      DateTime  @default(now())
+  createdAt       DateTime    @default(now())
   /// When this row was last upserted.
-  updatedAt      DateTime  @updatedAt
+  updatedAt       DateTime    @updatedAt
   /// Soft-delete tombstone: non-null once the tour vanished from a later run.
   /// Read paths filter on `deletedAt: null`; cleared again if the tour returns.
-  deletedAt      DateTime?
+  deletedAt       DateTime?
 
   /// The immutable natural key. Makes upserts idempotent and gives the
   /// soft-delete diff a stable identity to match rows on.
   @@unique([provider, providerTourId])
   /// Active-catalogue reads and the run diff both scope by provider + liveness.
   @@index([provider, deletedAt])
+  /// The linker selects active, unlinked tours; the read path joins by Experience.
+  @@index([experienceId])
 }
 
 /// A normalized tour that failed validation and was quarantined instead of

@@ -1,18 +1,37 @@
 /**
- * Tiny server-side client for the Folio Voyage API (ST-5 / BRI-100).
+ * Tiny server-side client for the Folio Voyage API (ST-5 / BRI-100, extended for
+ * ST-11 / BRI-164).
  *
- * The first vertical slice reads a single seeded destination from the NestJS
- * API (which reads Postgres) — data flows browser → web server component →
- * API → DB, never hardcoded in the frontend.
+ * Destination data is read server-side from the NestJS API (which reads
+ * Postgres) — never hardcoded in the frontend. For an imported city this returns
+ * the DB's published Experiences (with their linked Tour's image + price),
+ * paginated.
  */
 
 /** Base URL of the API. Server-side only; defaults to the local dev port. */
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
 
+export type PriceBand = "$" | "$$" | "$$$" | "$$$$";
+
 export interface ApiExperience {
   id: string;
   title: string;
   description: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  editorRating: number | null;
+  priceBand: PriceBand | null;
+  tags: string[];
+  /** Present only once a live booking link is attached; absent → "coming soon". */
+  affiliateUrl?: string;
+  provider?: string;
+}
+
+export interface ApiPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface ApiDestination {
@@ -23,6 +42,13 @@ export interface ApiDestination {
   heroImageUrl: string;
   heroImageAlt: string;
   experiences: ApiExperience[];
+  pagination: ApiPagination;
+}
+
+/** Options for a paginated destination fetch. */
+export interface FetchDestinationOptions {
+  page?: number;
+  pageSize?: number;
 }
 
 /**
@@ -35,12 +61,19 @@ export interface ApiDestination {
 export async function fetchDestination(
   countrySlug: string,
   citySlug: string,
+  options: FetchDestinationOptions = {},
 ): Promise<ApiDestination | null> {
-  const url = `${API_BASE_URL}/v1/destinations/${encodeURIComponent(
-    countrySlug,
-  )}/${encodeURIComponent(citySlug)}`;
+  const params = new URLSearchParams();
+  if (options.page !== undefined) params.set("page", String(options.page));
+  if (options.pageSize !== undefined) {
+    params.set("pageSize", String(options.pageSize));
+  }
+  const qs = params.toString();
+  const url =
+    `${API_BASE_URL}/v1/destinations/${encodeURIComponent(countrySlug)}/` +
+    `${encodeURIComponent(citySlug)}${qs ? `?${qs}` : ""}`;
 
-  // Read fresh on every request for this slice — no caching of the seeded row.
+  // Read fresh on every request for this slice — no caching of the DB rows.
   const res = await fetch(url, { cache: "no-store" });
 
   if (res.status === 404) return null;

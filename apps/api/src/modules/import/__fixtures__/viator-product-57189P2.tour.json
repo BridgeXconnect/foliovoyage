@@ -10,8 +10,11 @@
   "currency": "USD",
   "affiliate_url": "https://shop.live.rc.viator.com/tours/Hanoi/Small-Group-Hanoi-Street-Food-Tour-with-a-Real-Foodie/d351-57189P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0",
   "location_ref": null,
+  "image_url": null,
+  "image_alt": null,
+  "destination_refs": [],
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "1b9584f6a12cb45250d7b2a0169dd27fbdd31be90211c97fc6edcafa9f5e16b0"
+  "source_hash": "eab84ffa8b42253506f2820bc7a3fa480da3e55769096a7e3f1ab6d9ea4f4ff0"
 }

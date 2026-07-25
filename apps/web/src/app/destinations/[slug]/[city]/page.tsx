@@ -3,23 +3,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DbExperienceCard } from "@/components/DbExperienceCard";
 import { fetchDestination } from "@/lib/api";
 
 /**
- * ST-5 / BRI-100 — first vertical slice: a server-rendered destination page at
- * /destinations/:country/:city (e.g. /destinations/france/paris).
+ * DB-backed destination page at /destinations/:country/:city
+ * (e.g. /destinations/thailand/bangkok) — ST-5 / BRI-100, extended for
+ * ST-11 / BRI-164.
  *
- * Data is fetched server-side from the NestJS API (which reads one seeded
- * Postgres row) — nothing here is hardcoded. This route shares the parent
- * `[slug]` dynamic segment with the marketing city guides at
- * /destinations/:slug; here that first segment is the country slug.
+ * Data is fetched server-side from the NestJS API (which reads Postgres) —
+ * nothing here is hardcoded. For an imported city this renders the DB's
+ * **published** Experiences (draft ones stay hidden), paginated, each with its
+ * linked Tour's image + price and a "coming soon" CTA placeholder. This route
+ * shares the parent `[slug]` segment with the static marketing guides at
+ * /destinations/:slug; here that first segment is the country slug, and the
+ * static hand-written guides are untouched by this change.
  *
  * `no-store` fetching keeps the route dynamic, so it renders per request and is
  * never prerendered against an API that may be offline at build time.
  */
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 12;
+
 type Params = { slug: string; city: string };
+type Search = { page?: string };
 
 export async function generateMetadata({
   params,
@@ -36,14 +44,30 @@ export async function generateMetadata({
   };
 }
 
+/** Parse a 1-based page from the query string, defaulting to 1. */
+function parsePage(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.trunc(n) : 1;
+}
+
 export default async function DestinationBySlugPage({
   params,
+  searchParams,
 }: {
   params: Promise<Params>;
+  searchParams: Promise<Search>;
 }) {
   const { slug: country, city } = await params;
-  const destination = await fetchDestination(country, city);
+  const page = parsePage((await searchParams).page);
+
+  const destination = await fetchDestination(country, city, {
+    page,
+    pageSize: PAGE_SIZE,
+  });
   if (!destination) notFound();
+
+  const { pagination } = destination;
+  const basePath = `/destinations/${country}/${city}`;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -79,19 +103,61 @@ export default async function DestinationBySlugPage({
         <h2 className="text-2xl font-semibold text-ink">
           Things to do in {destination.city}
         </h2>
-        <ul className="mt-6 space-y-6">
-          {destination.experiences.map((experience) => (
-            <li
-              key={experience.id}
-              className="border-b border-line pb-6 last:border-b-0"
-            >
-              <h3 className="font-display text-lg font-medium text-ink">
-                {experience.title}
-              </h3>
-              <p className="mt-1 text-ink-soft">{experience.description}</p>
-            </li>
-          ))}
-        </ul>
+
+        {destination.experiences.length === 0 ? (
+          <p className="mt-6 text-ink-soft">
+            No published experiences here yet — check back soon.
+          </p>
+        ) : (
+          <>
+            <ul className="mt-6 space-y-6">
+              {destination.experiences.map((experience) => (
+                <li key={experience.id}>
+                  <DbExperienceCard experience={experience} />
+                </li>
+              ))}
+            </ul>
+
+            {pagination.totalPages > 1 && (
+              <nav
+                aria-label="Pagination"
+                className="mt-10 flex items-center justify-between border-t border-line pt-6 text-sm"
+              >
+                {page > 1 ? (
+                  <Link
+                    href={`${basePath}?page=${page - 1}`}
+                    className="text-accent hover:underline"
+                    rel="prev"
+                  >
+                    ← Previous
+                  </Link>
+                ) : (
+                  <span className="text-muted" aria-disabled>
+                    ← Previous
+                  </span>
+                )}
+
+                <span className="text-muted">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+
+                {page < pagination.totalPages ? (
+                  <Link
+                    href={`${basePath}?page=${page + 1}`}
+                    className="text-accent hover:underline"
+                    rel="next"
+                  >
+                    Next →
+                  </Link>
+                ) : (
+                  <span className="text-muted" aria-disabled>
+                    Next →
+                  </span>
+                )}
+              </nav>
+            )}
+          </>
+        )}
       </section>
     </main>
   );
