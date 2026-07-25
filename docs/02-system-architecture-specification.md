@@ -248,7 +248,7 @@ OTA APIs → Import Workers (queue) → Normalizer → Validator → Enrichment
 ## 6.1 Stages
 1. **Fetch** — paged, rate-limited, ETag/If-Modified-Since; raw payloads to object storage (`raw/{provider}/{date}/{page}.json`) for replay.
 2. **Normalize** — provider → Atlas fields; record `provider`, `provider_tour_id`, `fetched_at`, `source_hash`.
-3. **Validate** — reject/quarantine missing title/geo/price, bad coords, non-positive price; quarantine surfaced in Admin.
+3. **Validate** — reject/quarantine missing title/price, non-positive price; quarantine surfaced in Admin. **Missing geo is *not* a reject trigger** (corrected per BRI-105/BRI-163): a tour whose start location can't be resolved to coordinates is still published — its linked Experience falls back to the parent City's centroid for its required point (§7.2). Only a *present-but-invalid* coordinate (out of range) is quarantined.
 4. **Enrich** — categories/tags (rules + optional LLM), walking distance from center, best-season, AI summary (queued, human-approved before publish).
 5. **Deduplicate** — cluster by geo proximity + title similarity + provider → assign canonical Experience (deterministic + reviewable).
 6. **Upsert** — idempotent by `(provider, provider_tour_id)`; update snapshots; soft-delete absent tours.
@@ -510,7 +510,7 @@ Budgets in [§3](#3-non-functional-requirements). Techniques:
 | TD-8 | No UGC reviews | Scope control | Post-V2 |
 | TD-9 | No multi-language | Focus | V3 (hreflang reserved) |
 | TD-10 | Nearby-restaurants data/cost risk | Places cost | Spike in M3 |
-| TD-11 | No backend/DB yet; frontend fetches & caches Viator data directly (Next.js ISR / build-time enrichment) | Basic Access lacks bulk ingestion (`/products/modified-since`), so a backend had nothing to manage — FR-IMPORT-1/2 deferred | Full Access approval |
+| TD-11 | ~~No backend/DB yet; frontend fetches & caches Viator data directly~~ **RESOLVED (M1).** The backend + Postgres + ingest pipeline now exist (`apps/api`): the `/products/modified-since` crawl → normalize → location-resolve → validate/quarantine → idempotent upsert → auto-linked draft Experiences (ST-6…ST-11), and `/destinations/:country/:city` reads published Experiences from the DB for imported cities. The static hand-authored content path (`apps/web/src/data`) remains for cities not yet imported. | Basic Access lacked bulk ingestion, so the original V1 shipped frontend-only; Full Access unblocked FR-IMPORT-1/2 | ~~Full Access approval~~ **Done** |
 | TD-12 | AI trip-planner may surface **unvetted** place suggestions for uncovered cities ([docs/11](11-map-and-planner-direction.md)) | Planner UX beyond curated coverage; the moat is trust (BG-3, §7.3) | **Provenance wall required** (distinct marker/label, no affiliate CTA) before M8 planner ships; uncovered cities logged as curation demand signal |
 
 > **Commercial↔learning tension:** M6 concepts (queues/cache/search) are learning-motivated but also needed by M3–M5 traffic. Land map/search caching no later than the SEO ramp (M5) — now for **performance and resilience against OpenFreeMap's no-SLA tile host** rather than for base-map cost (TD-7); the MapLibre-native 3D scene adds no per-session cost either (reconciled BRI-162).

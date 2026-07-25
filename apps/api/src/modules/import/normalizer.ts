@@ -63,6 +63,24 @@ export interface TourDTO {
    */
   location_ref: string | null;
   /**
+   * Provider cover-image URL — the `isCover` image's mid-size variant (prefers
+   * ~540×360) — or `null` when the payload carries no imagery. Provider-owned
+   * content, surfaced on the linked Experience's card (ST-11). Part of
+   * {@link source_hash}.
+   */
+  image_url: string | null;
+  /** Alt text for {@link image_url} (the image caption), or `null`. */
+  image_alt: string | null;
+  /**
+   * Provider destination refs this product is filed under, e.g. `["343"]`
+   * (Bangkok), taken verbatim from `destinations[].ref`. The import linker
+   * (BRI-164) matches these against the curated-city registry to decide which
+   * City an imported Experience belongs to. Empty array when absent. Part of
+   * {@link source_hash}: a change in which destinations a tour belongs to is a
+   * content change.
+   */
+  destination_refs: string[];
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -133,6 +151,9 @@ export function normalizeViatorProduct(
     currency: extractCurrency(raw),
     affiliate_url: optionalString(raw["productUrl"]),
     location_ref: extractLocationRef(raw),
+    image_url: extractCoverImageUrl(raw),
+    image_alt: extractCoverImageAlt(raw),
+    destination_refs: extractDestinationRefs(raw),
   };
 
   return {
@@ -165,6 +186,9 @@ function hashContent(content: TourContent): string {
     content.currency,
     content.affiliate_url,
     content.location_ref,
+    content.image_url,
+    content.image_alt,
+    content.destination_refs,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -229,6 +253,84 @@ function extractLocationRef(raw: ViatorProduct): string | null {
   if (!Array.isArray(start) || start.length === 0) return null;
   const location = asRecord(asRecord(start[0])?.["location"]);
   return optionalString(location?.["ref"]);
+}
+
+/**
+ * The cover image's URL. Viator models images as
+ * `images: [{ isCover, caption, variants: [{ width, height, url }] }]`
+ * (verified against the live modified-since payload, 2026-07-25). We take the
+ * `isCover` image (falling back to the first image) and pick a mid-size variant
+ * — preferring ~540×360, then 480×320, else the largest available — a good size
+ * for a card without shipping a thumbnail or a full-resolution asset. `null`
+ * when the product carries no imagery.
+ */
+function extractCoverImageUrl(raw: ViatorProduct): string | null {
+  const image = pickCoverImage(raw);
+  if (!image) return null;
+  const variants = Array.isArray(image["variants"]) ? image["variants"] : [];
+  const records = variants
+    .map(asRecord)
+    .filter((v): v is Record<string, unknown> => v !== undefined);
+  const preferred = [
+    [540, 360],
+    [480, 320],
+  ] as const;
+  for (const [w, h] of preferred) {
+    const match = records.find(
+      (v) => v["width"] === w && v["height"] === h,
+    );
+    const url = optionalString(match?.["url"]);
+    if (url) return url;
+  }
+  // Otherwise the largest variant by pixel area.
+  let best: { url: string; area: number } | null = null;
+  for (const v of records) {
+    const url = optionalString(v["url"]);
+    const width = optionalInteger(v["width"]) ?? 0;
+    const height = optionalInteger(v["height"]) ?? 0;
+    const area = width * height;
+    if (url && (!best || area > best.area)) best = { url, area };
+  }
+  return best?.url ?? null;
+}
+
+/** The cover image's caption, used as alt text. `null` when absent. */
+function extractCoverImageAlt(raw: ViatorProduct): string | null {
+  const image = pickCoverImage(raw);
+  return image ? optionalString(image["caption"]) : null;
+}
+
+/** The `isCover` image, or the first image, or `undefined`. */
+function pickCoverImage(
+  raw: ViatorProduct,
+): Record<string, unknown> | undefined {
+  const images = raw["images"];
+  if (!Array.isArray(images) || images.length === 0) return undefined;
+  const records = images
+    .map(asRecord)
+    .filter((v): v is Record<string, unknown> => v !== undefined);
+  return records.find((im) => im["isCover"] === true) ?? records[0];
+}
+
+/**
+ * The product's Viator destination refs, from `destinations: [{ ref }]`. The
+ * import linker matches these against the curated-city registry. Order and
+ * duplicates are preserved as the provider sends them (deduped downstream if
+ * needed); non-string refs are dropped. Empty array when the payload has none.
+ */
+function extractDestinationRefs(raw: ViatorProduct): string[] {
+  const destinations = raw["destinations"];
+  if (!Array.isArray(destinations)) return [];
+  const refs: string[] = [];
+  for (const entry of destinations) {
+    const ref = asRecord(entry)?.["ref"];
+    // Refs arrive as strings ("343"), but coerce a numeric ref defensively.
+    if (typeof ref === "string" && ref.length > 0) refs.push(ref);
+    else if (typeof ref === "number" && Number.isFinite(ref)) {
+      refs.push(String(ref));
+    }
+  }
+  return refs;
 }
 
 // ---- small, total helpers (no throwing except the two required fields) ----

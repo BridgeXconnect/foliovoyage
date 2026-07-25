@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
+import { ExperienceLinker } from "./experience-linker";
 import { ImportPipeline } from "./import.pipeline";
 import { ImportRunService } from "./import-run.service";
 import type { LocationResolver } from "./location-resolver";
@@ -78,7 +79,14 @@ function makeService(deleteGuardThresholdPct: number, products: ViatorProduct[])
     new PrismaQuarantineStore(prisma as unknown as PrismaService),
   );
   const upsert = new TourUpsertService(prisma);
-  const pipeline = new ImportPipeline(client(products), resolver, validator, upsert);
+  const linker = new ExperienceLinker(prisma);
+  const pipeline = new ImportPipeline(
+    client(products),
+    resolver,
+    validator,
+    upsert,
+    linker,
+  );
   return new ImportRunService(prisma, pipeline, { deleteGuardThresholdPct });
 }
 

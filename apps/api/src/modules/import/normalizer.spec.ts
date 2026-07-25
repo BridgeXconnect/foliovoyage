@@ -177,3 +177,139 @@ describe("normalizeViatorProduct — start location reference (ST-7b)", () => {
     expect(moved.source_hash).not.toBe(base.source_hash);
   });
 });
+
+describe("normalizeViatorProduct — cover image (ST-11 / BRI-164)", () => {
+  const IMAGES = [
+    {
+      isCover: false,
+      caption: "not the cover",
+      variants: [{ width: 540, height: 360, url: "https://img/other-540.jpg" }],
+    },
+    {
+      isCover: true,
+      caption: "Wat Arun at dusk",
+      variants: [
+        { width: 100, height: 100, url: "https://img/cover-100.jpg" },
+        { width: 540, height: 360, url: "https://img/cover-540.jpg" },
+        { width: 720, height: 480, url: "https://img/cover-720.jpg" },
+      ],
+    },
+  ];
+
+  it("picks the isCover image's preferred (540×360) variant + caption alt", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "IMG1", title: "T", images: IMAGES },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.image_url).toBe("https://img/cover-540.jpg");
+    expect(tour.image_alt).toBe("Wat Arun at dusk");
+  });
+
+  it("falls back to the largest variant when preferred sizes are absent", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "IMG2",
+        title: "T",
+        images: [
+          {
+            isCover: true,
+            variants: [
+              { width: 75, height: 75, url: "https://img/s.jpg" },
+              { width: 674, height: 446, url: "https://img/l.jpg" },
+            ],
+          },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.image_url).toBe("https://img/l.jpg");
+    expect(tour.image_alt).toBeNull(); // no caption
+  });
+
+  it("falls back to the first image when none is marked isCover", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "IMG3",
+        title: "T",
+        images: [
+          { variants: [{ width: 540, height: 360, url: "https://img/first.jpg" }] },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.image_url).toBe("https://img/first.jpg");
+  });
+
+  it("normalizes a product with no images to null", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "IMG4", title: "T", images: [] },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.image_url).toBeNull();
+    expect(tour.image_alt).toBeNull();
+  });
+
+  it("folds the cover image into source_hash (image is content)", () => {
+    const base = normalizeViatorProduct(
+      { productCode: "IMG5", title: "T", images: IMAGES },
+      { fetchedAt: FETCHED_AT },
+    );
+    const changed = normalizeViatorProduct(
+      {
+        productCode: "IMG5",
+        title: "T",
+        images: [
+          { isCover: true, variants: [{ width: 540, height: 360, url: "https://img/new.jpg" }] },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(changed.source_hash).not.toBe(base.source_hash);
+  });
+});
+
+describe("normalizeViatorProduct — destination refs (ST-11 / BRI-164)", () => {
+  it("extracts destinations[].ref verbatim", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "D1",
+        title: "T",
+        destinations: [{ ref: "343", primary: true }, { ref: "20" }],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.destination_refs).toEqual(["343", "20"]);
+  });
+
+  it("coerces a numeric ref to string and drops malformed entries", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "D2",
+        title: "T",
+        destinations: [{ ref: 511 }, { notARef: true }, { ref: "" }],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.destination_refs).toEqual(["511"]);
+  });
+
+  it("is an empty array when the payload has no destinations", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "D3", title: "T" },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.destination_refs).toEqual([]);
+  });
+
+  it("folds destination refs into source_hash (belonging is content)", () => {
+    const base = normalizeViatorProduct(
+      { productCode: "D4", title: "T", destinations: [{ ref: "343" }] },
+      { fetchedAt: FETCHED_AT },
+    );
+    const moved = normalizeViatorProduct(
+      { productCode: "D4", title: "T", destinations: [{ ref: "511" }] },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(moved.source_hash).not.toBe(base.source_hash);
+  });
+});

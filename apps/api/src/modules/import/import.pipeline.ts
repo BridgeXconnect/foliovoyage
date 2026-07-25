@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 
 import type { ViatorClient } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
+import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import type { TourUpsertService } from "./upsert";
@@ -18,6 +19,7 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *     → ST-7b {@link LocationResolver} (resolve start coordinates)
  *     → ST-8 {@link TourValidator} (validate / quarantine)
  *     → ST-9 {@link TourUpsertService} (idempotent upsert + soft-delete + guard)
+ *     → ST-11 {@link ExperienceLinker} (auto-create/link draft Experiences)
  *
  * M1 is deliberately synchronous: this is a single straight-line call, **no
  * queue and no worker** (that is ST-33 in M6). The orchestrator adds no counting
@@ -44,6 +46,10 @@ export class ImportRunCounts {
   upserted = 0;
   /** Rows soft-deleted this run (ST-9). */
   softDeleted = 0;
+  /** Draft Experiences auto-created this run (ST-11). */
+  experiencesCreated = 0;
+  /** Tours newly linked to an Experience this run (ST-11). */
+  experiencesLinked = 0;
   /** Last pagination cursor observed; null once the crawl finishes cleanly. */
   cursor: string | null = null;
 }
@@ -72,6 +78,7 @@ export class ImportPipeline {
     private readonly resolver: LocationResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
+    private readonly linker: ExperienceLinker,
   ) {}
 
   /**
@@ -139,6 +146,15 @@ export class ImportPipeline {
     });
     counts.upserted = result.upserted;
     counts.softDeleted = result.softDeleted;
+
+    // 6. Link imported tours to draft Experiences (ST-11 / BRI-164). Runs after
+    //    the upsert commits, on the committed catalogue — so it links this run's
+    //    rows plus any curated-city tour left unlinked by an earlier run. It
+    //    operates on one provider; a run crawls one OTA (upsert enforces this).
+    const provider = passing[0]?.provider ?? "viator";
+    const link = await this.linker.linkRun(provider);
+    counts.experiencesCreated = link.created;
+    counts.experiencesLinked = link.linked;
   }
 }
 

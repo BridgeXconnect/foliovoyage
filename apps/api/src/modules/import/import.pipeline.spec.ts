@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "@jest/globals";
 
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
+import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { TourDTO } from "./normalizer";
@@ -57,6 +58,15 @@ const passthroughResolver = {
     tours.map((t) => ({ ...t })),
 } as unknown as LocationResolver;
 
+/** A linker that no-ops (these unit tests have no curated tours / DB). */
+const noopLinker = {
+  linkRun: async (): Promise<{
+    created: number;
+    linked: number;
+    skippedMissingCity: number;
+  }> => ({ created: 0, linked: 0, skippedMissingCity: 0 }),
+} as unknown as ExperienceLinker;
+
 /** In-memory quarantine store so the real validator runs without a DB. */
 class InMemoryQuarantineStore implements QuarantineStore {
   readonly saved: QuarantineRecord[] = [];
@@ -108,7 +118,7 @@ describe("ImportPipeline", () => {
       activeCountBefore: 4,
     });
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -137,7 +147,7 @@ describe("ImportPipeline", () => {
       activeCountBefore: 1,
     });
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -158,7 +168,7 @@ describe("ImportPipeline", () => {
       activeCountBefore: 1,
     });
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
     await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
 
@@ -173,6 +183,7 @@ describe("ImportPipeline", () => {
       passthroughResolver,
       validator,
       abortingUpsert(),
+      noopLinker,
     );
     const counts = new ImportRunCounts();
 

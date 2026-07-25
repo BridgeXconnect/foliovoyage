@@ -16,7 +16,8 @@
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "import:run": "ts-node src/modules/import/trigger-import.cli.ts"
+    "import:run": "ts-node src/modules/import/trigger-import.cli.ts",
+    "experience:promote": "ts-node src/modules/import/promote-experience.cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",
