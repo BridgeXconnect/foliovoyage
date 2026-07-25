@@ -18,9 +18,12 @@ function loadJson<T>(file: string): T {
 const FETCHED_AT = "2026-07-18T00:00:00.000Z";
 
 describe("normalizeViatorProduct — golden file", () => {
-  // A real recorded Viator product (code 57189P2), every field verbatim from
-  // docs/apps/web/content-examples/viator-grounded-example.md — the one live
-  // Viator payload the repo documents. Not invented.
+  // The **verbatim** live response of `GET /products/57189P2` (Viator Partner
+  // API production, captured 2026-07-25) — the exact bytes the ST-6 crawl
+  // archives and this normalizer consumes. Real, not invented, and deliberately
+  // whole (18 images, full itinerary, productOptions, …) so no assumed shape can
+  // slip past unnoticed the way the fabricated `pricing.summary.fromPrice` did
+  // (BRI-165). The expected `.tour.json` was regenerated from this payload.
   const raw = loadJson<ViatorProduct>("viator-product-57189P2.json");
 
   it("normalizes the recorded payload to the expected Tour record, exactly", () => {
@@ -29,6 +32,34 @@ describe("normalizeViatorProduct — golden file", () => {
     const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
 
     expect(tour).toEqual(expected);
+  });
+
+  it("leaves price_minor/currency null — the real payload carries no price (BRI-165)", () => {
+    // The core BRI-165 regression: a real Viator product detail has no price at
+    // all (its `pricingInfo` is booking constraints only). Price is resolved
+    // after normalization from `/availability/schedules` by the ST-7c
+    // PriceResolver, so the normalizer must leave both null here. This asserts
+    // against the real captured payload, so a re-introduced in-payload price path
+    // (like the old `pricing.summary.fromPrice`) would fail it.
+    const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    expect(tour.price_minor).toBeNull();
+    expect(tour.currency).toBeNull();
+  });
+
+  it("maps the other provider fields from the real payload (field-path spot-check)", () => {
+    // Guards the whole set of real field paths at once, so a second BRI-165-class
+    // path mismatch elsewhere can't hide. Values are read verbatim from the
+    // captured payload.
+    const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    expect(tour.provider_tour_id).toBe("57189P2");
+    expect(tour.duration_min).toBe(180); // itinerary.duration.fixedDurationInMinutes
+    expect(tour.rating_avg).toBe(5); // reviews.combinedAverageRating 4.97… → 5.0
+    expect(tour.rating_count).toBe(5175); // reviews.totalReviews
+    expect(tour.affiliate_url).toContain("mcid=42383"); // productUrl, affiliate params intact
+    expect(tour.location_ref).toMatch(/^LOC-/); // logistics.start[0].location.ref
+    expect(tour.image_url).toContain("540x360"); // isCover image, preferred variant
+    expect(tour.image_alt).toBe("Hanoi Street Food Tour"); // cover caption
+    expect(tour.destination_refs).toEqual(["351"]); // destinations[].ref (Hanoi)
   });
 
   it("sets all four provenance fields", () => {
@@ -90,12 +121,27 @@ describe("normalizeViatorProduct — purity & determinism", () => {
     expect(refetched.source_hash).toBe(base.source_hash);
     expect(refetched.fetched_at).not.toBe(base.fetched_at);
 
-    // … but a changed price must change the hash.
-    const repriced = normalizeViatorProduct(
-      { ...raw, pricing: { currency: "USD", summary: { fromPrice: 35 } } },
+    // … but a changed content field (the title) must change the hash.
+    const retitled = normalizeViatorProduct(
+      { ...raw, title: "A different tour title" },
       { fetchedAt: FETCHED_AT },
     );
-    expect(repriced.source_hash).not.toBe(base.source_hash);
+    expect(retitled.source_hash).not.toBe(base.source_hash);
+  });
+
+  it("excludes price/currency from source_hash (resolved downstream + volatile)", () => {
+    // Price and currency are attached after normalization (ST-7c) and are
+    // volatile, so — like lat/lng — they are deliberately NOT part of the content
+    // hash. The normalizer never reads price from the payload, so injecting a
+    // would-be price field must not change the hash (and must not set a price).
+    const base = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    const withPhantomPrice = normalizeViatorProduct(
+      { ...raw, pricing: { currency: "USD", summary: { fromPrice: 999 } } },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(withPhantomPrice.source_hash).toBe(base.source_hash);
+    expect(withPhantomPrice.price_minor).toBeNull();
+    expect(withPhantomPrice.currency).toBeNull();
   });
 });
 

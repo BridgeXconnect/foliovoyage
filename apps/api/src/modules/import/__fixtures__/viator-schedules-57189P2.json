@@ -1,0 +1,85 @@
+{
+  "productCode": "57189P2",
+  "bookableItems": [
+    {
+      "productOptionCode": "DEFAULT",
+      "seasons": [
+        {
+          "startDate": "2026-01-01",
+          "pricingRecords": [
+            {
+              "daysOfWeek": [
+                "MONDAY",
+                "TUESDAY",
+                "WEDNESDAY",
+                "THURSDAY",
+                "FRIDAY",
+                "SATURDAY",
+                "SUNDAY"
+              ],
+              "timedEntries": [
+                {
+                  "startTime": "11:30"
+                },
+                {
+                  "startTime": "18:00"
+                }
+              ],
+              "pricingDetails": [
+                {
+                  "pricingPackageType": "PER_PERSON",
+                  "minTravelers": 1,
+                  "maxTravelers": 8,
+                  "ageBand": "ADULT",
+                  "price": {
+                    "original": {
+                      "recommendedRetailPrice": 28.0,
+                      "partnerNetPrice": 25.76,
+                      "bookingFee": 0,
+                      "commission": 2.24,
+                      "partnerTotalPrice": 25.76
+                    }
+                  }
+                },
+                {
+                  "pricingPackageType": "PER_PERSON",
+                  "minTravelers": 0,
+                  "maxTravelers": 8,
+                  "ageBand": "CHILD",
+                  "price": {
+                    "original": {
+                      "recommendedRetailPrice": 21.0,
+                      "partnerNetPrice": 19.32,
+                      "bookingFee": 0,
+                      "commission": 1.68,
+                      "partnerTotalPrice": 19.32
+                    }
+                  }
+                },
+                {
+                  "pricingPackageType": "PER_PERSON",
+                  "minTravelers": 0,
+                  "maxTravelers": 8,
+                  "ageBand": "INFANT",
+                  "price": {
+                    "original": {
+                      "recommendedRetailPrice": 0.0,
+                      "partnerNetPrice": 0.0,
+                      "bookingFee": 0,
+                      "commission": 0.0,
+                      "partnerTotalPrice": 0.0
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "currency": "USD",
+  "summary": {
+    "fromPrice": 28.0
+  }
+}

@@ -2,19 +2,21 @@
   "provider": "viator",
   "provider_tour_id": "57189P2",
   "title": "Small Group Hanoi Street Food Tour with a Real Foodie",
-  "description": "Sample classics, such as steamed pancakes, noodle soup, and more, on a small-group walking tour of Hanoi's Old Quarter with a local foodie guide. The tour starts in the Old Quarter, we also might visit Lake of the Restored Sword (Hoan Kiem Lake), Dong Xuan Market.",
+  "description": "Discovering Hanoi’s Old Quarter street foods can be a leap of faith without a guide to steer you to the must-eats and prevent you getting lost. With this small-group tour, you’ll visit tried-and-trusted food spots to sample classics, such as steamed pancakes, noodle soup, and more, all with a guide to describe each dish and help you navigate. The tour starts in the \n\nOld Quarter, we also might visit \n\nLake of the Restored Sword (Hoan Kiem Lake), Dong Xuan Market e.g.",
   "duration_min": 180,
   "rating_avg": 5,
-  "rating_count": 5129,
-  "price_minor": 2800,
-  "currency": "USD",
-  "affiliate_url": "https://shop.live.rc.viator.com/tours/Hanoi/Small-Group-Hanoi-Street-Food-Tour-with-a-Real-Foodie/d351-57189P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0",
-  "location_ref": null,
-  "image_url": null,
-  "image_alt": null,
-  "destination_refs": [],
+  "rating_count": 5175,
+  "affiliate_url": "https://www.viator.com/tours/Hanoi/Small-Group-Hanoi-Street-Food-Tour-with-a-Real-Foodie/d351-57189P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0",
+  "location_ref": "LOC-o0AXGEKPN4wJ9sIG0RAn5FDU2yNvK2GN0H/H4Yo4vgdufEilvC2zBg6045n2CAQq",
+  "image_url": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/71/9c/c4.jpg",
+  "image_alt": "Hanoi Street Food Tour",
+  "destination_refs": [
+    "351"
+  ],
+  "price_minor": null,
+  "currency": null,
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "eab84ffa8b42253506f2820bc7a3fa480da3e55769096a7e3f1ab6d9ea4f4ff0"
+  "source_hash": "a87d625043f10f9e8c5569ab841929259a6c9756570984e74e3ed458b7c8f400"
 }

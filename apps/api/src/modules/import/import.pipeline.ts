@@ -5,6 +5,7 @@ import type { ViatorProduct } from "./clients/viator.types";
 import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
+import type { PriceResolver } from "./price-resolver";
 import type { TourUpsertService } from "./upsert";
 import { ImportRunStats, type TourValidator } from "./validator";
 
@@ -17,6 +18,7 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *   ST-6 {@link ViatorClient} (fetch + archive)
  *     → ST-7 {@link normalizeViatorProduct} (normalize)
  *     → ST-7b {@link LocationResolver} (resolve start coordinates)
+ *     → ST-7c {@link PriceResolver} (resolve "from" price from schedules)
  *     → ST-8 {@link TourValidator} (validate / quarantine)
  *     → ST-9 {@link TourUpsertService} (idempotent upsert + soft-delete + guard)
  *     → ST-11 {@link ExperienceLinker} (auto-create/link draft Experiences)
@@ -76,6 +78,7 @@ export class ImportPipeline {
   constructor(
     private readonly client: ViatorClient,
     private readonly resolver: LocationResolver,
+    private readonly priceResolver: PriceResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
     private readonly linker: ExperienceLinker,
@@ -127,11 +130,17 @@ export class ImportPipeline {
     // 3. Resolve start-location references to coordinates (cached across runs).
     const located = await this.resolver.attachLocations(dtos);
 
+    // 3b. Resolve the "from" price per product from `/availability/schedules`
+    //     (BRI-165). The product payload carries no price, and the validator
+    //     quarantines priceless tours, so without this every real import is
+    //     quarantined. Unresolved tours stay null-priced and are quarantined.
+    const priced = await this.priceResolver.attachPrices(located);
+
     // 4. Validate. Passing tours proceed to upsert; quarantined ones are
     //    persisted + counted by the validator via the shared stats tally.
     const stats = new ImportRunStats();
     const passing: TourDTO[] = [];
-    for (const dto of located) {
+    for (const dto of priced) {
       const result = await this.validator.process(dto, stats);
       if (result.ok) passing.push(dto);
     }
