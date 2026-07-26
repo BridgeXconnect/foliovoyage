@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
+import { trackAffiliateClick } from "@/lib/analytics";
 import type { Experience } from "@/data/types";
 
 /** Format a provider "from" price as e.g. "From $28" (no fake precision). */
@@ -27,7 +30,14 @@ function formatFromPrice(amount: number, currency = "USD"): string {
  * — as additive badges. These never replace the editorial `title`/`description`
  * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before.
  */
-export function ExperienceRowCard({ experience: e }: { experience: Experience }) {
+export function ExperienceRowCard({
+  experience: e,
+  destination,
+}: {
+  experience: Experience;
+  /** Destination page this card sits on — for affiliate-click attribution. */
+  destination?: { slug: string; city: string; country: string };
+}) {
   const live = Boolean(e.affiliateUrl);
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
   const hasRating = typeof e.rating === "number" && e.rating > 0;
@@ -97,6 +107,20 @@ export function ExperienceRowCard({ experience: e }: { experience: Experience })
               href={e.affiliateUrl}
               target="_blank"
               rel="sponsored nofollow noopener"
+              onClick={() =>
+                trackAffiliateClick({
+                  experienceId: e.id,
+                  title: e.title,
+                  provider: e.provider,
+                  category: e.category,
+                  priceBand: e.priceBand,
+                  hasRating: typeof e.rating === "number",
+                  freeCancel: Boolean(e.freeCancel),
+                  city: destination?.city,
+                  country: destination?.country,
+                  destinationSlug: destination?.slug,
+                })
+              }
               className="inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent hover:text-white"
             >
               Book on {e.provider} <ArrowUpRight size={14} />

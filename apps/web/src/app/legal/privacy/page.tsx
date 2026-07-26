@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy Policy" updated="June 2026">
+    <LegalLayout title="Privacy Policy" updated="July 2026">
       <p>
         Folio Voyage (&quot;we&quot;, &quot;us&quot;) respects your privacy. This
         policy explains what information we collect when you visit foliovoyage.com
@@ -23,9 +23,14 @@ export default function PrivacyPage() {
       <h2>Information we collect</h2>
       <p>
         We collect only what you choose to give us. If you contact us, we receive
-        the email address and any message you submit. We also collect standard,
-        non-identifying analytics such as pages visited and approximate region,
-        used solely to understand and improve the site.
+        the email address and any message you submit. We also use third-party
+        analytics providers (PostHog, and our host Vercel) to understand how the
+        site is used — for example pages visited, approximate region, and which
+        links are clicked. This usage data is collected in an anonymised form (we
+        do not create accounts or user profiles), stored using cookies or similar
+        technologies, and processed on our behalf in the United States solely to
+        understand and improve the site. PostHog also records basic error
+        diagnostics so we can fix problems.
       </p>
 
       <h2>How we use it</h2>
