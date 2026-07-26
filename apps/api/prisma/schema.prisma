@@ -307,3 +307,35 @@ model ProviderLocation {
   /// When this reference was last resolved (refreshed on re-resolve).
   resolvedAt DateTime @default(now()) @updatedAt
 }
+
+/// First-party affiliate click log (ST-24 / BRI-136). Append-only: one row is
+/// written by `GET /go/:tourId` **before** it 302s to the provider deep link, so
+/// no click is lost even though Viator attributes commission via the `productUrl`
+/// itself (docs/06). Never updated or deleted. Mirrors docs/02 §7 `affiliate_clicks`.
+///
+/// `tourId` is a **text identifier, not an FK** — during the static→DB transition
+/// a click can reference either a hand-authored experience (the
+/// `"<citySlug>/<experienceId>"` key from `viator-links.json`) or, later, a DB
+/// `Tour.id`. Keeping it a plain string lets both coexist without a nullable FK.
+/// PII is minimised: the IP is stored only as a salted hash, never raw.
+model AffiliateClick {
+  /// Surrogate key. High-volume append-only table, so a bigint identity.
+  id         BigInt   @id @default(autoincrement())
+  /// The clicked tour's identifier (static "<slug>/<expId>" key or DB Tour.id).
+  tourId     String
+  /// Source OTA the deep link points at. Always "viator" today.
+  providerId String
+  /// Opaque first-party session id, when the caller has one; null otherwise.
+  sessionId  String?
+  /// Referring URL (the page the CTA was clicked from), when sent.
+  referrer   String?
+  /// Requesting user agent, when sent.
+  userAgent  String?
+  /// Salted SHA-256 of the client IP — never the raw IP. Null when unavailable.
+  ipHash     String?
+  /// When the click was logged (row created). The only time this row is touched.
+  createdAt  DateTime @default(now())
+
+  /// Analytics reads scan by time window (docs/02 §7 `affiliate_clicks_created_idx`).
+  @@index([createdAt])
+}
