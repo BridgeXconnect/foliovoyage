@@ -221,7 +221,11 @@ export default async function DestinationPage({
 
             <div className="mt-8 space-y-6">
               {d.experiences.map((e) => (
-                <ExperienceRowCard key={e.id} experience={e} />
+                <ExperienceRowCard
+                  key={e.id}
+                  experience={e}
+                  destination={{ slug: d.slug, city: d.city, country: d.country }}
+                />
               ))}
             </div>
 
