@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
+import { AffiliateModule } from "./affiliate/affiliate.module";
 import { validateEnv } from "./config/env.validation";
 import { DatabaseModule } from "./database/database.module";
 import { DestinationModule } from "./destinations/destination.module";
@@ -22,6 +23,7 @@ import { RedisModule } from "./redis/redis.module";
     PrismaModule,
     HealthModule,
     DestinationModule,
+    AffiliateModule,
     ImportModule,
   ],
 })

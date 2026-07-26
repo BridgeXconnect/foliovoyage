@@ -26,11 +26,25 @@ function formatFromPrice(amount: number, currency = "USD"): string {
  * provider's commerce signals — "from" price, aggregate rating, free-cancellation
  * — as additive badges. These never replace the editorial `title`/`description`
  * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before.
+ *
+ * The booking CTA points at the first-party `/go/:slug/:id` redirect (BRI-136),
+ * which logs the click then 302s to the verbatim provider deep link — never the
+ * raw `affiliateUrl` in the href, so every outbound click is measured.
  */
-export function ExperienceRowCard({ experience: e }: { experience: Experience }) {
+export function ExperienceRowCard({
+  experience: e,
+  citySlug,
+}: {
+  experience: Experience;
+  /** Parent destination slug — the first path segment of the `/go` link key. */
+  citySlug: string;
+}) {
   const live = Boolean(e.affiliateUrl);
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
   const hasRating = typeof e.rating === "number" && e.rating > 0;
+  // Route the click through /go (log-before-redirect); the raw deep link is the
+  // 302 target resolved server-side, never the clicked href.
+  const goHref = live ? `/go/${citySlug}/${e.id}` : undefined;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-[3px] border border-line bg-white transition-shadow duration-300 hover:shadow-[0_18px_40px_-28px_rgba(15,19,38,0.45)] sm:flex-row">
@@ -94,7 +108,7 @@ export function ExperienceRowCard({ experience: e }: { experience: Experience })
 
           {live ? (
             <a
-              href={e.affiliateUrl}
+              href={goHref}
               target="_blank"
               rel="sponsored nofollow noopener"
               className="inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent hover:text-white"

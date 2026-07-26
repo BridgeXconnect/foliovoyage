@@ -113,6 +113,25 @@ export const envSchema = z.object({
     .string()
     .default("true")
     .transform((v) => v !== "false" && v !== "0"),
+
+  // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
+
+  /**
+   * Shared secret guarding `POST /v1/affiliate-clicks`. The web `/go` route
+   * handler sends it as `x-internal-secret`; the API rejects requests without a
+   * match, so the click-log write is server-to-server only (a browser can't spam
+   * click rows). The web app must set the **same** value. Defaults to a
+   * dev-only string so local boots without config; **override in every real
+   * environment** with a strong secret.
+   */
+  INTERNAL_CLICK_SECRET: z.string().min(1).default("dev-internal-click-secret"),
+
+  /**
+   * Salt mixed into the SHA-256 of a click's client IP before storage, so the
+   * `affiliate_clicks.ip_hash` column never derives back to a raw IP even if
+   * leaked. Defaults to a dev-only value; **override in every real environment**.
+   */
+  IP_HASH_SALT: z.string().min(1).default("dev-ip-hash-salt"),
 });
 
 /** Fully-parsed, typed environment. */
