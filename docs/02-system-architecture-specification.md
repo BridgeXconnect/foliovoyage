@@ -226,7 +226,7 @@ v1.0 = **modular monolith (NestJS)** with clean module boundaries for later extr
 | Recommendation | Similar/best-for | Later |
 | **Import** | Fetch, normalize, dedupe, upsert (workers+queue) | **Yes** |
 | SEO | Sitemaps, metadata, structured data | Module |
-| Analytics | Event ingest + aggregation | Later |
+| Analytics | Client-side capture (PostHog) **live**; server-side ingest/aggregation + `/go` click log still pending | Partial |
 | Auth | Login, JWT, RBAC | Module |
 | CMS | Guides, collections, workflow | Module |
 | Maps | Geo queries, clustering, routing | Module |
