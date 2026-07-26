@@ -9,6 +9,7 @@ import { FixedRail } from "@/components/covilla/FixedRail";
 import { StickyFeaturedPanel } from "@/components/covilla/StickyFeaturedPanel";
 import { ExperienceRowCard } from "@/components/covilla/ExperienceRowCard";
 import { OtherDestinationsGrid } from "@/components/covilla/OtherDestinationsGrid";
+import { PlanTripCta } from "@/components/PlanTripCta";
 import {
   getDestination,
   getDestinationSlugs,
@@ -160,12 +161,7 @@ export default async function DestinationPage({
               <p className="mt-3 max-w-md text-[17px] text-white/85">
                 {d.tagline}
               </p>
-              <Link
-                href="/legal/contact"
-                className="mt-8 inline-flex items-center bg-white px-9 py-4 text-[11px] font-medium uppercase tracking-[0.2em] text-ink transition-transform hover:-translate-y-0.5"
-              >
-                Plan your trip
-              </Link>
+              <PlanTripCta city={d.city} destinationSlug={d.slug} />
             </div>
           </StickyFeaturedPanel>
 

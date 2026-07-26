@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Instagram, Facebook, Linkedin } from "lucide-react";
+import posthog from "posthog-js";
 import { cn } from "@/lib/cn";
 
 /**
@@ -57,6 +58,7 @@ export function FixedRail({ tone = "auto" }: { tone?: "auto" | "light" }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={label}
+            onClick={() => posthog.capture("social_link_clicked", { platform: label })}
             className={cn(
               "transition-colors",
               light

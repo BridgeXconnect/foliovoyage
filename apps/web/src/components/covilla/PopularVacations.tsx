@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import posthog from "posthog-js";
 
 export type VacationItem = {
   id: string;
@@ -74,7 +75,10 @@ export function PopularVacations({
             type="button"
             role="tab"
             aria-selected={active === i}
-            onClick={() => setActive(i)}
+            onClick={() => {
+              setActive(i);
+              posthog.capture("destination_country_tab_changed", { country: c });
+            }}
             className={cn(
               "text-[12px] font-medium uppercase tracking-[0.18em] transition-colors",
               active === i ? "text-ink" : "text-muted hover:text-ink",
@@ -161,6 +165,14 @@ export function PopularVacations({
                 </div>
                 <Link
                   href={`/destinations/${v.slug}`}
+                  onClick={() =>
+                    posthog.capture("vacation_details_clicked", {
+                      title: v.title,
+                      city: v.city,
+                      country: v.country,
+                      destination_slug: v.slug,
+                    })
+                  }
                   className="inline-flex items-center gap-1.5 border border-line px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink transition-colors hover:border-ink"
                 >
                   Details <ArrowUpRight size={14} />

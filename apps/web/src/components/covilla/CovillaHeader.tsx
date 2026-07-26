@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import posthog from "posthog-js";
 import {
   DestinationRevealCard,
   type RevealDestination,
@@ -104,7 +105,10 @@ export function CovillaHeader({
         {/* hamburger — sits in the 80px left rail column */}
         <button
           type="button"
-          onClick={() => setFlyout(true)}
+          onClick={() => {
+            setFlyout(true);
+            posthog.capture("navigation_flyout_opened");
+          }}
           aria-label="Open menu"
           aria-expanded={flyout}
           className={cn(
@@ -183,7 +187,15 @@ export function CovillaHeader({
                         variant="tile"
                         active={dropdownActive === i}
                         onActivate={() => setDropdownActive(i)}
-                        onClick={() => setDropdown(false)}
+                        onClick={() => {
+                          setDropdown(false);
+                          posthog.capture("navigation_destination_selected", {
+                            destination_slug: d.slug,
+                            city: d.city,
+                            country: d.country,
+                            source: "dropdown",
+                          });
+                        }}
                       />
                     ))}
                   </div>
@@ -312,7 +324,15 @@ function FlyoutMenu({
                           variant="row"
                           active={active === i}
                           onActivate={() => setActive(i)}
-                          onClick={onClose}
+                          onClick={() => {
+                            onClose();
+                            posthog.capture("navigation_destination_selected", {
+                              destination_slug: d.slug,
+                              city: d.city,
+                              country: d.country,
+                              source: "flyout",
+                            });
+                          }}
                         />
                       </li>
                     );

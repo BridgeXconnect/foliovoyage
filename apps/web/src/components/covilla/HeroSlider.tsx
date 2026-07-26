@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import useEmblaCarousel from "embla-carousel-react";
 import { ArrowLeft, ArrowRight, ChevronRight, Play, X } from "lucide-react";
+import posthog from "posthog-js";
 
 export type HeroSlide = {
   slug: string;
@@ -44,8 +45,14 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     return () => window.clearInterval(id);
   }, [embla]);
 
-  const scrollPrev = useCallback(() => embla?.scrollPrev(), [embla]);
-  const scrollNext = useCallback(() => embla?.scrollNext(), [embla]);
+  const scrollPrev = useCallback(() => {
+    embla?.scrollPrev();
+    posthog.capture("hero_slider_navigated", { direction: "prev" });
+  }, [embla]);
+  const scrollNext = useCallback(() => {
+    embla?.scrollNext();
+    posthog.capture("hero_slider_navigated", { direction: "next" });
+  }, [embla]);
   const active = slides[selected] ?? slides[0];
 
   return (
@@ -87,6 +94,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           <div className="pointer-events-auto mt-9">
             <Link
               href="/legal/contact"
+              onClick={() => posthog.capture("contact_cta_clicked", { source: "hero" })}
               className="inline-flex items-center bg-white px-10 py-5 text-[11px] font-medium uppercase tracking-[0.22em] text-ink transition-transform hover:-translate-y-0.5"
             >
               Contact us
@@ -97,7 +105,14 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         {/* Video-play accent */}
         <button
           type="button"
-          onClick={() => setVideoOpen(true)}
+          onClick={() => {
+            setVideoOpen(true);
+            posthog.capture("destination_film_opened", {
+              city: active.city,
+              country: active.country,
+              destination_slug: active.slug,
+            });
+          }}
           aria-label="Play destination film"
           className="pointer-events-auto absolute right-[8%] top-1/2 hidden h-40 w-40 -translate-y-1/2 items-center justify-center lg:flex"
         >
@@ -147,6 +162,13 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             <Link
               href={`/destinations/${active.slug}`}
               aria-label={`Open the ${active.city} guide`}
+              onClick={() =>
+                posthog.capture("hero_destination_opened", {
+                  city: active.city,
+                  country: active.country,
+                  destination_slug: active.slug,
+                })
+              }
               className="flex w-16 items-center justify-center border-l border-line text-ink transition-colors hover:bg-accent hover:text-white"
             >
               <ChevronRight size={22} />

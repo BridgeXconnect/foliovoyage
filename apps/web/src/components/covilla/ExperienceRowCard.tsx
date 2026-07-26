@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
+import posthog from "posthog-js";
 import type { Experience } from "@/data/types";
 
 /** Format a provider "from" price as e.g. "From $28" (no fake precision). */
@@ -97,6 +100,16 @@ export function ExperienceRowCard({ experience: e }: { experience: Experience })
               href={e.affiliateUrl}
               target="_blank"
               rel="sponsored nofollow noopener"
+              onClick={() =>
+                posthog.capture("experience_booking_clicked", {
+                  experience_title: e.title,
+                  category: e.category,
+                  provider: e.provider,
+                  price_band: e.priceBand,
+                  has_rating: typeof e.rating === "number",
+                  free_cancel: Boolean(e.freeCancel),
+                })
+              }
               className="inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent hover:text-white"
             >
               Book on {e.provider} <ArrowUpRight size={14} />
