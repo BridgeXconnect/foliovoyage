@@ -10,6 +10,8 @@ import { StickyFeaturedPanel } from "@/components/covilla/StickyFeaturedPanel";
 import { ExperienceRowCard } from "@/components/covilla/ExperienceRowCard";
 import { OtherDestinationsGrid } from "@/components/covilla/OtherDestinationsGrid";
 import { PlanTripCta } from "@/components/PlanTripCta";
+import { View3DButton } from "@/components/map/View3DButton";
+import { bangkokTour } from "@/data/map-poc/bangkok-tour";
 import {
   getDestination,
   getDestinationSlugs,
@@ -218,6 +220,11 @@ export default async function DestinationPage({
               </p>
               <span className="h-px flex-1 bg-line" />
             </div>
+
+            {/* ST-MAP-POC (BRI-167): MapLibre 3D curated fly-through — POC-gated to Bangkok. */}
+            {d.slug === bangkokTour.destinationSlug && (
+              <View3DButton tour={bangkokTour} />
+            )}
 
             <div className="mt-8 space-y-6">
               {d.experiences.map((e) => (
