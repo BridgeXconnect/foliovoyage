@@ -167,6 +167,35 @@ export const envSchema = z.object({
    * leaked. Defaults to a dev-only value; **override in every real environment**.
    */
   IP_HASH_SALT: z.string().min(1).default("dev-ip-hash-salt"),
+
+  // --- Nightly import / external wake trigger (BRI-173) --------------------
+
+  /**
+   * Shared secret guarding `POST /v1/import/trigger`. Render's free-tier web
+   * service sleeps after 15 minutes idle, so the in-process nightly cron
+   * (`ImportScheduler`) cannot fire while asleep — a scheduled GitHub Actions
+   * workflow calls this endpoint at the same cron time to wake the instance
+   * and start the run instead. Sent as `x-import-trigger-secret`. Defaults to
+   * a dev-only string so local boots without config; **override in every
+   * real environment** with a strong secret, matching the workflow's repo
+   * secret.
+   */
+  IMPORT_TRIGGER_SECRET: z
+    .string()
+    .min(1)
+    .default("dev-import-trigger-secret"),
+
+  /**
+   * The service's own public URL, e.g. `https://atlas-api.onrender.com`.
+   * Render auto-injects this for every web service — never set it by hand.
+   * Used only to build the self-heartbeat ping URL during an import run
+   * (BRI-173): Render's idle timer resets on inbound traffic only, not on
+   * outbound calls or DB writes, so a multi-hour run must keep pinging its
+   * own `/health` endpoint from outside or the platform can suspend it
+   * mid-crawl. Absent in local dev / CI, where there is no spin-down to
+   * guard against — the heartbeat simply no-ops when this is unset.
+   */
+  RENDER_EXTERNAL_URL: z.string().url().optional(),
 });
 
 /** Fully-parsed, typed environment. */
