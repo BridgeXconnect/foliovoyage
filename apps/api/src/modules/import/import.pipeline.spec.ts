@@ -28,14 +28,18 @@ import {
  */
 
 /**
- * A raw Viator product the normalizer will accept. No price: a real product
- * payload carries none (BRI-165) — price is attached later by the price resolver,
- * faked below.
+ * A raw Viator product that survives the BRI-170/171 scope filter (curated
+ * destination, ACTIVE, instant confirmation) and the normalizer will accept.
+ * No price: a real product payload carries none (BRI-165) — price is attached
+ * later by the price resolver, faked below.
  */
 function rawProduct(code: string, overrides: Record<string, unknown> = {}): ViatorProduct {
   return {
     productCode: code,
     title: `Tour ${code}`,
+    status: "ACTIVE",
+    destinations: [{ ref: "343", primary: true }], // Bangkok — a curated ref
+    bookingConfirmationSettings: { confirmationType: "INSTANT" },
     ...overrides,
   };
 }
@@ -183,8 +187,10 @@ describe("ImportPipeline", () => {
   });
 
   it("skips (does not crash on) an unnormalizable product", async () => {
-    // Missing productCode → normalizer throws → pipeline skips it.
-    const client = fakeClient([[rawProduct("A"), { title: "no code" }]]);
+    // In-scope (curated/ACTIVE/instant) but missing productCode → survives the
+    // scope filter, then the normalizer throws → pipeline skips it.
+    const unnormalizable = rawProduct("", { productCode: undefined, title: "no code" });
+    const client = fakeClient([[rawProduct("A"), unnormalizable]]);
     const { service: upsert } = fakeUpsert({
       upserted: 1,
       softDeleted: 0,
@@ -197,6 +203,77 @@ describe("ImportPipeline", () => {
 
     expect(counts.fetched).toBe(2); // both raw products were fetched
     expect(counts.normalized).toBe(1); // only "A" normalized
+  });
+
+  it("scope-filters a raw product outside the curated destinations before normalize", async () => {
+    const outOfScope = rawProduct("Z", { destinations: [{ ref: "999" }] });
+    const client = fakeClient([[rawProduct("A"), outOfScope]]);
+    const { service: upsert, calls } = fakeUpsert({
+      upserted: 1,
+      softDeleted: 0,
+      activeCountBefore: 1,
+    });
+
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
+    const counts = new ImportRunCounts();
+    await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
+
+    expect(counts.fetched).toBe(2); // both raw products were scanned
+    expect(counts.normalized).toBe(1); // only the curated one normalized
+    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
+  });
+
+  it("scope-filters an INACTIVE product and a MANUAL-confirmation product before normalize", async () => {
+    const inactive = rawProduct("INACT", { status: "INACTIVE" });
+    const manual = rawProduct("MANUAL", {
+      bookingConfirmationSettings: { confirmationType: "MANUAL" },
+    });
+    const client = fakeClient([[rawProduct("A"), inactive, manual]]);
+    const { service: upsert, calls } = fakeUpsert({
+      upserted: 1,
+      softDeleted: 0,
+      activeCountBefore: 1,
+    });
+
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
+    const counts = new ImportRunCounts();
+    await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
+
+    expect(counts.fetched).toBe(3);
+    expect(counts.normalized).toBe(1); // only "A" — inactive and manual are scoped out
+    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
+  });
+
+  it("never buffers more than one page of raw products at a time", async () => {
+    // Three pages, each containing one curated product and 499 out-of-scope
+    // ones — if the pipeline ever buffered the full crawl before scope-filtering
+    // (the pre-fix behaviour), this would hold 1500 raw products in `dtos`
+    // instead of 3. Proving it doesn't is a proxy for the OOM fix without
+    // actually allocating gigabytes in a unit test.
+    const outOfScope = (i: number) => rawProduct(`skip-${i}`, { destinations: [{ ref: "999" }] });
+    const pages = [0, 1, 2].map((p) => [
+      rawProduct(`curated-${p}`),
+      ...Array.from({ length: 499 }, (_, i) => outOfScope(p * 499 + i)),
+    ]);
+    const client = fakeClient(pages);
+    const { service: upsert, calls } = fakeUpsert({
+      upserted: 3,
+      softDeleted: 0,
+      activeCountBefore: 0,
+    });
+
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
+    const counts = new ImportRunCounts();
+    await pipeline.run(counts, { deleteGuardThresholdPct: 10 });
+
+    expect(counts.fetched).toBe(1500);
+    expect(counts.normalized).toBe(3);
+    expect(calls[0]).toHaveLength(3);
+    expect(calls[0].map((t) => t.provider_tour_id).sort()).toEqual([
+      "curated-0",
+      "curated-1",
+      "curated-2",
+    ]);
   });
 
   it("propagates a guard abort with the earlier counts already tallied", async () => {

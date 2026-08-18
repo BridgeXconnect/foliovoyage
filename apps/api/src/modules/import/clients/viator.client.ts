@@ -1,6 +1,6 @@
 import { Logger } from "@nestjs/common";
 
-import { AllowlistFetch } from "../http/allowlist-fetch";
+import { AllowlistFetch, HostNotAllowedError } from "../http/allowlist-fetch";
 import type { RawArchiveStore } from "../storage/raw-archive.store";
 import {
   viatorModifiedSinceResponseSchema,
@@ -188,8 +188,22 @@ export class ViatorClient {
   }
 
   /**
-   * Fetch one page, retrying 429/5xx with exponential backoff + jitter. Throws
-   * on a non-retryable error status or once retries are exhausted.
+   * Fetch one page, retrying 429/5xx **and** a thrown network/timeout error
+   * with exponential backoff + jitter. Throws on a non-retryable error status
+   * or once retries are exhausted.
+   *
+   * BRI-171 live verification (2026-08-18, full-catalog crawl against
+   * production): the request-timeout added in this story fired on a page deep
+   * into a long crawl and — because a *thrown* error (as opposed to an HTTP
+   * status this method already handled) had no retry path at all — killed the
+   * entire run outright. The same gap is why an earlier run failed on a raw
+   * TLS handshake error (`write EPROTO … ssl3_read_bytes`, 2026-07-26): a
+   * transient network failure got zero retry tolerance while a 5xx got five.
+   * Both are transient failures a long crawl must tolerate, so both now share
+   * the same backoff loop — except {@link HostNotAllowedError}, a
+   * configuration error the SSRF guard raises synchronously from the URL
+   * alone, which is deterministic and re-thrown immediately: retrying it
+   * wastes the whole backoff budget on a call that can never succeed.
    */
   private async fetchPageWithBackoff(
     url: URL,
@@ -198,10 +212,34 @@ export class ViatorClient {
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
-      const response = await this.http.fetch(url, {
-        method: "GET",
-        headers: this.buildHeaders(ifNoneMatch),
-      });
+      let response: Response;
+      try {
+        response = await this.http.fetch(url, {
+          method: "GET",
+          headers: this.buildHeaders(ifNoneMatch),
+        });
+      } catch (error) {
+        // A configuration error, not a transient one — retrying it changes
+        // nothing (the URL's host doesn't change between attempts), so it
+        // must fail immediately rather than burn through the retry budget.
+        if (error instanceof HostNotAllowedError) throw error;
+
+        const message = error instanceof Error ? error.message : String(error);
+        const isLastAttempt = attempt === this.maxRetries - 1;
+        if (isLastAttempt) {
+          lastError = new Error(
+            `Viator request failed after ${this.maxRetries} attempts: ${message}`,
+          );
+          break;
+        }
+        const delay = this.backoffDelay(attempt, null);
+        this.logger.warn(
+          `Viator request errored (${message}); backing off ${delay}ms ` +
+            `(attempt ${attempt + 1}/${this.maxRetries})`,
+        );
+        await this.sleep(delay);
+        continue;
+      }
 
       // 304: the page is unchanged — nothing to re-parse or re-archive.
       if (response.status === 304) {

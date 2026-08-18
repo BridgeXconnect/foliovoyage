@@ -76,4 +76,43 @@ describe("AllowlistFetch", () => {
       /at least one allowed host/,
     );
   });
+
+  it("applies a default per-request timeout signal (BRI-171)", async () => {
+    const fetchImpl = jest.fn<FetchLike>().mockResolvedValue(okResponse());
+    const client = new AllowlistFetch(["api.viator.com"], fetchImpl);
+
+    await client.fetch("https://api.viator.com/partner/products");
+
+    const init = fetchImpl.mock.calls[0]?.[1];
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("honours a caller-supplied signal instead of the default timeout", async () => {
+    const fetchImpl = jest.fn<FetchLike>().mockResolvedValue(okResponse());
+    const client = new AllowlistFetch(["api.viator.com"], fetchImpl);
+    const controller = new AbortController();
+
+    await client.fetch("https://api.viator.com/partner/products", {
+      signal: controller.signal,
+    });
+
+    const init = fetchImpl.mock.calls[0]?.[1];
+    expect(init?.signal).toBe(controller.signal);
+  });
+
+  it("aborts a request that outlives the configured timeout", async () => {
+    const fetchImpl = jest.fn<FetchLike>(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason as Error));
+        }),
+    );
+    const client = new AllowlistFetch(["api.viator.com"], fetchImpl, {
+      timeoutMs: 5,
+    });
+
+    await expect(
+      client.fetch("https://api.viator.com/partner/products"),
+    ).rejects.toBeDefined();
+  });
 });

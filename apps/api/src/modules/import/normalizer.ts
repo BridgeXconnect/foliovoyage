@@ -325,8 +325,12 @@ function pickCoverImage(
  * import linker matches these against the curated-city registry. Order and
  * duplicates are preserved as the provider sends them (deduped downstream if
  * needed); non-string refs are dropped. Empty array when the payload has none.
+ *
+ * Exported (not just used internally) so `scope-filter.ts` can classify a
+ * **raw** product's destination before normalization ever runs (BRI-170) —
+ * without duplicating this extraction logic.
  */
-function extractDestinationRefs(raw: ViatorProduct): string[] {
+export function extractDestinationRefs(raw: ViatorProduct): string[] {
   const destinations = raw["destinations"];
   if (!Array.isArray(destinations)) return [];
   const refs: string[] = [];
