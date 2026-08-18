@@ -9,6 +9,7 @@ import { HealthModule } from "./health/health.module";
 import { ImportModule } from "./modules/import/import.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./redis/redis.module";
+import { SearchModule } from "./search/search.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RedisModule } from "./redis/redis.module";
     DestinationModule,
     AffiliateModule,
     ImportModule,
+    SearchModule,
   ],
 })
 export class AppModule {}
