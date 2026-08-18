@@ -1,6 +1,7 @@
 import { Logger } from "@nestjs/common";
 import type { ImportRun, PrismaClient } from "@prisma/client";
 
+import { ImportRunHeartbeat } from "./heartbeat";
 import {
   ImportPipeline,
   ImportRunCounts,
@@ -41,8 +42,19 @@ import { MassDeletionAbortError } from "./upsert";
  * still `running` well past how long a real run should ever take.
  */
 
-/** How a run was kicked off — persisted on the record for later triage. */
-export type ImportRunTrigger = "scheduled" | "manual";
+/**
+ * How a run was kicked off — persisted on the record for later triage.
+ *
+ * `"scheduled-external"` (BRI-173): Render's free-tier web service sleeps
+ * after 15 minutes idle, so the in-process `ImportScheduler` cron cannot
+ * fire while asleep. A GitHub Actions workflow calls `POST /v1/import/trigger`
+ * on the same schedule to wake the instance and start the run instead — it's
+ * still *the* nightly run in intent, just kicked off externally rather than
+ * by the in-process timer, so it gets its own label distinct from both the
+ * (currently unreachable) in-process `"scheduled"` path and an ad hoc
+ * human-initiated `"manual"` run.
+ */
+export type ImportRunTrigger = "scheduled" | "manual" | "scheduled-external";
 
 /** Just the `importRun` surface this service needs (a `PrismaClient` satisfies it). */
 export type ImportRunPrisma = Pick<PrismaClient, "importRun">;
@@ -58,6 +70,13 @@ export interface ImportRunServiceConfig {
    * as `failed`, from `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`. Defaults to 120.
    */
   readonly stuckRunTimeoutMinutes?: number;
+  /**
+   * The service's own public URL (`RENDER_EXTERNAL_URL`), used to build the
+   * self-heartbeat ping target for the run's duration (BRI-173). Undefined
+   * off-Render (local dev, tests, CI), where {@link ImportRunHeartbeat}
+   * simply no-ops.
+   */
+  readonly heartbeatUrl?: string;
 }
 
 export class ImportRunService {
@@ -127,6 +146,13 @@ export class ImportRunService {
     // Owned here so its tallies survive a pipeline throw (see ImportPipeline).
     const counts = new ImportRunCounts();
 
+    // BRI-173: started right before the work begins, stopped in `finally` so
+    // it never outlives this run regardless of how it ends — the same
+    // cleanup shape `reapStuckRuns` uses for its own best-effort guarantee.
+    // No-ops entirely when `heartbeatUrl` is unset (off-Render).
+    const heartbeat = new ImportRunHeartbeat({ url: this.config.heartbeatUrl });
+    heartbeat.start();
+
     try {
       await this.pipeline.run(counts, {
         deleteGuardThresholdPct: this.config.deleteGuardThresholdPct,
@@ -153,7 +179,25 @@ export class ImportRunService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Import run ${run.id} failed: ${message}`);
       return this.finalize(run.id, "failed", counts, message);
+    } finally {
+      heartbeat.stop();
     }
+  }
+
+  /**
+   * Whether a run is currently `running` for this provider. Used by
+   * {@link import("./import-trigger.controller").ImportTriggerController} to
+   * reject a trigger while one is already in flight (BRI-173) — a naive
+   * double-fire (a retried GitHub Actions step, or a manual trigger racing the
+   * nightly schedule) must not start two concurrent crawls against the same
+   * OTA and catalogue.
+   */
+  async hasRunningRun(): Promise<boolean> {
+    const existing = await this.prisma.importRun.findFirst({
+      where: { provider: this.provider, status: "running" },
+      select: { id: true },
+    });
+    return existing !== null;
   }
 
   /** Update the run row to a terminal state in one write. */

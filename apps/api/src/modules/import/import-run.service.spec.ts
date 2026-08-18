@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import type { ImportRun } from "@prisma/client";
 
 import {
@@ -73,6 +73,18 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         }
       }
       return { count };
+    },
+    findFirst: async ({
+      where,
+    }: {
+      where: { provider: string; status: ImportRun["status"] };
+    }): Promise<ImportRun | null> => {
+      for (const row of this.rows.values()) {
+        if (row.provider === where.provider && row.status === where.status) {
+          return { ...row };
+        }
+      }
+      return null;
     },
   } as unknown as ImportRunPrisma["importRun"];
 
@@ -244,6 +256,115 @@ describe("ImportRunService", () => {
       const count = await service.reapStuckRuns();
 
       expect(count).toBe(1);
+    });
+  });
+
+  describe("hasRunningRun (BRI-173)", () => {
+    it("returns false when no run exists", async () => {
+      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      await expect(service.hasRunningRun()).resolves.toBe(false);
+    });
+
+    it("returns true while a run is in progress", async () => {
+      store.seed({ id: "in-flight", provider: "viator", status: "running" });
+      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      await expect(service.hasRunningRun()).resolves.toBe(true);
+    });
+
+    it("returns false once the run has finished", async () => {
+      store.seed({ id: "done", provider: "viator", status: "succeeded" });
+      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      await expect(service.hasRunningRun()).resolves.toBe(false);
+    });
+  });
+
+  describe("self-heartbeat lifecycle (BRI-173)", () => {
+    const realFetch = globalThis.fetch;
+
+    afterEach(() => {
+      jest.useRealTimers();
+      (globalThis as { fetch: typeof fetch }).fetch = realFetch;
+    });
+
+    it("pings the heartbeat URL while the pipeline is running, and stops once it settles", async () => {
+      jest.useFakeTimers();
+      const fetchMock = jest
+        .fn<typeof fetch>()
+        .mockResolvedValue({ ok: true, status: 200 } as Response);
+      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
+
+      let releasePipeline: (() => void) | undefined;
+      const pipeline = {
+        run: (counts: ImportRunCounts) =>
+          new Promise<void>((resolve) => {
+            releasePipeline = () => {
+              counts.fetched = 1;
+              resolve();
+            };
+          }),
+      } as unknown as ImportPipeline;
+
+      const service = new ImportRunService(store, pipeline, {
+        ...CONFIG,
+        heartbeatUrl: "https://atlas-api.onrender.com",
+      });
+
+      const runPromise = service.execute("scheduled-external");
+
+      // The heartbeat's own default interval is 10 minutes; advance well past
+      // two ticks while the pipeline is still "in flight".
+      await jest.advanceTimersByTimeAsync(21 * 60_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://atlas-api.onrender.com/health",
+        expect.objectContaining({ signal: expect.anything() }),
+      );
+
+      releasePipeline?.();
+      await runPromise;
+
+      // Stopped: further elapsed time must not produce more pings.
+      await jest.advanceTimersByTimeAsync(30 * 60_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("stops the heartbeat even when the pipeline throws", async () => {
+      jest.useFakeTimers();
+      const fetchMock = jest
+        .fn<typeof fetch>()
+        .mockResolvedValue({ ok: true, status: 200 } as Response);
+      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
+
+      const pipeline = fakePipeline(() => {}, new Error("boom"));
+      const service = new ImportRunService(store, pipeline, {
+        ...CONFIG,
+        heartbeatUrl: "https://atlas-api.onrender.com",
+      });
+
+      const run = await service.execute("manual");
+      expect(run.status).toBe("failed");
+
+      await jest.advanceTimersByTimeAsync(30 * 60_000);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("never pings when no heartbeatUrl is configured", async () => {
+      jest.useFakeTimers();
+      const fetchMock = jest
+        .fn<typeof fetch>()
+        .mockResolvedValue({ ok: true, status: 200 } as Response);
+      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
+
+      const service = new ImportRunService(
+        store,
+        fakePipeline((c) => (c.fetched = 1)),
+        CONFIG,
+      );
+
+      await service.execute("manual");
+      await jest.advanceTimersByTimeAsync(30 * 60_000);
+
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

@@ -9,6 +9,7 @@ import { ExperienceLinker } from "./experience-linker";
 import { AllowlistFetch } from "./http/allowlist-fetch";
 import { ImportRunService } from "./import-run.service";
 import { ImportPipeline } from "./import.pipeline";
+import { ImportTriggerController } from "./import-trigger.controller";
 import { PrismaLocationCache } from "./location-cache.prisma";
 import {
   LocationResolver,
@@ -46,6 +47,10 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
   // ScheduleModule.forRoot() sets up the SchedulerRegistry the ImportScheduler
   // registers the nightly cron job on. It is idempotent to include once here.
   imports: [ScheduleModule.forRoot()],
+  // BRI-173: the external wake/trigger endpoint a GitHub Actions workflow
+  // calls on Render's free tier, where the in-process cron above can't fire
+  // while the service is asleep.
+  controllers: [ImportTriggerController],
   providers: [
     {
       provide: VIATOR_HTTP,
@@ -216,6 +221,10 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
             "IMPORT_STUCK_RUN_TIMEOUT_MINUTES",
             { infer: true },
           ),
+          // BRI-173: Render-injected public URL, used only to self-heartbeat
+          // during a run so the free tier's idle timer never trips mid-crawl.
+          // Undefined off-Render, where the heartbeat no-ops.
+          heartbeatUrl: config.get("RENDER_EXTERNAL_URL", { infer: true }),
         }),
     },
     // ST-10: registers the nightly cron trigger at boot (env-gated).
