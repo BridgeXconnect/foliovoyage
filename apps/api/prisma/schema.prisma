@@ -50,9 +50,18 @@ model City {
   /// City centroid longitude (WGS-84); see {@link centroidLat}.
   centroidLng   Float?
   experiences   Experience[]
+  /// Full-text search vector over `name` + `country` (ST-13 / BRI-125, Phase-A
+  /// Postgres FTS — docs/02 §8). A real Postgres `GENERATED ALWAYS AS ... STORED`
+  /// column: both source columns live on this same row, so — unlike
+  /// {@link Experience.searchVector} — no trigger is needed to keep it in sync.
+  /// `Unsupported` because Prisma has no native tsvector type; the generated
+  /// expression and GIN index are hand-written in the migration SQL, and the
+  /// column is only ever read via raw SQL, never written through Prisma Client.
+  searchVector  Unsupported("tsvector")?
 
   /// A country+city slug pair uniquely identifies a destination.
   @@unique([countrySlug, slug])
+  @@index([searchVector], type: Gin)
 }
 
 /// A single curated experience shown in the destination's list.
@@ -102,10 +111,20 @@ model Experience {
   sourceProvider       String?
   sourceProviderTourId String?
 
+  /// Full-text search vector (ST-13 / BRI-125, Phase-A Postgres FTS — docs/02
+  /// §8), weighted title (A) > description (B) > parent city name/country (C)
+  /// so a title match ranks above an incidental destination-name match. Kept in
+  /// sync by a trigger, **not** a Postgres `GENERATED` column: a generated
+  /// column can only reference columns on its own row, and this vector needs
+  /// the linked `City`'s name/country too (see the migration SQL). `Unsupported`
+  /// because Prisma has no native tsvector type; read/written only via raw SQL.
+  searchVector Unsupported("tsvector")?
+
   @@unique([sourceProvider, sourceProviderTourId])
   @@index([cityId])
   /// The public read path filters published rows for a city.
   @@index([cityId, status])
+  @@index([searchVector], type: Gin)
 }
 
 /// A published tour in the live catalogue (ST-9 / BRI-106).
@@ -338,4 +357,6 @@ model AffiliateClick {
 
   /// Analytics reads scan by time window (docs/02 §7 `affiliate_clicks_created_idx`).
   @@index([createdAt])
+  /// Search ranking's popularity term (ST-13 / BRI-125) counts clicks per tour.
+  @@index([tourId])
 }
