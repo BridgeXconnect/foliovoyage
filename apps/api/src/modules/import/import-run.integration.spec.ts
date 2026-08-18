@@ -40,12 +40,19 @@ const prisma = new PrismaClient(
 
 const PROVIDER = "viator";
 
-/** A raw Viator product the normalizer accepts. */
+/**
+ * A raw Viator product the normalizer accepts and — since BRI-170 — that
+ * survives the scope filter too (curated destination, ACTIVE, instant
+ * confirmation), so these fixtures actually reach normalize/upsert.
+ */
 function rawProduct(code: string, overrides: Record<string, unknown> = {}): ViatorProduct {
   return {
     productCode: code,
     title: `Tour ${code}`,
     description: `Description ${code}`,
+    status: "ACTIVE",
+    destinations: [{ ref: "343", primary: true }], // Bangkok — a curated ref
+    bookingConfirmationSettings: { confirmationType: "INSTANT" },
     // No price in the payload (BRI-165) — the price resolver attaches it below.
     reviews: { combinedAverageRating: 4.5, totalReviews: 100 },
     productUrl: `https://www.viator.com/tours/${code}`,

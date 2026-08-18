@@ -254,6 +254,91 @@ describe("ViatorClient — 429 backoff", () => {
   });
 });
 
+describe("ViatorClient — network/timeout error retry (BRI-171)", () => {
+  it("retries a thrown network error (e.g. a request timeout) the same as a 5xx", async () => {
+    let calls = 0;
+    const fetchImpl = jest.fn<FetchLike>(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ products: [{ productCode: "A" }] }), { status: 200 }),
+      );
+    });
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const { client, archive } = makeClient(fetchImpl, { sleep });
+
+    const pages = (await drain(client.fetchModifiedSince())) as unknown[];
+
+    // One thrown error, one retry, then success — same shape as the 429 case.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(pages).toHaveLength(1);
+    // The successful page was archived; the failed attempt produced nothing to archive.
+    expect(archive.writes).toHaveLength(1);
+  });
+
+  it("gives up after maxRetries consecutive thrown errors, with a clear message", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.reject(new Error("network is down")),
+    );
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const { client } = makeClient(fetchImpl, {
+      sleep,
+      backoff: { baseDelayMs: 10, maxDelayMs: 100, maxRetries: 3 },
+    });
+
+    await expect(drain(client.fetchModifiedSince())).rejects.toThrow(
+      /after 3 attempts.*network is down/,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("also retries a real network-level failure distinct from a timeout (e.g. TLS handshake)", async () => {
+    // Mirrors the historical failure mode (2026-07-26 EPROTO/SSL handshake
+    // error) that this same fix now also covers.
+    let calls = 0;
+    const fetchImpl = jest.fn<FetchLike>(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new Error("write EPROTO … ssl3_read_bytes:sslv3 alert handshake failure"));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ products: [] }), { status: 200 }));
+    });
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const { client } = makeClient(fetchImpl, { sleep });
+
+    const pages = (await drain(client.fetchModifiedSince())) as unknown[];
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(pages).toHaveLength(1);
+  });
+
+  it("does not retry HostNotAllowedError — a config error, not a transient one", async () => {
+    const { fetchImpl } = queuedFetch([
+      { status: 200, body: JSON.stringify({ products: [] }) },
+    ]);
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
+    const client = new ViatorClient(
+      { ...CONFIG, baseUrl: "https://evil.example.com/partner" },
+      http,
+      new FakeArchive(),
+      { baseDelayMs: 10, maxDelayMs: 100, maxRetries: 5 },
+      sleep,
+    );
+
+    await expect(drain(client.fetchModifiedSince())).rejects.toThrow(
+      /non-allowlisted host/,
+    );
+    // One attempt, no sleep — a wrong host doesn't change on retry.
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(sleep).not.toHaveBeenCalled();
+  });
+});
+
 describe("ViatorClient — SSRF enforcement", () => {
   it("cannot be pointed at a non-allowlisted host", async () => {
     const { fetchImpl } = queuedFetch([

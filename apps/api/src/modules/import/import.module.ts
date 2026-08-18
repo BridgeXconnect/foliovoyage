@@ -53,7 +53,9 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
       useFactory: (config: ConfigService<Env, true>): AllowlistFetch => {
         const baseUrl = config.get("VIATOR_API_BASE_URL", { infer: true });
         // Only the Viator API host is reachable through this fetcher.
-        return new AllowlistFetch([new URL(baseUrl).hostname]);
+        return new AllowlistFetch([new URL(baseUrl).hostname], undefined, {
+          timeoutMs: config.get("VIATOR_REQUEST_TIMEOUT_MS", { infer: true }),
+        });
       },
     },
     {
@@ -208,6 +210,12 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
           deleteGuardThresholdPct: config.get("DELETE_GUARD_THRESHOLD_PCT", {
             infer: true,
           }),
+          // BRI-170: the startup safeguard that reaps a run orphaned by a
+          // crashed previous process (see ImportRunService.reapStuckRuns).
+          stuckRunTimeoutMinutes: config.get(
+            "IMPORT_STUCK_RUN_TIMEOUT_MINUTES",
+            { infer: true },
+          ),
         }),
     },
     // ST-10: registers the nightly cron trigger at boot (env-gated).

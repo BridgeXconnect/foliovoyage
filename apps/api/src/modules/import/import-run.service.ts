@@ -29,6 +29,16 @@ import { MassDeletionAbortError } from "./upsert";
  * It does **not** re-throw: a scheduled cron and a manual trigger both want the
  * finalized record back (describing the failure) rather than an exception to
  * handle. The record's `status` + `error` communicate the outcome.
+ *
+ * **BRI-170.** Invariant 2 above ("no run is left stuck as `running`") holds
+ * for every failure mode this class's own try/catch can see — but not for a
+ * process that dies *without unwinding the stack at all* (a `kill -9`, or an
+ * OOM kill, exactly what BRI-170's evidence showed: one `ImportRun` row left
+ * `running` with no `finishedAt` and no `error`, because the OOM killed the
+ * process before the `catch` block ever ran). No in-process guarantee can
+ * cover that — the fix is {@link reapStuckRuns}, an out-of-process safeguard
+ * run once at every app boot (see `scheduler.ts`), which finalizes any row
+ * still `running` well past how long a real run should ever take.
  */
 
 /** How a run was kicked off — persisted on the record for later triage. */
@@ -43,11 +53,17 @@ export interface ImportRunServiceConfig {
   readonly deleteGuardThresholdPct: number;
   /** Provider this deployment crawls. Always "viator" today. */
   readonly provider?: string;
+  /**
+   * Minutes a run may sit `running` before {@link reapStuckRuns} finalizes it
+   * as `failed`, from `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`. Defaults to 120.
+   */
+  readonly stuckRunTimeoutMinutes?: number;
 }
 
 export class ImportRunService {
   private readonly logger = new Logger(ImportRunService.name);
   private readonly provider: string;
+  private readonly stuckRunTimeoutMinutes: number;
 
   constructor(
     private readonly prisma: ImportRunPrisma,
@@ -55,6 +71,40 @@ export class ImportRunService {
     private readonly config: ImportRunServiceConfig,
   ) {
     this.provider = config.provider ?? "viator";
+    this.stuckRunTimeoutMinutes = config.stuckRunTimeoutMinutes ?? 120;
+  }
+
+  /**
+   * Finalize as `failed` any run still `running` past
+   * {@link ImportRunServiceConfig.stuckRunTimeoutMinutes}. Intended to run once
+   * at process boot (before a new run might start), so an orphaned row from a
+   * crashed previous process is cleaned up before it can confuse "is an import
+   * currently running?" checks or clutter the audit trail. A run that is
+   * merely slow (still legitimately in flight) is untouched — the timeout is
+   * set well above how long a real crawl+ingest takes.
+   */
+  async reapStuckRuns(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - this.stuckRunTimeoutMinutes * 60_000,
+    );
+    const result = await this.prisma.importRun.updateMany({
+      where: { status: "running", startedAt: { lt: cutoff } },
+      data: {
+        status: "failed",
+        error:
+          `Marked failed at startup: still "running" after ` +
+          `${this.stuckRunTimeoutMinutes} minutes with no finishedAt — ` +
+          `orphaned by a process that exited without unwinding (crash/OOM kill).`,
+        finishedAt: new Date(),
+      },
+    });
+    if (result.count > 0) {
+      this.logger.warn(
+        `Reaped ${result.count} stuck "running" import run(s), stuck past ` +
+          `${this.stuckRunTimeoutMinutes} minutes, as failed.`,
+      );
+    }
+    return result.count;
   }
 
   /**

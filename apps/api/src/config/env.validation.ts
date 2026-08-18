@@ -56,6 +56,24 @@ export const envSchema = z.object({
   /** Accept-Language sent to Viator (required header). */
   VIATOR_API_LANGUAGE: z.string().min(2).default("en-US"),
 
+  /**
+   * Request timeout (ms) applied to every outbound Viator call (content,
+   * price, and location resolution — none of which proxy to a live external
+   * supplier system, unlike a booking call). Docs/13's audit found no timeout
+   * was configured at all.
+   *
+   * Defaults to 60s. BRI-171's live verification (2026-08-18, a real
+   * full-catalog `/products/modified-since` crawl against production) proved
+   * the original 30s default wrong: a page deep into the crawl legitimately
+   * took longer than that to respond, and — before the matching
+   * `viator.client.ts` fix — an aborted-by-timeout request had no retry path
+   * at all, killing the whole run. A thrown timeout is now retried the same as
+   * a 5xx, so this value mainly bounds a *genuinely* stuck connection, not the
+   * high end of normal latency; 60s was chosen empirically from that run
+   * rather than copying Viator's 120s booking-specific figure outright.
+   */
+  VIATOR_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+
   // --- Raw-payload object storage: Cloudflare R2 (S3-compatible) -----------
 
   /**
@@ -113,6 +131,23 @@ export const envSchema = z.object({
     .string()
     .default("true")
     .transform((v) => v !== "false" && v !== "0"),
+
+  /**
+   * Minutes a run may sit in `status: "running"` before a startup safeguard
+   * reaps it as `failed` (BRI-170). A run is only ever left `running` when the
+   * process died mid-flight (crash, OOM kill) before its own try/catch/finally
+   * got to finalize the row — normal completion, failure, and the
+   * mass-deletion guard's abort all finalize themselves. Every app boot (cron
+   * mode and the manual CLI both load `ImportModule`) checks for and reaps any
+   * row stuck past this window. Defaults to 120 minutes — comfortably above
+   * how long a real crawl+ingest takes, so it only fires on a genuinely
+   * orphaned run, never a merely slow one.
+   */
+  IMPORT_STUCK_RUN_TIMEOUT_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120),
 
   // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
 

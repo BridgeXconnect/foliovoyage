@@ -24,6 +24,12 @@ import { ImportRunService } from "./import-run.service";
  *
  * Scope note (M1 is synchronous): this is a direct in-process call, not a job
  * enqueued onto a queue/worker. A queue is ST-33 (M6), explicitly not this story.
+ *
+ * **BRI-170.** `onModuleInit` also reaps any `ImportRun` left stuck `running`
+ * by a crashed previous process (see {@link ImportRunService.reapStuckRuns}),
+ * unconditionally — before the cron-enabled check, so it runs on every boot of
+ * every entry point that loads `ImportModule`: the HTTP server, the nightly
+ * cron path, and the manual `trigger-import.cli.ts` context alike.
  */
 @Injectable()
 export class ImportScheduler implements OnModuleInit {
@@ -38,7 +44,19 @@ export class ImportScheduler implements OnModuleInit {
     private readonly runService: ImportRunService,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    // BRI-170: reap any run orphaned by a crashed previous process before
+    // anything else — unconditional, so it runs whether or not the nightly
+    // cron itself is enabled in this environment. Best-effort: a transient DB
+    // hiccup during boot must not prevent the app (HTTP server or CLI) from
+    // starting at all.
+    try {
+      await this.runService.reapStuckRuns();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to reap stuck import runs at boot: ${message}`);
+    }
+
     const enabled = this.config.get("IMPORT_CRON_ENABLED", { infer: true });
     if (!enabled) {
       this.logger.log(

@@ -61,7 +61,17 @@ export class R2RawArchiveStore implements RawArchiveStore {
 
   constructor(
     config: R2Config,
-    /** Injectable for tests; defaults to a real S3 client pointed at R2. */
+    /**
+     * Injectable for tests; defaults to a real S3 client pointed at R2.
+     *
+     * `maxAttempts` raised from the SDK default of 3 (BRI-171): a full-catalog
+     * crawl calls this once per page for hours, and a live run
+     * (2026-08-18, ~414k products / 3h38m) died with a bare `"terminated"`
+     * error after the default's 3 attempts were exhausted on some page —
+     * unconfirmed whether that request was itself transient, but 3 attempts
+     * is thin for a call made this many times over this long a run, so this
+     * is cheap, standard-SDK-feature hardening either way.
+     */
     private readonly client: S3Client = new S3Client({
       region: "auto",
       endpoint: config.endpoint,
@@ -69,6 +79,7 @@ export class R2RawArchiveStore implements RawArchiveStore {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
+      maxAttempts: 8,
     }),
   ) {
     this.bucket = config.bucket;

@@ -1,11 +1,11 @@
 import { Logger } from "@nestjs/common";
 
 import type { ViatorClient } from "./clients/viator.client";
-import type { ViatorProduct } from "./clients/viator.types";
 import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
+import { decideIngestScope } from "./scope-filter";
 import type { TourUpsertService } from "./upsert";
 import { ImportRunStats, type TourValidator } from "./validator";
 
@@ -15,7 +15,9 @@ import { ImportRunStats, type TourValidator } from "./validator";
  * Threads the existing, already-merged stages together, straight through, into
  * one synchronous run:
  *
- *   ST-6 {@link ViatorClient} (fetch + archive)
+ *   ST-6 {@link ViatorClient} (fetch + archive, one page at a time)
+ *     → BRI-170/171 {@link decideIngestScope} (curated destination + ACTIVE +
+ *       non-manual-confirmation — per raw product, before anything downstream)
  *     → ST-7 {@link normalizeViatorProduct} (normalize)
  *     → ST-7b {@link LocationResolver} (resolve start coordinates)
  *     → ST-7c {@link PriceResolver} (resolve "from" price from schedules)
@@ -34,6 +36,20 @@ import { ImportRunStats, type TourValidator } from "./validator";
  * `normalized`, and `quarantined` are already final by the time the upsert
  * rolls back, so the caller (ST-10's run record) can persist them against an
  * `aborted` run rather than losing them.
+ *
+ * **BRI-170.** `/products/modified-since` has no server-side destination
+ * filter — it returns Viator's *entire* global catalog, and Atlas only ingests
+ * 6 curated cities (~90 products) out of it. The scope filter used to run last,
+ * inside `ExperienceLinker`, *after* every product in the whole catalog had
+ * already been normalized, geo-resolved, and — critically — had a live
+ * per-product `/availability/schedules` call fired for it by the price
+ * resolver. Combined with buffering the entire crawl into one in-memory array
+ * before any of that started, this OOM'd. The fix is entirely in {@link run}
+ * below: the scope filter now runs **immediately per page**, before normalize
+ * ever sees a raw product, so at most one page (≤500 raw products) is ever
+ * held in memory, and every downstream stage — normalize, geo-resolve, and in
+ * particular the live per-product price-resolve fanout — only ever processes
+ * the curated survivor set.
  */
 
 /** Mutable per-run tally, owned by the caller and threaded through the run. */
@@ -100,32 +116,61 @@ export class ImportPipeline {
     // needs (it is pure and never reads the clock itself).
     const fetchedAt = new Date().toISOString();
 
-    // 1. Fetch every page to completion (the ST-9 diff needs the full set to
-    //    decide soft-deletes, so we can't stream straight into the upsert).
-    const rawProducts: ViatorProduct[] = [];
+    // 1+2. Fetch each page and immediately scope-filter + normalize it (BRI-170
+    //    / BRI-171) before moving to the next page. No more than one page
+    //    (≤500 raw products) is ever held in memory: `page.products` goes out
+    //    of scope at the end of each loop iteration, and only the tiny
+    //    curated survivor set (`dtos`, ~90 tours total across the whole
+    //    crawl) accumulates. The normalizer throws on a product missing a
+    //    required field (defence-in-depth); one bad product must not sink the
+    //    whole nightly run, so it's skipped-and-logged rather than aborting —
+    //    same as before, just interleaved with fetching instead of a separate
+    //    pass over a fully-buffered array.
+    const dtos: TourDTO[] = [];
+    let skippedNotCurated = 0;
+    let skippedInactive = 0;
+    let skippedManualConfirmation = 0;
+
     for await (const page of this.client.fetchModifiedSince({
       modifiedSince: options.modifiedSince,
     })) {
-      rawProducts.push(...page.products);
-      counts.fetched = rawProducts.length;
+      counts.fetched += page.products.length;
       counts.cursor = page.nextCursor ?? null;
-    }
-    this.logger.log(`Fetched ${counts.fetched} product(s) from provider.`);
 
-    // 2. Normalize. The normalizer throws on a product missing a required field
-    //    (defence-in-depth); one bad product must not sink the whole nightly
-    //    run, so we skip-and-log it rather than aborting.
-    const dtos: TourDTO[] = [];
-    for (const raw of rawProducts) {
-      try {
-        dtos.push(normalizeViatorProduct(raw, { fetchedAt }));
-        counts.normalized += 1;
-      } catch (error) {
-        this.logger.warn(
-          `Skipping unnormalizable product: ${messageOf(error)}`,
-        );
+      for (const raw of page.products) {
+        const scope = decideIngestScope(raw);
+        if (!scope.ingest) {
+          switch (scope.reason) {
+            case "NOT_CURATED_DESTINATION":
+              skippedNotCurated += 1;
+              break;
+            case "INACTIVE":
+              skippedInactive += 1;
+              break;
+            case "MANUAL_CONFIRMATION":
+              skippedManualConfirmation += 1;
+              break;
+          }
+          continue;
+        }
+
+        try {
+          dtos.push(normalizeViatorProduct(raw, { fetchedAt }));
+          counts.normalized += 1;
+        } catch (error) {
+          this.logger.warn(
+            `Skipping unnormalizable product: ${messageOf(error)}`,
+          );
+        }
       }
     }
+
+    this.logger.log(
+      `Scanned ${counts.fetched} product(s) from provider — ` +
+        `${skippedNotCurated} outside curated destinations, ${skippedInactive} inactive, ` +
+        `${skippedManualConfirmation} manual-confirmation — ` +
+        `${counts.normalized} normalized into the curated ingest set.`,
+    );
 
     // 3. Resolve start-location references to coordinates (cached across runs).
     const located = await this.resolver.attachLocations(dtos);
@@ -134,6 +179,10 @@ export class ImportPipeline {
     //     (BRI-165). The product payload carries no price, and the validator
     //     quarantines priceless tours, so without this every real import is
     //     quarantined. Unresolved tours stay null-priced and are quarantined.
+    //     BRI-170: `located` only ever contains the curated survivor set now
+    //     (the scope filter above already ran), so this live per-product fanout
+    //     is bounded to ~90 calls regardless of catalog size — never one call
+    //     per product in Viator's entire global catalog.
     const priced = await this.priceResolver.attachPrices(located);
 
     // 4. Validate. Passing tours proceed to upsert; quarantined ones are

@@ -58,7 +58,42 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       this.rows.set(where.id, updated);
       return { ...updated };
     },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: { status: ImportRun["status"]; startedAt: { lt: Date } };
+      data: Record<string, unknown>;
+    }): Promise<{ count: number }> => {
+      let count = 0;
+      for (const [id, row] of this.rows) {
+        if (row.status === where.status && row.startedAt < where.startedAt.lt) {
+          this.rows.set(id, { ...row, ...data } as ImportRun);
+          count += 1;
+        }
+      }
+      return { count };
+    },
   } as unknown as ImportRunPrisma["importRun"];
+
+  /** Test helper: insert a row directly, bypassing `create`'s auto-fields. */
+  seed(row: Partial<ImportRun> & { id: string }): void {
+    this.rows.set(row.id, {
+      provider: "viator",
+      trigger: "manual",
+      status: "running",
+      fetched: 0,
+      normalized: 0,
+      quarantined: 0,
+      upserted: 0,
+      softDeleted: 0,
+      cursor: null,
+      error: null,
+      startedAt: new Date(),
+      finishedAt: null,
+      ...row,
+    } as ImportRun);
+  }
 }
 
 /** A pipeline stub that applies `mutate` to the counts, then optionally throws. */
@@ -152,6 +187,63 @@ describe("ImportRunService", () => {
     const service = new ImportRunService(store, pipeline, CONFIG);
     await expect(service.execute("manual")).resolves.toMatchObject({
       status: "failed",
+    });
+  });
+
+  describe("reapStuckRuns (BRI-170)", () => {
+    it("marks a run stuck 'running' past the timeout as failed", async () => {
+      const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3h ago
+      store.seed({ id: "orphan", status: "running", startedAt: staleStart });
+      const service = new ImportRunService(store, fakePipeline(() => {}), {
+        ...CONFIG,
+        stuckRunTimeoutMinutes: 120,
+      });
+
+      const count = await service.reapStuckRuns();
+
+      expect(count).toBe(1);
+      const row = store.rows.get("orphan")!;
+      expect(row.status).toBe("failed");
+      expect(row.error).toMatch(/running.*120 minutes/);
+      expect(row.finishedAt).not.toBeNull();
+    });
+
+    it("leaves a recent, legitimately in-flight run untouched", async () => {
+      const recentStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min ago
+      store.seed({ id: "in-flight", status: "running", startedAt: recentStart });
+      const service = new ImportRunService(store, fakePipeline(() => {}), {
+        ...CONFIG,
+        stuckRunTimeoutMinutes: 120,
+      });
+
+      const count = await service.reapStuckRuns();
+
+      expect(count).toBe(0);
+      expect(store.rows.get("in-flight")!.status).toBe("running");
+    });
+
+    it("leaves already-terminal runs untouched", async () => {
+      const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      store.seed({ id: "done", status: "succeeded", startedAt: staleStart });
+      const service = new ImportRunService(store, fakePipeline(() => {}), {
+        ...CONFIG,
+        stuckRunTimeoutMinutes: 120,
+      });
+
+      const count = await service.reapStuckRuns();
+
+      expect(count).toBe(0);
+      expect(store.rows.get("done")!.status).toBe("succeeded");
+    });
+
+    it("defaults to a 120-minute timeout when not configured", async () => {
+      const staleStart = new Date(Date.now() - 121 * 60 * 1000);
+      store.seed({ id: "orphan", status: "running", startedAt: staleStart });
+      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+
+      const count = await service.reapStuckRuns();
+
+      expect(count).toBe(1);
     });
   });
 });
