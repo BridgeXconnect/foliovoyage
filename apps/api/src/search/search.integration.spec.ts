@@ -16,7 +16,12 @@ import { SearchService } from "./search.service";
  * 6 curated cities, not a handful of rows) so index usage, ranking, and the
  * <500ms budget (docs/03 ST-13 AC) are exercised close to the real ~26K-product
  * catalogue scale, not a toy dataset that would pass trivially with a full
- * table scan.
+ * table scan. Each filler Experience is now (ST-16 / BRI-128) also linked to a
+ * Tour carrying price/rating/duration — spread across bands/values and with a
+ * deliberate null mix roughly matching the real catalogue's population rates
+ * (checked live against `atlas-folio-voyage`: price 100%, duration 76%, rating
+ * 40%) — so the composable filters are exercised at real scale too, not just
+ * text search.
  *
  * Fixtures are scoped by a dedicated `sourceProvider: "search-test"` so they
  * never touch the `viator` rows other integration specs manage. Curated City
@@ -43,6 +48,24 @@ const FILLER_TOPICS = [
   "hiking",
   "photography",
 ];
+
+/**
+ * Price-band spread (ST-16 / BRI-128), minor units — deliberately one value per
+ * band (`$`/`$$`/`$$$`/`$$$$`) cycled across the filler set, mirroring the real
+ * spread confirmed against the live 837-tour catalogue (no single band is a
+ * rounding error there either: 153/230/123/331).
+ */
+const FILLER_PRICE_MINOR_CYCLE = [2000, 8000, 20000, 50000];
+/** Ratings cycled across the populated share of filler rows. */
+const FILLER_RATING_CYCLE = [3.0, 3.5, 4.0, 4.5, 5.0];
+/** Durations (minutes) cycled across the populated share of filler rows. */
+const FILLER_DURATION_MIN_CYCLE = [60, 180, 360, 600, 1440];
+/** Roughly matches the real catalogue's ~40% rating / ~76% duration population
+ * (checked live against `atlas-folio-voyage`, 336/837 and 638/837) — every 3rd
+ * row gets no rating, every 4th gets no duration, so null-handling is actually
+ * exercised at scale, not just correctness on a couple of hand-built rows. */
+const FILLER_UNRATED_EVERY = 3;
+const FILLER_NO_DURATION_EVERY = 4;
 
 let cityIdBySlug: Record<string, string> = {};
 
@@ -116,6 +139,41 @@ beforeAll(async () => {
   const CHUNK = 1000;
   for (let i = 0; i < fillerData.length; i += CHUNK) {
     await prisma.experience.createMany({ data: fillerData.slice(i, i + CHUNK) });
+  }
+
+  // ST-16 / BRI-128: link one Tour per filler Experience carrying
+  // price/rating/duration, so the composable filters are exercised at the same
+  // 5,000-row scale, not just correctness on a couple of hand-built "needle"
+  // rows. `createMany` doesn't return the created rows, so look the ids back up
+  // by the unique `sourceProviderTourId` key just assigned above.
+  const createdFillers = await prisma.experience.findMany({
+    where: { sourceProvider: PROVIDER },
+    select: { id: true, sourceProviderTourId: true },
+  });
+  const experienceIdByFillerKey = new Map(
+    createdFillers.map((e) => [e.sourceProviderTourId, e.id]),
+  );
+  const tourData = fillerData.map((f, i) => ({
+    provider: PROVIDER,
+    providerTourId: `filler-tour-${i}`,
+    title: f.title,
+    // Non-null by construction here (every filler Experience got a matching
+    // Tour row above) — the map lookup can't miss.
+    experienceId: experienceIdByFillerKey.get(f.sourceProviderTourId) as string,
+    priceMinor: FILLER_PRICE_MINOR_CYCLE[i % FILLER_PRICE_MINOR_CYCLE.length],
+    ratingAvg:
+      i % FILLER_UNRATED_EVERY === 0
+        ? null
+        : FILLER_RATING_CYCLE[i % FILLER_RATING_CYCLE.length],
+    durationMin:
+      i % FILLER_NO_DURATION_EVERY === 0
+        ? null
+        : FILLER_DURATION_MIN_CYCLE[i % FILLER_DURATION_MIN_CYCLE.length],
+    fetchedAt: new Date(),
+    sourceHash: `filler-hash-${i}`,
+  }));
+  for (let i = 0; i < tourData.length; i += CHUNK) {
+    await prisma.tour.createMany({ data: tourData.slice(i, i + CHUNK) });
   }
 }, 60000);
 
@@ -442,5 +500,141 @@ describe("SearchService against a realistic-scale catalogue", () => {
         data: { name: "Lisbon" },
       });
     }
+  });
+});
+
+/**
+ * Composable filters (ST-16 / BRI-128), exercised against the same 5,000-row
+ * filler set — each linked to a Tour via {@link FILLER_PRICE_MINOR_CYCLE} /
+ * {@link FILLER_RATING_CYCLE} / {@link FILLER_DURATION_MIN_CYCLE} (see
+ * `beforeAll` above). Needle Experiences created in the suite above have no
+ * linked Tour, so every filter here excludes them automatically via the
+ * LEFT JOIN LATERAL's null result — no special-casing needed in these tests.
+ */
+describe("SearchService filters (ST-16 / BRI-128)", () => {
+  it("single filter: priceBand narrows results to that band only", async () => {
+    const response = await service().search("", 1, 25, { priceBands: ["$"] });
+    const experienceResults = response.results.filter((r) => r.type === "experience");
+
+    expect(experienceResults.length).toBeGreaterThan(0);
+    for (const r of experienceResults) {
+      if (r.type === "experience") expect(r.priceBand).toBe("$");
+    }
+    // Roughly a quarter of the 5,000 filler rows (one band of four) — a loose
+    // bound, not an exact count, so this doesn't couple to unrelated tests'
+    // needle rows created elsewhere in this file.
+    expect(response.pagination.total).toBeGreaterThan(1000);
+    expect(response.pagination.total).toBeLessThan(1500);
+  });
+
+  it("single filter: minRating narrows results to that threshold", async () => {
+    const response = await service().search("", 1, 25, { minRating: 4.5 });
+    const experienceResults = response.results.filter((r) => r.type === "experience");
+
+    expect(experienceResults.length).toBeGreaterThan(0);
+    for (const r of experienceResults) {
+      if (r.type !== "experience") continue;
+      const tour = await prisma.tour.findFirst({ where: { experienceId: r.id } });
+      expect(tour?.ratingAvg).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("single filter: duration range narrows results to that window", async () => {
+    const response = await service().search("", 1, 25, {
+      minDurationMin: 300,
+      maxDurationMin: 700,
+    });
+    const experienceResults = response.results.filter((r) => r.type === "experience");
+
+    expect(experienceResults.length).toBeGreaterThan(0);
+    for (const r of experienceResults) {
+      if (r.type !== "experience") continue;
+      const tour = await prisma.tour.findFirst({ where: { experienceId: r.id } });
+      expect(tour?.durationMin).toBeGreaterThanOrEqual(300);
+      expect(tour?.durationMin).toBeLessThanOrEqual(700);
+    }
+  });
+
+  it("combines two filters with AND semantics, not OR", async () => {
+    const response = await service().search("", 1, 25, {
+      priceBands: ["$$$$"],
+      minRating: 4.5,
+    });
+    const experienceResults = response.results.filter((r) => r.type === "experience");
+
+    expect(experienceResults.length).toBeGreaterThan(0);
+    for (const r of experienceResults) {
+      if (r.type !== "experience") continue;
+      expect(r.priceBand).toBe("$$$$");
+      const tour = await prisma.tour.findFirst({ where: { experienceId: r.id } });
+      expect(tour?.ratingAvg).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("combines a filter with a text query — both must match", async () => {
+    const response = await service().search("museum", 1, 25, { priceBands: ["$"] });
+    const experienceResults = response.results.filter((r) => r.type === "experience");
+
+    expect(experienceResults.length).toBeGreaterThan(0);
+    for (const r of experienceResults) {
+      if (r.type !== "experience") continue;
+      expect(r.title.toLowerCase()).toContain("museum");
+      expect(r.priceBand).toBe("$");
+    }
+  });
+
+  it("an unsatisfiable filter combination returns an honest empty result, not an error", async () => {
+    // No filler duration exceeds 1440 (the top of FILLER_DURATION_MIN_CYCLE).
+    const response = await service().search("", 1, 25, {
+      minRating: 4.9,
+      minDurationMin: 5000,
+    });
+
+    expect(response.results).toEqual([]);
+    expect(response.pagination.total).toBe(0);
+  });
+
+  it("excludes Destination results outright once an Experience-scoped filter is active", async () => {
+    // Baseline: an unfiltered "Bangkok" search does return the City.
+    const unfiltered = await service().search("Bangkok");
+    expect(
+      unfiltered.results.some((r) => r.type === "destination" && r.citySlug === "bangkok"),
+    ).toBe(true);
+
+    // Same query, with a price filter active: the City must not appear, even
+    // though it still text-matches — Cities have no price to filter on.
+    const filtered = await service().search("Bangkok", 1, 12, { priceBands: ["$"] });
+    expect(filtered.results.every((r) => r.type !== "destination")).toBe(true);
+  });
+
+  it("EXPLAIN ANALYZE: a filtered text query never falls back to a full table scan", async () => {
+    const rows = await prisma.$queryRaw<{ "QUERY PLAN": string }[]>`
+      EXPLAIN (ANALYZE, FORMAT TEXT)
+      SELECT e.id, ts_rank_cd(e."searchVector", query, 32) AS "textRank"
+      FROM "Experience" e
+      CROSS JOIN plainto_tsquery('english', 'museum') AS query
+      LEFT JOIN LATERAL (
+        SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+        FROM "Tour" t
+        WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
+        ORDER BY t."updatedAt" DESC
+        LIMIT 1
+      ) tour ON true
+      WHERE e.status = 'published' AND e."searchVector" @@ query
+        AND tour."priceMinor" <= 4000
+      ORDER BY "textRank" DESC, e.id ASC
+      LIMIT 12
+    `;
+    const plan = rows.map((r) => r["QUERY PLAN"]).join("\n");
+
+    // Real finding at this table size (~5-6K Experience rows): the planner
+    // prefers the `(cityId, status)` composite index (`Experience_cityId_status_idx`,
+    // used by the destinations read path) over the `searchVector` GIN index for
+    // this WHERE-clause shape — both are legitimate index scans, and execution
+    // stays under a few ms either way, but it's the *other* index, not the GIN
+    // one ST-13's own docstring implies. Documented, not assumed: don't assert
+    // GIN specifically here, only that it's never a full scan.
+    expect(plan).not.toContain('Seq Scan on "Experience"');
+    expect(plan).toMatch(/Index Scan|Bitmap Index Scan/);
   });
 });

@@ -5,7 +5,9 @@ import {
   concatenateFeaturedAndPaginate,
   type DestinationSearchRow,
   type ExperienceSearchRow,
+  hasExperienceFilters,
   mergeRankAndPaginate,
+  parseSearchFilters,
   scoreDestinationRow,
   scoreExperienceRow,
   SearchService,
@@ -213,12 +215,67 @@ function fakePrisma(
   return { prisma, queryRaw };
 }
 
+describe("parseSearchFilters", () => {
+  it("returns all-undefined for no raw input", () => {
+    expect(parseSearchFilters({})).toEqual({
+      priceBands: undefined,
+      minRating: undefined,
+      minDurationMin: undefined,
+      maxDurationMin: undefined,
+    });
+  });
+
+  it("splits and validates comma-separated priceBand tokens, dropping unknown ones", () => {
+    expect(parseSearchFilters({ priceBand: "$,$$$,bogus" }).priceBands).toEqual(["$", "$$$"]);
+  });
+
+  it("treats an all-unknown priceBand as unset (undefined, not an empty array)", () => {
+    expect(parseSearchFilters({ priceBand: "bogus,also-bogus" }).priceBands).toBeUndefined();
+  });
+
+  it("clamps minRating into [0, 5]", () => {
+    expect(parseSearchFilters({ minRating: -3 }).minRating).toBe(0);
+    expect(parseSearchFilters({ minRating: 9 }).minRating).toBe(5);
+    expect(parseSearchFilters({ minRating: 4.2 }).minRating).toBe(4.2);
+  });
+
+  it("clamps duration bounds to >= 0 and truncates fractional minutes", () => {
+    expect(parseSearchFilters({ minDurationMin: -10 }).minDurationMin).toBe(0);
+    expect(parseSearchFilters({ maxDurationMin: 90.9 }).maxDurationMin).toBe(90);
+  });
+
+  it("leaves an inverted min > max range as-is rather than swapping it", () => {
+    const filters = parseSearchFilters({ minDurationMin: 300, maxDurationMin: 60 });
+    expect(filters.minDurationMin).toBe(300);
+    expect(filters.maxDurationMin).toBe(60);
+  });
+});
+
+describe("hasExperienceFilters", () => {
+  it("is false when nothing is set", () => {
+    expect(hasExperienceFilters({})).toBe(false);
+  });
+
+  it("is true for any single filter field", () => {
+    expect(hasExperienceFilters({ priceBands: ["$"] })).toBe(true);
+    expect(hasExperienceFilters({ minRating: 4 })).toBe(true);
+    expect(hasExperienceFilters({ minDurationMin: 60 })).toBe(true);
+    expect(hasExperienceFilters({ maxDurationMin: 240 })).toBe(true);
+  });
+
+  it("is false for an explicitly empty priceBands array", () => {
+    expect(hasExperienceFilters({ priceBands: [] })).toBe(false);
+  });
+});
+
 describe("SearchService.search", () => {
   it("runs the text-search path (4 queries) for a non-empty q and returns merged results", async () => {
+    // Call order (no filters set → destinations run too): experiences,
+    // experience count, destinations, destination count.
     const { prisma, queryRaw } = fakePrisma([
       [experienceRow({ id: "exp_1", textRank: 0.8 })], // experiences
-      [destinationRow({ citySlug: "bangkok", textRank: 0.3 })], // destinations
       [{ n: 1 }], // experience count
+      [destinationRow({ citySlug: "bangkok", textRank: 0.3 })], // destinations
       [{ n: 1 }], // destination count
     ]);
     const service = new SearchService(prisma);
@@ -235,8 +292,8 @@ describe("SearchService.search", () => {
   it("trims whitespace-only q and falls back to the featured path (also 4 queries)", async () => {
     const { prisma, queryRaw } = fakePrisma([
       [experienceRow()],
-      [destinationRow()],
       [{ n: 1 }],
+      [destinationRow()],
       [{ n: 1 }],
     ]);
     const service = new SearchService(prisma);
@@ -248,7 +305,7 @@ describe("SearchService.search", () => {
   });
 
   it("clamps page to >= 1 and pageSize into [1, 48]", async () => {
-    const { prisma } = fakePrisma([[], [], [{ n: 0 }], [{ n: 0 }]]);
+    const { prisma } = fakePrisma([[], [{ n: 0 }], [], [{ n: 0 }]]);
     const service = new SearchService(prisma);
 
     const response = await service.search("x", -5, 500);
@@ -258,7 +315,7 @@ describe("SearchService.search", () => {
   });
 
   it("defaults an undefined q to the featured path", async () => {
-    const { prisma, queryRaw } = fakePrisma([[], [], [{ n: 0 }], [{ n: 0 }]]);
+    const { prisma, queryRaw } = fakePrisma([[], [{ n: 0 }], [], [{ n: 0 }]]);
     const service = new SearchService(prisma);
 
     const response = await service.search(undefined);
@@ -266,5 +323,21 @@ describe("SearchService.search", () => {
     expect(queryRaw).toHaveBeenCalledTimes(4);
     expect(response.query).toBe("");
     expect(response.results).toEqual([]);
+  });
+
+  it("skips the destination queries entirely once an Experience-scoped filter is set (ST-16 / BRI-128)", async () => {
+    // Only 2 calls now: experiences + experience count. Destinations/destination
+    // count are never queried — resolved locally to empty/zero instead.
+    const { prisma, queryRaw } = fakePrisma([
+      [experienceRow({ id: "exp_1", textRank: 0.8 })],
+      [{ n: 1 }],
+    ]);
+    const service = new SearchService(prisma);
+
+    const response = await service.search("bangkok", 1, 10, { minRating: 4 });
+
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(response.results.every((r) => r.type === "experience")).toBe(true);
+    expect(response.pagination.total).toBe(1);
   });
 });

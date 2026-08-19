@@ -56,3 +56,21 @@ export interface SearchResponse {
   results: SearchResultItem[];
   pagination: SearchPaginationMeta;
 }
+
+/**
+ * Composable filters (ST-16 / BRI-128). Every present field ANDs with `q` and
+ * with every other present field — see {@link hasExperienceFilters} in
+ * `search.service.ts` for the one structural exception this produces
+ * (Destinations, which have none of these, are excluded outright rather than
+ * silently included when any of these are set).
+ */
+export interface SearchFilters {
+  /** One or more of the existing `PriceBand` vocabulary; OR'd together within this field. */
+  priceBands?: PriceBand[];
+  /** Minimum `Tour.ratingAvg` (the provider aggregate), inclusive, 0–5. */
+  minRating?: number;
+  /** Minimum `Tour.durationMin`, inclusive, in minutes. */
+  minDurationMin?: number;
+  /** Maximum `Tour.durationMin`, inclusive, in minutes. */
+  maxDurationMin?: number;
+}
