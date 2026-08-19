@@ -6,13 +6,16 @@ import { MassDeletionAbortError, TourUpsertService } from "./upsert";
 
 /**
  * Integration tests for {@link TourUpsertService} against a **real Postgres**
- * (ST-9 / BRI-106). These are the acceptance-criteria tests the story insists be
- * run, not inspected:
+ * (ST-9 / BRI-106, restructured for BRI-170). These are the acceptance-criteria
+ * tests the story insists be run, not inspected:
  *
  * - idempotency proven by running the same import twice and counting rows;
  * - soft-delete of an active-but-absent tour, and its revival;
- * - the mass-deletion guard tripping and committing *nothing*;
- * - transactional rollback when a write fails part way through the batch.
+ * - the mass-deletion guard tripping and rolling back *only the soft-delete*
+ *   (BRI-170: upserts are no longer gated behind the guard — see the Design
+ *   Decision in the BRI-170 plan for why);
+ * - transactional rollback of one page's batch when a write fails part way
+ *   through it.
  *
  * Requires `DATABASE_URL` pointed at a migrated dev database (see
  * jest.integration.config.js). Excluded from the default `test` task.
@@ -68,6 +71,21 @@ function totalCount(): Promise<number> {
   return prisma.tour.count({ where: { provider: PROVIDER } });
 }
 
+/** Run one full "import" against a set of tours: upsert, then finalize. */
+async function runFull(
+  svc: TourUpsertService,
+  tours: TourDTO[],
+  opts = DEFAULT_OPTS,
+) {
+  const batch = await svc.upsertBatch(tours);
+  const finalize = await svc.finalizeGuardedSoftDelete(
+    tours.map((t) => t.provider_tour_id),
+    PROVIDER,
+    opts,
+  );
+  return { batch, finalize };
+}
+
 beforeEach(async () => {
   await prisma.tour.deleteMany({ where: { provider: PROVIDER } });
 });
@@ -82,8 +100,9 @@ describe("idempotency — running the same import twice", () => {
     const svc = service();
     const tours = [makeTour("A"), makeTour("B"), makeTour("C")];
 
-    const first = await svc.upsertRun(tours, DEFAULT_OPTS);
-    expect(first.upserted).toBe(3);
+    const first = await runFull(svc, tours);
+    expect(first.batch.upserted).toBe(3);
+    expect(first.finalize.softDeleted).toBe(0);
     expect(await totalCount()).toBe(3);
     expect(await activeCount()).toBe(3);
 
@@ -96,8 +115,8 @@ describe("idempotency — running the same import twice", () => {
       })
     ).map((r) => r.id);
 
-    const second = await svc.upsertRun(tours, DEFAULT_OPTS);
-    expect(second.softDeleted).toBe(0);
+    const second = await runFull(svc, tours);
+    expect(second.finalize.softDeleted).toBe(0);
     // The invariant: identical run → identical row count, no inserts.
     expect(await totalCount()).toBe(3);
     expect(await activeCount()).toBe(3);
@@ -114,12 +133,11 @@ describe("idempotency — running the same import twice", () => {
 
   it("updates mutable fields in place on re-run (no duplicate row)", async () => {
     const svc = service();
-    await svc.upsertRun([makeTour("A", { price_minor: 2500 })], DEFAULT_OPTS);
+    await runFull(svc, [makeTour("A", { price_minor: 2500 })]);
 
-    await svc.upsertRun(
-      [makeTour("A", { price_minor: 9900, source_hash: "hash-A-v2" })],
-      DEFAULT_OPTS,
-    );
+    await runFull(svc, [
+      makeTour("A", { price_minor: 9900, source_hash: "hash-A-v2" }),
+    ]);
 
     const row = await prisma.tour.findUniqueOrThrow({
       where: {
@@ -135,18 +153,17 @@ describe("idempotency — running the same import twice", () => {
 describe("soft-delete of active-but-absent tours", () => {
   it("sets deletedAt on a tour missing from a later run", async () => {
     const svc = service();
-    await svc.upsertRun(
-      [makeTour("A"), makeTour("B"), makeTour("C")],
-      DEFAULT_OPTS,
-    );
+    await runFull(svc, [makeTour("A"), makeTour("B"), makeTour("C")]);
 
     // Re-run without "C". 1 of 3 = 33% > 10%, so raise the threshold for this
     // legitimate drop (the guard is tested separately below).
-    const result = await svc.upsertRun([makeTour("A"), makeTour("B")], {
-      deleteGuardThresholdPct: 90,
-    });
+    const { finalize } = await runFull(
+      svc,
+      [makeTour("A"), makeTour("B")],
+      { deleteGuardThresholdPct: 90 },
+    );
 
-    expect(result.softDeleted).toBe(1);
+    expect(finalize.softDeleted).toBe(1);
     expect(await activeCount()).toBe(2);
     expect(await totalCount()).toBe(3); // C still present, just tombstoned
 
@@ -160,8 +177,8 @@ describe("soft-delete of active-but-absent tours", () => {
 
   it("read paths filtering deletedAt: null exclude the soft-deleted row", async () => {
     const svc = service();
-    await svc.upsertRun([makeTour("A"), makeTour("B")], DEFAULT_OPTS);
-    await svc.upsertRun([makeTour("A")], { deleteGuardThresholdPct: 90 });
+    await runFull(svc, [makeTour("A"), makeTour("B")]);
+    await runFull(svc, [makeTour("A")], { deleteGuardThresholdPct: 90 });
 
     const visible = await prisma.tour.findMany({
       where: { provider: PROVIDER, deletedAt: null },
@@ -172,11 +189,11 @@ describe("soft-delete of active-but-absent tours", () => {
 
   it("revives a previously soft-deleted tour when it reappears", async () => {
     const svc = service();
-    await svc.upsertRun([makeTour("A"), makeTour("B")], DEFAULT_OPTS);
-    await svc.upsertRun([makeTour("A")], { deleteGuardThresholdPct: 90 }); // B tombstoned
+    await runFull(svc, [makeTour("A"), makeTour("B")]);
+    await runFull(svc, [makeTour("A")], { deleteGuardThresholdPct: 90 }); // B tombstoned
 
     // B comes back in a later run → deletedAt cleared.
-    await svc.upsertRun([makeTour("A"), makeTour("B")], DEFAULT_OPTS);
+    await runFull(svc, [makeTour("A"), makeTour("B")]);
 
     const b = await prisma.tour.findUniqueOrThrow({
       where: {
@@ -189,44 +206,61 @@ describe("soft-delete of active-but-absent tours", () => {
   });
 });
 
-describe("mass-deletion abort guard", () => {
-  it("aborts and commits NOTHING when deletion exceeds the threshold", async () => {
+describe("mass-deletion guard — now scoped to only the soft-delete step", () => {
+  it("BRI-170: upserts everything it saw even when the guard later trips, but soft-deletes nothing", async () => {
     const svc = service();
     // Seed 10 active tours.
     const seed = Array.from({ length: 10 }, (_, i) => makeTour(`t${i}`));
-    await svc.upsertRun(seed, DEFAULT_OPTS);
+    await runFull(svc, seed);
     expect(await activeCount()).toBe(10);
 
-    // Next run drops 2 (20% > 10%) AND changes t0's title. The whole run must
-    // roll back: no soft-delete, and t0's title unchanged.
-    const badRun = [
-      makeTour("t0", { title: "MUTATED — must not persist" }),
-      ...seed.slice(3), // keep t0 + t3..t9; omit t1, t2 → would delete 2 of 10
+    // A later "run" upserts t0 (mutated) + t3..t9 — 8 of 10 — omitting t1, t2.
+    // Under the old single-transaction upsertRun, this whole thing rolled back
+    // and t0's title was never touched. Under the new design, upsertBatch is
+    // unconditional: it commits t0's new title regardless of what the guard
+    // later decides about the soft-delete.
+    const NEW_TITLE = "Retitled on a run that will later trip the guard";
+    const badRunTours = [
+      makeTour("t0", { title: NEW_TITLE }),
+      ...seed.slice(3),
     ];
+    const badRunIds = badRunTours.map((t) => t.provider_tour_id);
 
-    await expect(svc.upsertRun(badRun, DEFAULT_OPTS)).rejects.toBeInstanceOf(
-      MassDeletionAbortError,
-    );
+    const batchResult = await svc.upsertBatch(badRunTours);
+    expect(batchResult.upserted).toBe(8);
 
-    // Nothing changed: still 10 active, none tombstoned, title untouched.
-    expect(await activeCount()).toBe(10);
-    expect(await totalCount()).toBe(10);
+    // 2 of 10 active (t1, t2) would be soft-deleted = 20% > 10% threshold → abort.
+    await expect(
+      svc.finalizeGuardedSoftDelete(badRunIds, PROVIDER, DEFAULT_OPTS),
+    ).rejects.toBeInstanceOf(MassDeletionAbortError);
+
+    // The upsert already committed: t0's title WAS changed.
     const t0 = await prisma.tour.findUniqueOrThrow({
       where: {
         provider_providerTourId: { provider: PROVIDER, providerTourId: "t0" },
       },
     });
-    expect(t0.title).toBe("Tour t0");
+    expect(t0.title).toBe(NEW_TITLE);
+
+    // But nothing was soft-deleted — the guard's rollback covers only that step.
+    expect(await activeCount()).toBe(10);
+    expect(await totalCount()).toBe(10);
   });
 
   it("carries the actual percentage and threshold on the error", async () => {
     const svc = service();
     const seed = Array.from({ length: 10 }, (_, i) => makeTour(`t${i}`));
-    await svc.upsertRun(seed, DEFAULT_OPTS);
+    await runFull(svc, seed);
 
     let caught: unknown;
     try {
-      await svc.upsertRun(seed.slice(3), DEFAULT_OPTS); // drop 3 of 10 = 30%
+      const survivors = seed.slice(3); // drop 3 of 10 = 30%
+      await svc.upsertBatch(survivors);
+      await svc.finalizeGuardedSoftDelete(
+        survivors.map((t) => t.provider_tour_id),
+        PROVIDER,
+        DEFAULT_OPTS,
+      );
     } catch (e) {
       caught = e;
     }
@@ -242,19 +276,20 @@ describe("mass-deletion abort guard", () => {
   it("does not abort a first run (empty catalogue), even inserting many", async () => {
     const svc = service();
     const seed = Array.from({ length: 50 }, (_, i) => makeTour(`t${i}`));
-    const result = await svc.upsertRun(seed, DEFAULT_OPTS);
-    expect(result.upserted).toBe(50);
+    const { batch, finalize } = await runFull(svc, seed);
+    expect(batch.upserted).toBe(50);
+    expect(finalize.softDeleted).toBe(0);
     expect(await activeCount()).toBe(50);
   });
 });
 
-describe("transactional integrity — failure part way through", () => {
-  it("rolls back all upserts when one row fails mid-batch", async () => {
+describe("transactional integrity — failure part way through one batch", () => {
+  it("rolls back all upserts in the batch when one row fails mid-batch", async () => {
     const svc = service();
 
     // priceMinor is a Postgres INTEGER; a value past 2^31-1 overflows and the
-    // DB rejects the upsert — a real failure occurring *after* the first row has
-    // already been written inside the transaction.
+    // DB rejects the upsert — a real failure occurring *after* the first row
+    // has already been written inside upsertBatch's transaction.
     const OVERFLOW = 9_999_999_999;
     const batch = [
       makeTour("ok-1"),
@@ -262,23 +297,23 @@ describe("transactional integrity — failure part way through", () => {
       makeTour("ok-2"),
     ];
 
-    await expect(svc.upsertRun(batch, DEFAULT_OPTS)).rejects.toThrow();
+    await expect(svc.upsertBatch(batch)).rejects.toThrow();
 
-    // The whole transaction rolled back: not even "ok-1" (written before the
-    // failure) survives.
+    // The whole batch transaction rolled back: not even "ok-1" (written
+    // before the failure) survives.
     expect(await totalCount()).toBe(0);
   });
 
-  it("leaves a pre-existing catalogue untouched when a later run fails mid-batch", async () => {
+  it("leaves a pre-existing catalogue untouched when a later batch fails mid-write", async () => {
     const svc = service();
-    await svc.upsertRun([makeTour("keep")], DEFAULT_OPTS);
+    await runFull(svc, [makeTour("keep")]);
     expect(await activeCount()).toBe(1);
 
     const batch = [
       makeTour("keep", { price_minor: 3300 }), // would-be update
       makeTour("boom", { price_minor: 9_999_999_999 }), // overflow → fail
     ];
-    await expect(svc.upsertRun(batch, DEFAULT_OPTS)).rejects.toThrow();
+    await expect(svc.upsertBatch(batch)).rejects.toThrow();
 
     // "keep" retains its original price; "boom" was never inserted.
     const keep = await prisma.tour.findUniqueOrThrow({
