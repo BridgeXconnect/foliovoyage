@@ -130,6 +130,14 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 /**
+ * Major-currency-unit upper bounds for the `$`/`$$`/`$$$` bands; anything above
+ * `high` is `$$$$`. Exported so callers that need the *inverse* mapping (a band
+ * -> a price range, e.g. the search filter, ST-16 / BRI-128) derive it from this
+ * single source rather than hand-copying the boundaries a second time.
+ */
+export const PRICE_BAND_MAJOR_THRESHOLDS = { low: 40, mid: 120, high: 300 } as const;
+
+/**
  * Map a price in minor units to a rough band. Deliberately currency-naive — a
  * band is a rough signal, not an exact price (matching `@folio/shared`'s
  * `PriceBand` intent). Null in, null out.
@@ -139,8 +147,8 @@ export function priceBandFromMinor(priceMinor: number | bigint | null): PriceBan
   const numericMinor = typeof priceMinor === "bigint" ? Number(priceMinor) : priceMinor;
   if (!Number.isFinite(numericMinor)) return null;
   const major = numericMinor / 100;
-  if (major <= 40) return "$";
-  if (major <= 120) return "$$";
-  if (major <= 300) return "$$$";
+  if (major <= PRICE_BAND_MAJOR_THRESHOLDS.low) return "$";
+  if (major <= PRICE_BAND_MAJOR_THRESHOLDS.mid) return "$$";
+  if (major <= PRICE_BAND_MAJOR_THRESHOLDS.high) return "$$$";
   return "$$$$";
 }

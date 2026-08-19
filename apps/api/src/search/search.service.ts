@@ -1,10 +1,16 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
-import { priceBandFromMinor } from "../destinations/destination.service";
+import {
+  PRICE_BAND_MAJOR_THRESHOLDS,
+  priceBandFromMinor,
+} from "../destinations/destination.service";
+import type { PriceBand } from "../destinations/destination.types";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   SearchDestinationResult,
   SearchExperienceResult,
+  SearchFilters,
   SearchResponse,
   SearchResultItem,
 } from "./search.types";
@@ -56,6 +62,126 @@ export const SEARCH_WEIGHTS = {
 /** Click counts beyond this contribute no further popularity score, so one
  * outlier tour can't dominate ranking. */
 const POPULARITY_CLICK_CLAMP = 50;
+
+/**
+ * Composable filters (ST-16 / BRI-128). All target the `Tour` linked to an
+ * Experience (via the same LATERAL join already used for image/price), never
+ * `Experience.editorRating` — that field is near-100% null at real scale (see
+ * this file's own docstring above), exactly the sparse-field trap the ST-16
+ * plan checked for before building against it. Real population rates checked
+ * against the live 837-row Tour catalogue: price 100%, duration 76%, rating
+ * 40% — all three are real, worth building, not degenerate no-op filters.
+ */
+const VALID_PRICE_BANDS: readonly PriceBand[] = ["$", "$$", "$$$", "$$$$"];
+
+/** Minor-unit thresholds, derived from the single source of truth in
+ * `destination.service.ts` so this filter can never silently drift out of
+ * sync with the `priceBandFromMinor` boundaries every card already uses. */
+const PRICE_BAND_MINOR_THRESHOLDS = {
+  low: PRICE_BAND_MAJOR_THRESHOLDS.low * 100,
+  mid: PRICE_BAND_MAJOR_THRESHOLDS.mid * 100,
+  high: PRICE_BAND_MAJOR_THRESHOLDS.high * 100,
+};
+
+/** Raw, unvalidated filter input as it arrives from query-string params. */
+export interface RawSearchFilters {
+  /** Comma-separated `PriceBand` tokens, e.g. `"$,$$"`. */
+  priceBand?: string;
+  minRating?: number;
+  minDurationMin?: number;
+  maxDurationMin?: number;
+}
+
+/**
+ * Parse + validate raw query-string filter input into {@link SearchFilters}.
+ * Tolerant, not strict: unknown `priceBand` tokens are dropped (not a 400),
+ * `minRating` clamps to [0, 5], duration bounds clamp to ≥ 0 — matching this
+ * service's existing page/pageSize `clamp()` convention rather than
+ * introducing 400s for the first time in this controller. An inverted
+ * `minDurationMin > maxDurationMin` is left as-is (matches nothing) rather
+ * than silently swapped, so a caller's bug produces an honest empty result,
+ * not a masked one.
+ */
+export function parseSearchFilters(raw: RawSearchFilters): SearchFilters {
+  const priceBands = raw.priceBand
+    ?.split(",")
+    .map((token) => token.trim())
+    .filter((token): token is PriceBand =>
+      (VALID_PRICE_BANDS as readonly string[]).includes(token),
+    );
+
+  return {
+    priceBands: priceBands && priceBands.length > 0 ? priceBands : undefined,
+    minRating: raw.minRating !== undefined ? clamp(raw.minRating, 0, 5) : undefined,
+    minDurationMin:
+      raw.minDurationMin !== undefined ? Math.max(0, Math.trunc(raw.minDurationMin)) : undefined,
+    maxDurationMin:
+      raw.maxDurationMin !== undefined ? Math.max(0, Math.trunc(raw.maxDurationMin)) : undefined,
+  };
+}
+
+/**
+ * True when any Experience-scoped filter is set. Destinations (Cities) have no
+ * price, rating, or duration — structurally cannot match any of these — so
+ * when this is true, Destination results are excluded from the search
+ * entirely rather than silently included despite the AND contract (see the
+ * ST-16 plan's combination-semantics section).
+ */
+export function hasExperienceFilters(filters: SearchFilters): boolean {
+  return Boolean(
+    (filters.priceBands && filters.priceBands.length > 0) ||
+      filters.minRating !== undefined ||
+      filters.minDurationMin !== undefined ||
+      filters.maxDurationMin !== undefined,
+  );
+}
+
+/** One price band's minor-unit range as a parameterized SQL condition on the
+ * LATERAL-joined `tour` alias. */
+function priceBandSqlCondition(band: PriceBand): Prisma.Sql {
+  const t = PRICE_BAND_MINOR_THRESHOLDS;
+  switch (band) {
+    case "$":
+      return Prisma.sql`tour."priceMinor" <= ${t.low}`;
+    case "$$":
+      return Prisma.sql`tour."priceMinor" > ${t.low} AND tour."priceMinor" <= ${t.mid}`;
+    case "$$$":
+      return Prisma.sql`tour."priceMinor" > ${t.mid} AND tour."priceMinor" <= ${t.high}`;
+    case "$$$$":
+      return Prisma.sql`tour."priceMinor" > ${t.high}`;
+  }
+}
+
+/**
+ * Build the dynamic, fully-parameterized WHERE-clause addition for
+ * {@link SearchFilters}, applied inside the same `$queryRaw` template as the
+ * text-match/status conditions — before `ORDER BY`/`LIMIT`, not filtered in
+ * application code afterward, so `CANDIDATE_LIMIT` still bounds the correct
+ * (filtered) candidate set rather than truncating it pre-filter. Returns
+ * {@link Prisma.empty} when no filters are set, so it's always safe to splice
+ * into a template unconditionally.
+ */
+function buildTourFilterSql(filters: SearchFilters): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+
+  if (filters.priceBands && filters.priceBands.length > 0) {
+    const bandConditions = filters.priceBands.map(priceBandSqlCondition);
+    conditions.push(Prisma.sql`(${Prisma.join(bandConditions, " OR ")})`);
+  }
+  if (filters.minRating !== undefined) {
+    conditions.push(Prisma.sql`tour."ratingAvg" >= ${filters.minRating}`);
+  }
+  if (filters.minDurationMin !== undefined) {
+    conditions.push(Prisma.sql`tour."durationMin" >= ${filters.minDurationMin}`);
+  }
+  if (filters.maxDurationMin !== undefined) {
+    conditions.push(Prisma.sql`tour."durationMin" <= ${filters.maxDurationMin}`);
+  }
+
+  return conditions.length > 0
+    ? Prisma.sql`AND ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
+}
 
 /** One ranked Experience row as returned by the raw SQL queries below. */
 export interface ExperienceSearchRow {
@@ -209,6 +335,7 @@ export class SearchService {
     rawQuery: string | undefined,
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
+    filters: SearchFilters = {},
   ): Promise<SearchResponse> {
     const q = (rawQuery ?? "").trim();
     const clampedPage = Math.max(1, Math.trunc(page));
@@ -216,8 +343,8 @@ export class SearchService {
 
     const isFeatured = q.length === 0;
     const { experiences, destinations, totalExperiences, totalDestinations } = isFeatured
-      ? await this.runFeatured()
-      : await this.runTextSearch(q);
+      ? await this.runFeatured(filters)
+      : await this.runTextSearch(q, filters);
 
     const { results, total } = (isFeatured ? concatenateFeaturedAndPaginate : mergeRankAndPaginate)(
       experiences,
@@ -240,13 +367,19 @@ export class SearchService {
   }
 
   /** `q` non-empty: rank both entity types by `ts_rank_cd` against their tsvector. */
-  private async runTextSearch(q: string): Promise<{
+  private async runTextSearch(
+    q: string,
+    filters: SearchFilters,
+  ): Promise<{
     experiences: ExperienceSearchRow[];
     destinations: DestinationSearchRow[];
     totalExperiences: number;
     totalDestinations: number;
   }> {
-    const [experiences, destinations, expCount, destCount] = await Promise.all([
+    const filterSql = buildTourFilterSql(filters);
+    const skipDestinations = hasExperienceFilters(filters);
+
+    const [experiences, expCount, destinations, destCount] = await Promise.all([
       this.prisma.$queryRaw<ExperienceSearchRow[]>`
         SELECT
           e.id, e.title, e.description, e."editorRating",
@@ -260,7 +393,7 @@ export class SearchService {
         JOIN "City" c ON c.id = e."cityId"
         CROSS JOIN plainto_tsquery('english', ${q}) AS query
         LEFT JOIN LATERAL (
-          SELECT t."imageUrl", t."imageAlt", t."priceMinor"
+          SELECT t."imageUrl", t."imageAlt", t."priceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC
@@ -273,31 +406,45 @@ export class SearchService {
           WHERE t2."experienceId" = e.id
         ) clicks ON true
         WHERE e.status = 'published' AND e."searchVector" @@ query
+        ${filterSql}
         ORDER BY "textRank" DESC, e.id ASC
         LIMIT ${CANDIDATE_LIMIT}
       `,
-      this.prisma.$queryRaw<DestinationSearchRow[]>`
-        SELECT
-          c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
-          c.name AS "name", c.country AS "country",
-          c."heroImageUrl" AS "heroImageUrl", c."heroImageAlt" AS "heroImageAlt",
-          ts_rank_cd(c."searchVector", query, 32) AS "textRank"
-        FROM "City" c
-        CROSS JOIN plainto_tsquery('english', ${q}) AS query
-        WHERE c."searchVector" @@ query
-        ORDER BY "textRank" DESC, c.id ASC
-        LIMIT ${CANDIDATE_LIMIT}
-      `,
       this.prisma.$queryRaw<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM "Experience" e
+        SELECT count(*)::int AS n
+        FROM "Experience" e
         CROSS JOIN plainto_tsquery('english', ${q}) AS query
+        LEFT JOIN LATERAL (
+          SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+          FROM "Tour" t
+          WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
+          ORDER BY t."updatedAt" DESC
+          LIMIT 1
+        ) tour ON true
         WHERE e.status = 'published' AND e."searchVector" @@ query
+        ${filterSql}
       `,
-      this.prisma.$queryRaw<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM "City" c
-        CROSS JOIN plainto_tsquery('english', ${q}) AS query
-        WHERE c."searchVector" @@ query
-      `,
+      skipDestinations
+        ? Promise.resolve<DestinationSearchRow[]>([])
+        : this.prisma.$queryRaw<DestinationSearchRow[]>`
+            SELECT
+              c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
+              c.name AS "name", c.country AS "country",
+              c."heroImageUrl" AS "heroImageUrl", c."heroImageAlt" AS "heroImageAlt",
+              ts_rank_cd(c."searchVector", query, 32) AS "textRank"
+            FROM "City" c
+            CROSS JOIN plainto_tsquery('english', ${q}) AS query
+            WHERE c."searchVector" @@ query
+            ORDER BY "textRank" DESC, c.id ASC
+            LIMIT ${CANDIDATE_LIMIT}
+          `,
+      skipDestinations
+        ? Promise.resolve<{ n: number }[]>([{ n: 0 }])
+        : this.prisma.$queryRaw<{ n: number }[]>`
+            SELECT count(*)::int AS n FROM "City" c
+            CROSS JOIN plainto_tsquery('english', ${q}) AS query
+            WHERE c."searchVector" @@ query
+          `,
     ]);
 
     return {
@@ -315,13 +462,16 @@ export class SearchService {
    * every curated Destination (a handful of rows, listed in full so the
    * empty-search state doubles as a destination browse).
    */
-  private async runFeatured(): Promise<{
+  private async runFeatured(filters: SearchFilters): Promise<{
     experiences: ExperienceSearchRow[];
     destinations: DestinationSearchRow[];
     totalExperiences: number;
     totalDestinations: number;
   }> {
-    const [experiences, destinations, expCount, destCount] = await Promise.all([
+    const filterSql = buildTourFilterSql(filters);
+    const skipDestinations = hasExperienceFilters(filters);
+
+    const [experiences, expCount, destinations, destCount] = await Promise.all([
       this.prisma.$queryRaw<ExperienceSearchRow[]>`
         SELECT
           e.id, e.title, e.description, e."editorRating",
@@ -334,7 +484,7 @@ export class SearchService {
         FROM "Experience" e
         JOIN "City" c ON c.id = e."cityId"
         LEFT JOIN LATERAL (
-          SELECT t."imageUrl", t."imageAlt", t."priceMinor"
+          SELECT t."imageUrl", t."imageAlt", t."priceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC
@@ -347,23 +497,38 @@ export class SearchService {
           WHERE t2."experienceId" = e.id
         ) clicks ON true
         WHERE e.status = 'published'
+        ${filterSql}
         ORDER BY e."editorRating" DESC NULLS LAST, e.position ASC, e.title ASC
         LIMIT ${CANDIDATE_LIMIT}
       `,
-      this.prisma.$queryRaw<DestinationSearchRow[]>`
-        SELECT
-          c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
-          c.name AS "name", c.country AS "country",
-          c."heroImageUrl" AS "heroImageUrl", c."heroImageAlt" AS "heroImageAlt",
-          0::float AS "textRank"
-        FROM "City" c
-        ORDER BY c.name ASC
-        LIMIT ${CANDIDATE_LIMIT}
-      `,
       this.prisma.$queryRaw<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM "Experience" WHERE status = 'published'
+        SELECT count(*)::int AS n
+        FROM "Experience" e
+        LEFT JOIN LATERAL (
+          SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+          FROM "Tour" t
+          WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
+          ORDER BY t."updatedAt" DESC
+          LIMIT 1
+        ) tour ON true
+        WHERE e.status = 'published'
+        ${filterSql}
       `,
-      this.prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "City"`,
+      skipDestinations
+        ? Promise.resolve<DestinationSearchRow[]>([])
+        : this.prisma.$queryRaw<DestinationSearchRow[]>`
+            SELECT
+              c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
+              c.name AS "name", c.country AS "country",
+              c."heroImageUrl" AS "heroImageUrl", c."heroImageAlt" AS "heroImageAlt",
+              0::float AS "textRank"
+            FROM "City" c
+            ORDER BY c.name ASC
+            LIMIT ${CANDIDATE_LIMIT}
+          `,
+      skipDestinations
+        ? Promise.resolve<{ n: number }[]>([{ n: 0 }])
+        : this.prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "City"`,
     ]);
 
     return {
