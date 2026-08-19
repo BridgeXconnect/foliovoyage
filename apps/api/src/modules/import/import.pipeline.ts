@@ -10,10 +10,10 @@ import type { TourUpsertService } from "./upsert";
 import { ImportRunStats, type TourValidator } from "./validator";
 
 /**
- * Import pipeline orchestrator (ST-10 / BRI-107).
+ * Import pipeline orchestrator (ST-10 / BRI-107, restructured by BRI-170).
  *
- * Threads the existing, already-merged stages together, straight through, into
- * one synchronous run:
+ * Threads the existing, already-merged stages together, per page, into one
+ * synchronous run:
  *
  *   ST-6 {@link ViatorClient} (fetch + archive, one page at a time)
  *     → BRI-170/171 {@link decideIngestScope} (curated destination + ACTIVE +
@@ -22,8 +22,12 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *     → ST-7b {@link LocationResolver} (resolve start coordinates)
  *     → ST-7c {@link PriceResolver} (resolve "from" price from schedules)
  *     → ST-8 {@link TourValidator} (validate / quarantine)
- *     → ST-9 {@link TourUpsertService} (idempotent upsert + soft-delete + guard)
- *     → ST-11 {@link ExperienceLinker} (auto-create/link draft Experiences)
+ *     → ST-9 {@link TourUpsertService.upsertBatch} (idempotent upsert, this page)
+ *
+ * — all run **per page**, before the next page is fetched. Once the crawl
+ * finishes, {@link TourUpsertService.finalizeGuardedSoftDelete} runs once
+ * (soft-delete + mass-deletion guard, using every id upserted this run), then
+ * ST-11 {@link ExperienceLinker} links the committed catalogue.
  *
  * M1 is deliberately synchronous: this is a single straight-line call, **no
  * queue and no worker** (that is ST-33 in M6). The orchestrator adds no counting
@@ -32,24 +36,41 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *
  * That counts object is passed *in* and mutated as the run progresses, so it
  * reflects the work done **even when a later stage throws**. In particular, when
- * ST-9's mass-deletion guard trips (`MassDeletionAbortError`), `fetched`,
- * `normalized`, and `quarantined` are already final by the time the upsert
- * rolls back, so the caller (ST-10's run record) can persist them against an
- * `aborted` run rather than losing them.
+ * {@link TourUpsertService.finalizeGuardedSoftDelete}'s mass-deletion guard trips
+ * (`MassDeletionAbortError`), `fetched`, `normalized`, `quarantined`, and
+ * `upserted` are already final by the time it throws — BRI-170: `upserted`
+ * reflects every page's `upsertBatch` call that already committed, which is a
+ * deliberate change from the pre-BRI-170 behavior where an aborted run wrote
+ * nothing at all (see the BRI-170 plan's Design Decision for why the guard's
+ * scope narrowed to just the soft-delete step).
  *
  * **BRI-170.** `/products/modified-since` has no server-side destination
  * filter — it returns Viator's *entire* global catalog, and Atlas only ingests
- * 6 curated cities (~90 products) out of it. The scope filter used to run last,
- * inside `ExperienceLinker`, *after* every product in the whole catalog had
- * already been normalized, geo-resolved, and — critically — had a live
- * per-product `/availability/schedules` call fired for it by the price
- * resolver. Combined with buffering the entire crawl into one in-memory array
- * before any of that started, this OOM'd. The fix is entirely in {@link run}
- * below: the scope filter now runs **immediately per page**, before normalize
- * ever sees a raw product, so at most one page (≤500 raw products) is ever
- * held in memory, and every downstream stage — normalize, geo-resolve, and in
- * particular the live per-product price-resolve fanout — only ever processes
- * the curated survivor set.
+ * 6 curated cities out of it. Two bugs compounded to OOM the pipeline, fixed in
+ * two stages:
+ *
+ * 1. The scope filter used to run last, inside `ExperienceLinker`, *after*
+ *    every product in the whole catalog had already been normalized,
+ *    geo-resolved, and — critically — had a live per-product
+ *    `/availability/schedules` call fired for it by the price resolver. The
+ *    first fix moved the scope filter to run **immediately per page**, before
+ *    normalize ever sees a raw product, bounding the *raw* page held in memory
+ *    to at most one page (≤500 raw products) at a time.
+ * 2. That first fix still accumulated every curated **survivor** — normalized,
+ *    location-resolved, price-resolved `TourDTO`s — into one array for the
+ *    *entire* crawl, only geo-resolving/price-resolving/validating/upserting
+ *    them as one batch at the very end. Live production evidence (two
+ *    consecutive nightly runs, both OOM-killed on Render's 512MiB free-tier
+ *    instance) showed this is a real, unbounded-by-catalog-size accumulation:
+ *    the curated-match rate is roughly 6% of the scanned catalog, not the
+ *    handful of tours once assumed here — thousands of `TourDTO`s across a
+ *    full ~400K-product crawl, not "~90 tours total." This file's fix is
+ *    {@link run} below: every stage after normalize now also runs per page,
+ *    so at most one page's curated survivors (a small fraction of ≤500) are
+ *    ever held as full `TourDTO` objects. Only a flat list of
+ *    `provider_tour_id` strings accumulates across the whole run — for the
+ *    mass-deletion guard's final diff — which is negligible even at tens of
+ *    thousands of matches.
  */
 
 /** Mutable per-run tally, owned by the caller and threaded through the run. */
@@ -60,9 +81,9 @@ export class ImportRunCounts {
   normalized = 0;
   /** Tours quarantined by the validator (ST-8). */
   quarantined = 0;
-  /** Rows inserted or updated in the live catalogue (ST-9). */
+  /** Rows inserted or updated in the live catalogue (ST-9), summed across pages. */
   upserted = 0;
-  /** Rows soft-deleted this run (ST-9). */
+  /** Rows soft-deleted this run (ST-9, finalize step). */
   softDeleted = 0;
   /** Draft Experiences auto-created this run (ST-11). */
   experiencesCreated = 0;
@@ -76,7 +97,8 @@ export class ImportRunCounts {
 export interface ImportPipelineOptions {
   /**
    * Mass-deletion abort threshold (0–100), forwarded verbatim to
-   * {@link TourUpsertService.upsertRun}. Supplied from `DELETE_GUARD_THRESHOLD_PCT`.
+   * {@link TourUpsertService.finalizeGuardedSoftDelete}. Supplied from
+   * `DELETE_GUARD_THRESHOLD_PCT`.
    */
   readonly deleteGuardThresholdPct: number;
   /**
@@ -84,7 +106,7 @@ export interface ImportPipelineOptions {
    * then). Omitted for a full crawl — the nightly default.
    */
   readonly modifiedSince?: string;
-  /** Forwarded to the upsert transaction timeout; see {@link TourUpsertService}. */
+  /** Forwarded to each upsert/finalize transaction's timeout; see `upsert.ts`. */
   readonly transactionTimeoutMs?: number;
 }
 
@@ -103,10 +125,11 @@ export class ImportPipeline {
   /**
    * Run the whole pipeline once, mutating `counts` as each stage completes.
    *
-   * Resolves on a committed upsert. Propagates whatever a stage throws — most
-   * importantly {@link import("./upsert").MassDeletionAbortError} from the guard
-   * — after `counts` already holds every stage's tally up to the failure point,
-   * so the caller can record an accurate partial result.
+   * Resolves once the crawl finishes and the final soft-delete has committed
+   * (or thrown). Propagates whatever a stage throws — most importantly
+   * {@link import("./upsert").MassDeletionAbortError} from the guard — after
+   * `counts` already holds every stage's tally up to the failure point, so the
+   * caller can record an accurate partial result.
    */
   async run(
     counts: ImportRunCounts,
@@ -116,20 +139,16 @@ export class ImportPipeline {
     // needs (it is pure and never reads the clock itself).
     const fetchedAt = new Date().toISOString();
 
-    // 1+2. Fetch each page and immediately scope-filter + normalize it (BRI-170
-    //    / BRI-171) before moving to the next page. No more than one page
-    //    (≤500 raw products) is ever held in memory: `page.products` goes out
-    //    of scope at the end of each loop iteration, and only the tiny
-    //    curated survivor set (`dtos`, ~90 tours total across the whole
-    //    crawl) accumulates. The normalizer throws on a product missing a
-    //    required field (defence-in-depth); one bad product must not sink the
-    //    whole nightly run, so it's skipped-and-logged rather than aborting —
-    //    same as before, just interleaved with fetching instead of a separate
-    //    pass over a fully-buffered array.
-    const dtos: TourDTO[] = [];
+    // Accumulated across the whole run, for the final guarded soft-delete
+    // diff. Strings only (BRI-170) — negligible memory even at tens of
+    // thousands of curated matches, unlike accumulating the full TourDTOs.
+    const incomingIds: string[] = [];
+    let provider = "viator";
+
     let skippedNotCurated = 0;
     let skippedInactive = 0;
     let skippedManualConfirmation = 0;
+    const stats = new ImportRunStats();
 
     for await (const page of this.client.fetchModifiedSince({
       modifiedSince: options.modifiedSince,
@@ -137,6 +156,13 @@ export class ImportPipeline {
       counts.fetched += page.products.length;
       counts.cursor = page.nextCursor ?? null;
 
+      // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
+      //    goes out of scope at the end of this iteration, and `pageDtos`
+      //    holds at most this page's curated survivors — never the whole
+      //    crawl's. The normalizer throws on a product missing a required
+      //    field (defence-in-depth); one bad product must not sink the whole
+      //    nightly run, so it's skipped-and-logged rather than aborting.
+      const pageDtos: TourDTO[] = [];
       for (const raw of page.products) {
         const scope = decideIngestScope(raw);
         if (!scope.ingest) {
@@ -155,7 +181,7 @@ export class ImportPipeline {
         }
 
         try {
-          dtos.push(normalizeViatorProduct(raw, { fetchedAt }));
+          pageDtos.push(normalizeViatorProduct(raw, { fetchedAt }));
           counts.normalized += 1;
         } catch (error) {
           this.logger.warn(
@@ -163,7 +189,45 @@ export class ImportPipeline {
           );
         }
       }
+
+      if (pageDtos.length === 0) continue;
+
+      // 3. Resolve start-location references to coordinates for this page
+      //    (cached across runs and across pages within this run — see
+      //    LocationResolver's persistent cache).
+      const located = await this.resolver.attachLocations(pageDtos);
+
+      // 3b. Resolve the "from" price per product from `/availability/schedules`
+      //     (BRI-165), for this page's survivors only. BRI-170: bounded to
+      //     this page's curated count (a small fraction of ≤500), never one
+      //     call per product in Viator's entire global catalog, and never
+      //     accumulated across the whole crawl before firing.
+      const priced = await this.priceResolver.attachPrices(located);
+
+      // 4. Validate this page. Passing tours proceed to this page's upsert;
+      //    quarantined ones are persisted + counted by the validator via the
+      //    shared stats tally, which spans the whole run.
+      const passing: TourDTO[] = [];
+      for (const dto of priced) {
+        const result = await this.validator.process(dto, stats);
+        if (result.ok) passing.push(dto);
+      }
+
+      if (passing.length === 0) continue;
+
+      // 5. Upsert this page's passing tours immediately — unconditional and
+      //    safe (BRI-170: see upsert.ts's class docstring for why this no
+      //    longer waits for the mass-deletion guard). Track every upserted id
+      //    for the final diff.
+      provider = passing[0].provider;
+      const batchResult = await this.upsert.upsertBatch(passing, {
+        transactionTimeoutMs: options.transactionTimeoutMs,
+      });
+      counts.upserted += batchResult.upserted;
+      for (const dto of passing) incomingIds.push(dto.provider_tour_id);
     }
+
+    counts.quarantined = stats.quarantined;
 
     this.logger.log(
       `Scanned ${counts.fetched} product(s) from provider — ` +
@@ -172,44 +236,24 @@ export class ImportPipeline {
         `${counts.normalized} normalized into the curated ingest set.`,
     );
 
-    // 3. Resolve start-location references to coordinates (cached across runs).
-    const located = await this.resolver.attachLocations(dtos);
+    // 6. Soft-delete + mass-deletion guard, once, using every id upserted this
+    //    run. Throws MassDeletionAbortError if the guard trips — only this
+    //    step rolls back; every upsertBatch call above already committed.
+    const deletion = await this.upsert.finalizeGuardedSoftDelete(
+      incomingIds,
+      provider,
+      {
+        deleteGuardThresholdPct: options.deleteGuardThresholdPct,
+        transactionTimeoutMs: options.transactionTimeoutMs,
+      },
+    );
+    counts.softDeleted = deletion.softDeleted;
 
-    // 3b. Resolve the "from" price per product from `/availability/schedules`
-    //     (BRI-165). The product payload carries no price, and the validator
-    //     quarantines priceless tours, so without this every real import is
-    //     quarantined. Unresolved tours stay null-priced and are quarantined.
-    //     BRI-170: `located` only ever contains the curated survivor set now
-    //     (the scope filter above already ran), so this live per-product fanout
-    //     is bounded to ~90 calls regardless of catalog size — never one call
-    //     per product in Viator's entire global catalog.
-    const priced = await this.priceResolver.attachPrices(located);
-
-    // 4. Validate. Passing tours proceed to upsert; quarantined ones are
-    //    persisted + counted by the validator via the shared stats tally.
-    const stats = new ImportRunStats();
-    const passing: TourDTO[] = [];
-    for (const dto of priced) {
-      const result = await this.validator.process(dto, stats);
-      if (result.ok) passing.push(dto);
-    }
-    counts.quarantined = stats.quarantined;
-
-    // 5. Upsert + soft-delete + mass-deletion guard, transactionally. Throws
-    //    MassDeletionAbortError if the guard trips — nothing is committed, and
-    //    upserted/softDeleted stay 0 by virtue of not being reassigned.
-    const result = await this.upsert.upsertRun(passing, {
-      deleteGuardThresholdPct: options.deleteGuardThresholdPct,
-      transactionTimeoutMs: options.transactionTimeoutMs,
-    });
-    counts.upserted = result.upserted;
-    counts.softDeleted = result.softDeleted;
-
-    // 6. Link imported tours to draft Experiences (ST-11 / BRI-164). Runs after
-    //    the upsert commits, on the committed catalogue — so it links this run's
-    //    rows plus any curated-city tour left unlinked by an earlier run. It
-    //    operates on one provider; a run crawls one OTA (upsert enforces this).
-    const provider = passing[0]?.provider ?? "viator";
+    // 7. Link imported tours to draft Experiences (ST-11 / BRI-164). Runs after
+    //    the soft-delete commits, on the committed catalogue — so it links this
+    //    run's rows plus any curated-city tour left unlinked by an earlier run.
+    //    It operates on one provider; a run crawls one OTA (upsert enforces
+    //    this per batch).
     const link = await this.linker.linkRun(provider);
     counts.experiencesCreated = link.created;
     counts.experiencesLinked = link.linked;
