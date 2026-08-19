@@ -156,6 +156,21 @@ export class ImportPipeline {
       counts.fetched += page.products.length;
       counts.cursor = page.nextCursor ?? null;
 
+      // TEMPORARY DIAGNOSTIC (BRI-176) — remove once the post-BRI-170 memory
+      // growth is root-caused and fixed. Logged unconditionally, once per raw
+      // page (not gated behind the curated-survivor checks below), so it
+      // covers every page regardless of match rate. The categorized breakdown
+      // (vs. just rss) is the point: heapUsed climbing means a real JS object
+      // is being retained somewhere; external/arrayBuffers climbing while
+      // heapUsed stays flat points at native buffers (undici/fetch or the S3
+      // SDK not releasing request/response buffers) instead.
+      const bri176Mem = process.memoryUsage();
+      this.logger.debug(
+        `[BRI-176 mem] page ${page.page}: rss=${toMb(bri176Mem.rss)}MB ` +
+          `heapUsed=${toMb(bri176Mem.heapUsed)}MB heapTotal=${toMb(bri176Mem.heapTotal)}MB ` +
+          `external=${toMb(bri176Mem.external)}MB arrayBuffers=${toMb(bri176Mem.arrayBuffers)}MB`,
+      );
+
       // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
       //    goes out of scope at the end of this iteration, and `pageDtos`
       //    holds at most this page's curated survivors — never the whole
@@ -263,4 +278,9 @@ export class ImportPipeline {
 /** Best-effort message extraction from an unknown thrown value. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+// TEMPORARY DIAGNOSTIC (BRI-176) — remove alongside the log call above.
+function toMb(bytes: number): string {
+  return (bytes / 1024 / 1024).toFixed(1);
 }
