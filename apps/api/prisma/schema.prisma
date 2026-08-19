@@ -164,7 +164,7 @@ model Tour {
   ratingCount     Int?
   /// "From" price in minor units (e.g. cents). Non-null here — the validator
   /// quarantines missing/non-positive prices upstream.
-  priceMinor      Int?
+  priceMinor      BigInt?
   /// ISO-4217 currency code, or null when unpriced.
   currency        String?
   /// Provider deep link (affiliate params intact), or null when absent.
