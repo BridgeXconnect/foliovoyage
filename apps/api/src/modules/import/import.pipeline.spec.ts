@@ -9,8 +9,9 @@ import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
 import {
   MassDeletionAbortError,
+  type FinalizeSoftDeleteResult,
   type TourUpsertService,
-  type UpsertRunResult,
+  type UpsertBatchResult,
 } from "./upsert";
 import {
   TourValidator,
@@ -19,12 +20,16 @@ import {
 } from "./validator";
 
 /**
- * Unit tests for {@link ImportPipeline} (ST-10 / BRI-107).
+ * Unit tests for {@link ImportPipeline} (ST-10 / BRI-107, restructured by
+ * BRI-170).
  *
- * These prove the orchestration contract without a DB or network: the stages
- * are threaded in order, and — the property the run record depends on — the
- * caller-owned {@link ImportRunCounts} reflects each stage's tally *even when a
- * later stage throws*, so an aborted run can still be recorded accurately.
+ * These prove the orchestration contract without a DB or network: stages are
+ * threaded in order **per page** (BRI-170: geo-resolve/price-resolve/validate/
+ * upsert now happen inside the page loop, not after it, so at most one page's
+ * curated survivors are ever held as full `TourDTO` objects), and — the
+ * property the run record depends on — the caller-owned {@link ImportRunCounts}
+ * reflects each stage's tally *even when a later stage throws*, so an aborted
+ * run can still be recorded accurately.
  */
 
 /**
@@ -105,27 +110,47 @@ class InMemoryQuarantineStore implements QuarantineStore {
   }
 }
 
-/** An upsert stub that records its input and returns a canned result. */
-function fakeUpsert(
-  result: UpsertRunResult,
-): { service: TourUpsertService; calls: TourDTO[][] } {
-  const calls: TourDTO[][] = [];
+/**
+ * An upsert stub that records every `upsertBatch` call's tours and returns a
+ * canned `finalizeGuardedSoftDelete` result. `upsertBatch` echoes back
+ * `tours.length` as `upserted`, matching the real implementation's contract.
+ */
+function fakeUpsert(finalizeResult: FinalizeSoftDeleteResult): {
+  service: TourUpsertService;
+  batchCalls: TourDTO[][];
+  finalizeCalls: { incomingIds: string[]; provider: string }[];
+} {
+  const batchCalls: TourDTO[][] = [];
+  const finalizeCalls: { incomingIds: string[]; provider: string }[] = [];
   const service = {
-    async upsertRun(tours: TourDTO[]): Promise<UpsertRunResult> {
-      calls.push(tours);
-      return result;
+    async upsertBatch(tours: TourDTO[]): Promise<UpsertBatchResult> {
+      batchCalls.push(tours);
+      return { upserted: tours.length };
+    },
+    async finalizeGuardedSoftDelete(
+      incomingIds: string[],
+      provider: string,
+    ): Promise<FinalizeSoftDeleteResult> {
+      finalizeCalls.push({ incomingIds, provider });
+      return finalizeResult;
     },
   } as unknown as TourUpsertService;
-  return { service, calls };
+  return { service, batchCalls, finalizeCalls };
 }
 
-/** An upsert stub that always trips the mass-deletion guard. */
-function abortingUpsert(): TourUpsertService {
-  return {
-    async upsertRun(): Promise<UpsertRunResult> {
+/** An upsert stub whose `finalizeGuardedSoftDelete` always trips the guard. `upsertBatch` still succeeds — proving upserts commit even when the later guard aborts. */
+function abortingUpsert(): { service: TourUpsertService; batchCalls: TourDTO[][] } {
+  const batchCalls: TourDTO[][] = [];
+  const service = {
+    async upsertBatch(tours: TourDTO[]): Promise<UpsertBatchResult> {
+      batchCalls.push(tours);
+      return { upserted: tours.length };
+    },
+    async finalizeGuardedSoftDelete(): Promise<FinalizeSoftDeleteResult> {
       throw new MassDeletionAbortError("viator", 10, 8, 80, 10);
     },
   } as unknown as TourUpsertService;
+  return { service, batchCalls };
 }
 
 describe("ImportPipeline", () => {
@@ -137,13 +162,12 @@ describe("ImportPipeline", () => {
     validator = new TourValidator(store);
   });
 
-  it("threads all stages and tallies every count on a clean run", async () => {
+  it("threads all stages per page and tallies every count on a clean run", async () => {
     const client = fakeClient([
       [rawProduct("A"), rawProduct("B")],
       [rawProduct("C")],
     ]);
-    const { service: upsert, calls } = fakeUpsert({
-      upserted: 3,
+    const { service: upsert, batchCalls, finalizeCalls } = fakeUpsert({
       softDeleted: 1,
       activeCountBefore: 4,
     });
@@ -155,19 +179,26 @@ describe("ImportPipeline", () => {
     expect(counts.fetched).toBe(3);
     expect(counts.normalized).toBe(3);
     expect(counts.quarantined).toBe(0);
-    expect(counts.upserted).toBe(3);
+    expect(counts.upserted).toBe(3); // summed across both pages' upsertBatch calls
     expect(counts.softDeleted).toBe(1);
     expect(counts.cursor).toBeNull(); // crawl ran to completion
-    // All three passed validation and reached the upsert as one batch.
-    expect(calls).toHaveLength(1);
-    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A", "B", "C"]);
+
+    // BRI-170: one upsertBatch call per page that had survivors, not one
+    // call for the whole run.
+    expect(batchCalls).toHaveLength(2);
+    expect(batchCalls[0].map((t) => t.provider_tour_id)).toEqual(["A", "B"]);
+    expect(batchCalls[1].map((t) => t.provider_tour_id)).toEqual(["C"]);
+
+    // Exactly one finalize call, at the end, with every upserted id.
+    expect(finalizeCalls).toHaveLength(1);
+    expect(finalizeCalls[0].incomingIds.sort()).toEqual(["A", "B", "C"]);
+    expect(finalizeCalls[0].provider).toBe("viator");
   });
 
-  it("counts a quarantined tour and keeps it out of the upsert batch", async () => {
+  it("counts a quarantined tour and keeps it out of its page's upsert batch", async () => {
     // "B" resolves to no price → quarantined by the real validator (MISSING_PRICE).
     const client = fakeClient([[rawProduct("A"), rawProduct("B")]]);
-    const { service: upsert, calls } = fakeUpsert({
-      upserted: 1,
+    const { service: upsert, batchCalls } = fakeUpsert({
       softDeleted: 0,
       activeCountBefore: 1,
     });
@@ -181,9 +212,10 @@ describe("ImportPipeline", () => {
     expect(counts.fetched).toBe(2);
     expect(counts.normalized).toBe(2);
     expect(counts.quarantined).toBe(1);
+    expect(counts.upserted).toBe(1);
     expect(store.saved).toHaveLength(1);
     // Only the passing tour "A" is upserted.
-    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
+    expect(batchCalls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
   });
 
   it("skips (does not crash on) an unnormalizable product", async () => {
@@ -191,11 +223,7 @@ describe("ImportPipeline", () => {
     // scope filter, then the normalizer throws → pipeline skips it.
     const unnormalizable = rawProduct("", { productCode: undefined, title: "no code" });
     const client = fakeClient([[rawProduct("A"), unnormalizable]]);
-    const { service: upsert } = fakeUpsert({
-      upserted: 1,
-      softDeleted: 0,
-      activeCountBefore: 1,
-    });
+    const { service: upsert } = fakeUpsert({ softDeleted: 0, activeCountBefore: 1 });
 
     const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
@@ -208,11 +236,7 @@ describe("ImportPipeline", () => {
   it("scope-filters a raw product outside the curated destinations before normalize", async () => {
     const outOfScope = rawProduct("Z", { destinations: [{ ref: "999" }] });
     const client = fakeClient([[rawProduct("A"), outOfScope]]);
-    const { service: upsert, calls } = fakeUpsert({
-      upserted: 1,
-      softDeleted: 0,
-      activeCountBefore: 1,
-    });
+    const { service: upsert, batchCalls } = fakeUpsert({ softDeleted: 0, activeCountBefore: 1 });
 
     const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
@@ -220,7 +244,7 @@ describe("ImportPipeline", () => {
 
     expect(counts.fetched).toBe(2); // both raw products were scanned
     expect(counts.normalized).toBe(1); // only the curated one normalized
-    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
+    expect(batchCalls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
   });
 
   it("scope-filters an INACTIVE product and a MANUAL-confirmation product before normalize", async () => {
@@ -229,11 +253,7 @@ describe("ImportPipeline", () => {
       bookingConfirmationSettings: { confirmationType: "MANUAL" },
     });
     const client = fakeClient([[rawProduct("A"), inactive, manual]]);
-    const { service: upsert, calls } = fakeUpsert({
-      upserted: 1,
-      softDeleted: 0,
-      activeCountBefore: 1,
-    });
+    const { service: upsert, batchCalls } = fakeUpsert({ softDeleted: 0, activeCountBefore: 1 });
 
     const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
@@ -241,26 +261,24 @@ describe("ImportPipeline", () => {
 
     expect(counts.fetched).toBe(3);
     expect(counts.normalized).toBe(1); // only "A" — inactive and manual are scoped out
-    expect(calls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
+    expect(batchCalls[0].map((t) => t.provider_tour_id)).toEqual(["A"]);
   });
 
-  it("never buffers more than one page of raw products at a time", async () => {
+  it("never buffers more than one page's raw products, or one page's curated survivors, at a time", async () => {
     // Three pages, each containing one curated product and 499 out-of-scope
-    // ones — if the pipeline ever buffered the full crawl before scope-filtering
-    // (the pre-fix behaviour), this would hold 1500 raw products in `dtos`
-    // instead of 3. Proving it doesn't is a proxy for the OOM fix without
-    // actually allocating gigabytes in a unit test.
+    // ones. If the scope filter didn't run per-page, `pageDtos` would hold raw
+    // products from every page; if survivors weren't upserted per page (the
+    // actual BRI-170 bug), `upsertBatch` would be called once at the very end
+    // with all 3 curated tours instead of three times with 1 each. Proving
+    // both is a proxy for the OOM fix without actually allocating gigabytes in
+    // a unit test.
     const outOfScope = (i: number) => rawProduct(`skip-${i}`, { destinations: [{ ref: "999" }] });
     const pages = [0, 1, 2].map((p) => [
       rawProduct(`curated-${p}`),
       ...Array.from({ length: 499 }, (_, i) => outOfScope(p * 499 + i)),
     ]);
     const client = fakeClient(pages);
-    const { service: upsert, calls } = fakeUpsert({
-      upserted: 3,
-      softDeleted: 0,
-      activeCountBefore: 0,
-    });
+    const { service: upsert, batchCalls } = fakeUpsert({ softDeleted: 0, activeCountBefore: 0 });
 
     const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert, noopLinker);
     const counts = new ImportRunCounts();
@@ -268,22 +286,25 @@ describe("ImportPipeline", () => {
 
     expect(counts.fetched).toBe(1500);
     expect(counts.normalized).toBe(3);
-    expect(calls[0]).toHaveLength(3);
-    expect(calls[0].map((t) => t.provider_tour_id).sort()).toEqual([
+    // BRI-170: three separate one-tour batches, not one three-tour batch.
+    expect(batchCalls).toHaveLength(3);
+    expect(batchCalls.every((batch) => batch.length === 1)).toBe(true);
+    expect(batchCalls.map((batch) => batch[0].provider_tour_id)).toEqual([
       "curated-0",
       "curated-1",
       "curated-2",
     ]);
   });
 
-  it("propagates a guard abort with the earlier counts already tallied", async () => {
+  it("BRI-170: upserts already-seen pages even when the final guard aborts the soft-delete", async () => {
     const client = fakeClient([[rawProduct("A"), rawProduct("B")]]);
+    const { service: upsert, batchCalls } = abortingUpsert();
     const pipeline = new ImportPipeline(
       client,
       passthroughResolver,
       pricingResolver,
       validator,
-      abortingUpsert(),
+      upsert,
       noopLinker,
     );
     const counts = new ImportRunCounts();
@@ -292,11 +313,14 @@ describe("ImportPipeline", () => {
       pipeline.run(counts, { deleteGuardThresholdPct: 10 }),
     ).rejects.toBeInstanceOf(MassDeletionAbortError);
 
-    // The pre-upsert stages' counts survive the throw; upsert counts stay 0.
+    // The page's upsertBatch call already happened and is reflected in counts
+    // — this is the deliberate behavior change from the old "aborts write
+    // nothing" guarantee (see the BRI-170 plan's Design Decision).
     expect(counts.fetched).toBe(2);
     expect(counts.normalized).toBe(2);
     expect(counts.quarantined).toBe(0);
-    expect(counts.upserted).toBe(0);
-    expect(counts.softDeleted).toBe(0);
+    expect(counts.upserted).toBe(2);
+    expect(counts.softDeleted).toBe(0); // the soft-delete itself never committed
+    expect(batchCalls).toHaveLength(1);
   });
 });

@@ -106,33 +106,44 @@ export function planDeletion(
   return { toSoftDelete, activeCount, deletionPct, aborted };
 }
 
-/** Summary returned to the caller (ST-10 orchestrator) after a committed run. */
-export interface UpsertRunResult {
-  /** Rows inserted or updated (i.e. every row in the run). */
+/** Result of upserting one batch (typically one page's curated survivors). */
+export interface UpsertBatchResult {
+  /** Rows inserted or updated by this batch. */
   readonly upserted: number;
-  /** Rows soft-deleted this run (active before, absent now). */
-  readonly softDeleted: number;
-  /** Active-catalogue size that the soft-delete share was measured against. */
-  readonly activeCountBefore: number;
 }
 
 /** How long the whole read+diff+upsert+soft-delete transaction may run. */
 const DEFAULT_TRANSACTION_TIMEOUT_MS = 120_000;
 
-/** Options for a single upsert run. */
-export interface UpsertRunOptions {
+/** Options for one `upsertBatch` call. */
+export interface UpsertBatchOptions {
+  /**
+   * Interactive-transaction timeout in milliseconds for this batch's
+   * transaction. A batch is one page's worth of curated survivors (small), so
+   * the default is generous headroom, not a tuned value — unlike the old
+   * single-transaction `upsertRun`, no batch here should ever approach it.
+   * Defaults to {@link DEFAULT_TRANSACTION_TIMEOUT_MS}.
+   */
+  readonly transactionTimeoutMs?: number;
+}
+
+/** Result of the once-per-run guarded soft-delete finalize step. */
+export interface FinalizeSoftDeleteResult {
+  /** Rows soft-deleted this run. */
+  readonly softDeleted: number;
+  /** Active-catalogue size that the soft-delete share was measured against. */
+  readonly activeCountBefore: number;
+}
+
+/** Options for {@link TourUpsertService.finalizeGuardedSoftDelete}. */
+export interface FinalizeSoftDeleteOptions {
   /**
    * Abort threshold as a percentage (0–100). Supplied from
    * `DELETE_GUARD_THRESHOLD_PCT`; injected per-call so the guard is testable
    * without touching env.
    */
   readonly deleteGuardThresholdPct: number;
-  /**
-   * Interactive-transaction timeout in milliseconds. The whole run is one
-   * transaction, so a full-catalogue crawl (thousands of upserts) needs far more
-   * than Prisma's 5s default — otherwise a legitimate large run would time out
-   * and roll back. Defaults to {@link DEFAULT_TRANSACTION_TIMEOUT_MS}.
-   */
+  /** Timeout for the finalize transaction (read active + diff + soft-delete). */
   readonly transactionTimeoutMs?: number;
 }
 
@@ -144,12 +155,29 @@ export interface UpsertRunOptions {
 export type TourUpsertPrisma = Pick<PrismaClient, "$transaction" | "tour">;
 
 /**
- * Persists a run of validated tours to the live catalogue, transactionally.
+ * Persists tours to the live catalogue (ST-9 / BRI-106, restructured by
+ * BRI-170 into two calls instead of one).
  *
- * Not a pure function: it owns the DB writes. The guard *arithmetic* it defers
- * to {@link planDeletion} (pure, unit-tested); this class owns wrapping the
- * read + diff + upsert + soft-delete in one transaction and turning a tripped
- * guard into a rollback.
+ * **BRI-170.** The pipeline used to accumulate *every* curated survivor across
+ * an entire crawl before calling this service once, so the mass-deletion guard
+ * could gate the whole write set behind one all-or-nothing transaction. That
+ * accumulation is exactly what OOM'd Render's 512MiB instance twice. The fix
+ * (see `import.pipeline.ts`) is to upsert each page's survivors as they're
+ * found, which means the guard can no longer gate the upserts themselves —
+ * they're already committed by the time a "whole run" guard check could run.
+ * So the guard's scope narrows to what it can still meaningfully protect: the
+ * **soft-delete** step, which is the actually-destructive operation a
+ * truncated/broken upstream fetch could trigger. Two methods reflect this
+ * split:
+ *
+ * - {@link upsertBatch} — call once per page. Upserts are unconditional:
+ *   idempotent, and safe regardless of how the rest of the run goes, because
+ *   they only ever touch rows the run actually saw.
+ * - {@link finalizeGuardedSoftDelete} — call once, after the whole crawl
+ *   finishes, with every `provider_tour_id` any `upsertBatch` call upserted
+ *   this run. Diffs that against the live active catalogue (via the unchanged,
+ *   pure {@link planDeletion}) and soft-deletes what's active-but-absent,
+ *   unless the guard trips — in which case *only the soft-delete* rolls back.
  */
 export class TourUpsertService {
   private readonly logger = new Logger(TourUpsertService.name);
@@ -157,110 +185,127 @@ export class TourUpsertService {
   constructor(private readonly prisma: TourUpsertPrisma) {}
 
   /**
-   * Upsert every tour in `tours` and soft-delete anything active-but-absent, in
-   * a single transaction, guarded against mass deletion.
+   * Upsert every tour in `tours` in one small transaction. No diff, no guard,
+   * no soft-delete — this call only ever creates or updates rows the run
+   * actually saw, which is safe unconditionally. Intended to be called once
+   * per page (or small batch) as a crawl proceeds.
    *
    * All tours in one call must share a `provider` (a run crawls one OTA); the
-   * provider is taken from the first row. An empty run still executes: it
-   * upserts nothing but *does* diff, so it will trip the guard against a
-   * populated catalogue rather than silently soft-deleting everything.
-   *
-   * @throws {MassDeletionAbortError} if the guard trips — the transaction rolls
-   *   back, so nothing (no upsert, no soft-delete) is committed.
+   * provider is taken from the first row. An empty `tours` array is a no-op.
    */
-  async upsertRun(
+  async upsertBatch(
     tours: TourDTO[],
-    options: UpsertRunOptions,
-  ): Promise<UpsertRunResult> {
-    const provider = tours[0]?.provider ?? "viator";
-    // A malformed run mixing providers would corrupt the per-provider diff.
+    options: UpsertBatchOptions = {},
+  ): Promise<UpsertBatchResult> {
+    if (tours.length === 0) return { upserted: 0 };
+
+    const provider = tours[0].provider;
     for (const tour of tours) {
       if (tour.provider !== provider) {
         throw new Error(
-          `upsertRun received tours from multiple providers ` +
-            `("${provider}" and "${tour.provider}"); a run must be single-provider.`,
+          `upsertBatch received tours from multiple providers ` +
+            `("${provider}" and "${tour.provider}"); a batch must be single-provider.`,
         );
       }
     }
 
-    const incomingIds = tours.map((t) => t.provider_tour_id);
-    const now = new Date();
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const tour of tours) {
+          const data = toColumns(tour);
+          await tx.tour.upsert({
+            where: {
+              provider_providerTourId: {
+                provider: tour.provider,
+                providerTourId: tour.provider_tour_id,
+              },
+            },
+            create: data,
+            update: { ...data, deletedAt: null },
+          });
+        }
+      },
+      { timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS },
+    );
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Snapshot the active catalogue for this provider (inside the txn, so
-      //    the diff is consistent with the writes that follow).
-      const active = await tx.tour.findMany({
-        where: { provider, deletedAt: null },
-        select: { providerTourId: true },
-      });
-      const activeIds = active.map((r) => r.providerTourId);
+    this.logger.log(
+      `Upserted batch of ${tours.length} tour(s) for provider "${provider}".`,
+    );
+    return { upserted: tours.length };
+  }
 
-      // 2. Diff + guard (pure).
-      const plan = planDeletion(
-        activeIds,
-        incomingIds,
-        options.deleteGuardThresholdPct,
-      );
+  /**
+   * Diff `incomingIds` (every `provider_tour_id` this run upserted, across
+   * every `upsertBatch` call) against the live active catalogue for
+   * `provider`, and soft-delete anything active-but-absent — guarded by the
+   * mass-deletion threshold, in one transaction. Call once, after the whole
+   * crawl finishes.
+   *
+   * @throws {MassDeletionAbortError} if the guard trips. Only the soft-delete
+   *   transaction rolls back; any `upsertBatch` calls already made this run
+   *   remain committed (see the class docstring for why).
+   */
+  async finalizeGuardedSoftDelete(
+    incomingIds: string[],
+    provider: string,
+    options: FinalizeSoftDeleteOptions,
+  ): Promise<FinalizeSoftDeleteResult> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const active = await tx.tour.findMany({
+          where: { provider, deletedAt: null },
+          select: { providerTourId: true },
+        });
+        const activeIds = active.map((r) => r.providerTourId);
 
-      if (plan.aborted) {
-        // Log/alert clearly with the actual percentage vs. threshold, then throw
-        // to roll the transaction back — nothing is committed.
-        this.logger.error(
-          `ABORT: import for provider "${provider}" would soft-delete ` +
-            `${plan.toSoftDelete.length}/${plan.activeCount} active tours ` +
-            `(${plan.deletionPct.toFixed(2)}%), over the ` +
-            `${options.deleteGuardThresholdPct}% guard threshold. ` +
-            `Rolling back — no changes committed.`,
-        );
-        throw new MassDeletionAbortError(
-          provider,
-          plan.activeCount,
-          plan.toSoftDelete.length,
-          plan.deletionPct,
+        const plan = planDeletion(
+          activeIds,
+          incomingIds,
           options.deleteGuardThresholdPct,
         );
-      }
 
-      // 3. Upsert each row on its natural key. A reappearing (previously
-      //    soft-deleted) tour is revived by clearing deletedAt on update.
-      for (const tour of tours) {
-        const data = toColumns(tour);
-        await tx.tour.upsert({
-          where: {
-            provider_providerTourId: {
-              provider: tour.provider,
-              providerTourId: tour.provider_tour_id,
-            },
-          },
-          create: data,
-          update: { ...data, deletedAt: null },
-        });
-      }
-
-      // 4. Soft-delete everything active-but-absent, in one statement.
-      if (plan.toSoftDelete.length > 0) {
-        await tx.tour.updateMany({
-          where: {
+        if (plan.aborted) {
+          this.logger.error(
+            `ABORT: import for provider "${provider}" would soft-delete ` +
+              `${plan.toSoftDelete.length}/${plan.activeCount} active tours ` +
+              `(${plan.deletionPct.toFixed(2)}%), over the ` +
+              `${options.deleteGuardThresholdPct}% guard threshold. This run's ` +
+              `upserts already committed per-page (BRI-170) — only this ` +
+              `soft-delete step is being rolled back.`,
+          );
+          throw new MassDeletionAbortError(
             provider,
-            providerTourId: { in: plan.toSoftDelete },
-            deletedAt: null,
-          },
-          data: { deletedAt: now },
-        });
-      }
+            plan.activeCount,
+            plan.toSoftDelete.length,
+            plan.deletionPct,
+            options.deleteGuardThresholdPct,
+          );
+        }
 
-      this.logger.log(
-        `Import for provider "${provider}": upserted ${tours.length}, ` +
-          `soft-deleted ${plan.toSoftDelete.length} of ${plan.activeCount} ` +
-          `active (${plan.deletionPct.toFixed(2)}%).`,
-      );
+        if (plan.toSoftDelete.length > 0) {
+          await tx.tour.updateMany({
+            where: {
+              provider,
+              providerTourId: { in: plan.toSoftDelete },
+              deletedAt: null,
+            },
+            data: { deletedAt: new Date() },
+          });
+        }
 
-      return {
-        upserted: tours.length,
-        softDeleted: plan.toSoftDelete.length,
-        activeCountBefore: plan.activeCount,
-      };
-    }, { timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS });
+        this.logger.log(
+          `Finalized provider "${provider}": soft-deleted ` +
+            `${plan.toSoftDelete.length} of ${plan.activeCount} active ` +
+            `(${plan.deletionPct.toFixed(2)}%).`,
+        );
+
+        return {
+          softDeleted: plan.toSoftDelete.length,
+          activeCountBefore: plan.activeCount,
+        };
+      },
+      { timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS },
+    );
   }
 }
 
