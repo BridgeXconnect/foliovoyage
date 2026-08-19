@@ -144,7 +144,7 @@ describe("idempotency — running the same import twice", () => {
         provider_providerTourId: { provider: PROVIDER, providerTourId: "A" },
       },
     });
-    expect(row.priceMinor).toBe(9900);
+    expect(row.priceMinor).toBe(9900n);
     expect(row.sourceHash).toBe("hash-A-v2");
     expect(await totalCount()).toBe(1);
   });
@@ -287,13 +287,15 @@ describe("transactional integrity — failure part way through one batch", () =>
   it("rolls back all upserts in the batch when one row fails mid-batch", async () => {
     const svc = service();
 
-    // priceMinor is a Postgres INTEGER; a value past 2^31-1 overflows and the
-    // DB rejects the upsert — a real failure occurring *after* the first row
-    // has already been written inside upsertBatch's transaction.
+    // durationMin is (and stays, per BRI-175) a Postgres INTEGER; a value past
+    // 2^31-1 overflows and the DB rejects the upsert — a real failure occurring
+    // *after* the first row has already been written inside upsertBatch's
+    // transaction. (priceMinor itself is BIGINT as of BRI-175, so it can no
+    // longer trigger this the way it used to — durationMin still can.)
     const OVERFLOW = 9_999_999_999;
     const batch = [
       makeTour("ok-1"),
-      makeTour("boom", { price_minor: OVERFLOW }),
+      makeTour("boom", { duration_min: OVERFLOW }),
       makeTour("ok-2"),
     ];
 
@@ -311,7 +313,7 @@ describe("transactional integrity — failure part way through one batch", () =>
 
     const batch = [
       makeTour("keep", { price_minor: 3300 }), // would-be update
-      makeTour("boom", { price_minor: 9_999_999_999 }), // overflow → fail
+      makeTour("boom", { duration_min: 9_999_999_999 }), // overflow → fail
     ];
     await expect(svc.upsertBatch(batch)).rejects.toThrow();
 
@@ -321,7 +323,30 @@ describe("transactional integrity — failure part way through one batch", () =>
         provider_providerTourId: { provider: PROVIDER, providerTourId: "keep" },
       },
     });
-    expect(keep.priceMinor).toBe(2500);
+    expect(keep.priceMinor).toBe(2500n);
     expect(await totalCount()).toBe(1);
+  });
+});
+
+describe("high-value minor-unit prices (BRI-175)", () => {
+  it("upserts a price that would overflow a 32-bit INTEGER column", async () => {
+    const svc = service();
+    // The real value that failed in production: a VND-priced Hanoi tour whose
+    // minor-unit price (2,850,000,000) exceeds INT4's 2,147,483,647 ceiling.
+    const tour = makeTour("vnd-high-value", {
+      price_minor: 2_850_000_000,
+      currency: "VND",
+    });
+
+    const result = await svc.upsertBatch([tour]);
+    expect(result.upserted).toBe(1);
+
+    const row = await prisma.tour.findUniqueOrThrow({
+      where: {
+        provider_providerTourId: { provider: PROVIDER, providerTourId: "vnd-high-value" },
+      },
+    });
+    expect(row.priceMinor).toBe(2_850_000_000n);
+    expect(row.currency).toBe("VND");
   });
 });

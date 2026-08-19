@@ -69,7 +69,7 @@ export interface ExperienceSearchRow {
   country: string;
   imageUrl: string | null;
   imageAlt: string | null;
-  priceMinor: number | null;
+  priceMinor: number | bigint | null;
   /** `ts_rank_cd(...)` (0 in the featured/empty-query fallback — no query to rank). */
   textRank: number;
   clickCount: number;

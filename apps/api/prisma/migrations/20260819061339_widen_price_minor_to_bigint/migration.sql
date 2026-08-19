@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Tour" ALTER COLUMN "priceMinor" SET DATA TYPE BIGINT;

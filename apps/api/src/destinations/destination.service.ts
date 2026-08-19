@@ -134,9 +134,11 @@ function clamp(n: number, min: number, max: number): number {
  * band is a rough signal, not an exact price (matching `@folio/shared`'s
  * `PriceBand` intent). Null in, null out.
  */
-export function priceBandFromMinor(priceMinor: number | null): PriceBand | null {
-  if (priceMinor === null || !Number.isFinite(priceMinor)) return null;
-  const major = priceMinor / 100;
+export function priceBandFromMinor(priceMinor: number | bigint | null): PriceBand | null {
+  if (priceMinor === null) return null;
+  const numericMinor = typeof priceMinor === "bigint" ? Number(priceMinor) : priceMinor;
+  if (!Number.isFinite(numericMinor)) return null;
+  const major = numericMinor / 100;
   if (major <= 40) return "$";
   if (major <= 120) return "$$";
   if (major <= 300) return "$$$";
