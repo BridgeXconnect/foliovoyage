@@ -135,6 +135,15 @@ _Goal: users can find things. New concept: full-text search + faceting._
 - **ST-17 (3)** — _As a traveler, I want experience and tour detail pages, so that I can evaluate an option._
   - Traces: FR-DEST-3, FR-REV-1.
   - AC: Experience page shows enrichment facts, aggregated tours, imported rating + count with provider attribution; tour page shows price snapshot (timestamped) + inclusions.
+  - As built (2026-08-21): shipped as **static** experience detail pages at
+    `/destinations/:slug/experiences/:experienceId` (SSG), nested under the
+    BRI-166 canonical destination. Experience≈tour is 1:1 at MVP, so the single
+    "booking option" block is the tour view (no separate `/tours/:slug`); CTA
+    routes through `/go/:slug/:id` (BRI-136), revisited under BRI-137/138.
+    DB-backed detail (needs a `GET /v1/experiences/:id` endpoint + an indexable
+    inbound surface + `/go` support for DB keys) is deferred. docs/01 §6.1 /
+    docs/02 §4.3 IA (`/experiences/:slug`, `/tours/:slug`) is stale vs. this and
+    the current schema (no Atlas slug) — flagged for a later doc-02 reconciliation.
 - **ST-18 (3)** — _As a traveler, I want to compare 2–4 tours, so that I can choose confidently._
   - Traces: FR-DEST-4.
   - AC: Selecting 2–4 tours opens a comparison of price, duration, rating, provider, inclusions.
