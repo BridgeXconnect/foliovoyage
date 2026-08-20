@@ -1,23 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
 import { trackAffiliateClick } from "@/lib/analytics";
+import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail";
 import type { Experience } from "@/data/types";
-
-/** Format a provider "from" price as e.g. "From $28" (no fake precision). */
-function formatFromPrice(amount: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    // Unknown currency code — fall back to a plain amount.
-    return `${amount}`;
-  }
-}
 
 /**
  * Horizontal experience card in the Covilla "vacation" style (image left,
@@ -67,7 +55,12 @@ export function ExperienceRowCard({
       <div className="flex flex-1 flex-col p-6 sm:p-7">
         <p className="eyebrow">{e.category}</p>
         <h3 className="mt-2 font-display text-[22px] font-medium leading-snug">
-          {e.title}
+          <Link
+            href={experienceDetailPath(destination.slug, e.id)}
+            className="transition-colors hover:text-accent"
+          >
+            {e.title}
+          </Link>
         </h3>
         <p className="mt-2 flex-1 text-[14px] leading-6 text-ink-soft">
           {e.description}
