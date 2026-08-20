@@ -30,6 +30,13 @@ import {
  * requests are still wired through ({@link FetchPageResult.etag} /
  * `ifNoneMatch`) so that, on replay against an endpoint that emits an `ETag`, an
  * unchanged page returns 304 and is neither re-parsed nor re-archived.
+ *
+ * **BRI-176.** {@link FetchModifiedSinceOptions.startCursor} and `startPage`
+ * let a caller resume a crawl mid-flight rather than only ever starting one
+ * from scratch. `import.pipeline.ts` uses this to periodically tear down and
+ * restart this generator, which forces release of memory that otherwise
+ * accumulates for the lifetime of one continuous `fetchModifiedSince()`
+ * consumption (confirmed by local heap profiling — see that file's docstring).
  */
 
 export interface ViatorClientConfig {
@@ -66,6 +73,23 @@ export interface FetchModifiedSinceOptions {
    * so a re-sync can be filed under a chosen date.
    */
   date?: string;
+  /**
+   * Resume pagination from this cursor instead of starting a fresh crawl
+   * (BRI-176). When set, `modifiedSince` is never sent on the first request
+   * of this call — the cursor already encodes the crawl's position, matching
+   * this endpoint's existing "modified-since only on the first request"
+   * contract.
+   */
+  startCursor?: string;
+  /**
+   * Page number to start counting from (BRI-176), so a caller that
+   * periodically restarts this generator to force memory release (see
+   * `import.pipeline.ts`) gets continuously-numbered pages across restarts.
+   * Archive keys (`raw/{source}/{date}/{page}.json`) are keyed on this
+   * number — restarting without it would silently overwrite earlier pages'
+   * archives.
+   */
+  startPage?: number;
 }
 
 /** One archived, parsed page handed back to the caller. */
@@ -130,16 +154,21 @@ export class ViatorClient {
     const count = options.count ?? 500;
     const date = options.date ?? new Date().toISOString().slice(0, 10);
 
-    let cursor: string | undefined;
-    let pageNumber = 0;
+    let cursor: string | undefined = options.startCursor;
+    let pageNumber = options.startPage ?? 0;
 
     do {
       pageNumber += 1;
       const url = this.buildUrl({
         count,
         cursor,
-        // modified-since only on the first request; cursor drives the rest.
-        modifiedSince: pageNumber === 1 ? options.modifiedSince : undefined,
+        // modified-since only on the first request of a from-scratch crawl;
+        // a resumed crawl (startCursor set) never sends it — the cursor
+        // alone drives pagination from here (BRI-176).
+        modifiedSince:
+          pageNumber === 1 && cursor === undefined
+            ? options.modifiedSince
+            : undefined,
       });
 
       const result = await this.fetchPageWithBackoff(url);

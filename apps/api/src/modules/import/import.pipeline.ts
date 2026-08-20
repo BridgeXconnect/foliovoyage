@@ -1,7 +1,6 @@
 import { Logger } from "@nestjs/common";
 
 import type { ViatorClient } from "./clients/viator.client";
-import type { ExperienceLinker } from "./experience-linker";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
@@ -10,10 +9,11 @@ import type { TourUpsertService } from "./upsert";
 import { ImportRunStats, type TourValidator } from "./validator";
 
 /**
- * Import pipeline orchestrator (ST-10 / BRI-107, restructured by BRI-170).
+ * Import pipeline orchestrator (ST-10 / BRI-107, restructured by BRI-170,
+ * split into per-segment processes by BRI-176).
  *
- * Threads the existing, already-merged stages together, per page, into one
- * synchronous run:
+ * Threads the existing, already-merged stages together, per page, within one
+ * bounded segment ({@link runSegment}):
  *
  *   ST-6 {@link ViatorClient} (fetch + archive, one page at a time)
  *     → BRI-170/171 {@link decideIngestScope} (curated destination + ACTIVE +
@@ -24,25 +24,31 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *     → ST-8 {@link TourValidator} (validate / quarantine)
  *     → ST-9 {@link TourUpsertService.upsertBatch} (idempotent upsert, this page)
  *
- * — all run **per page**, before the next page is fetched. Once the crawl
- * finishes, {@link TourUpsertService.finalizeGuardedSoftDelete} runs once
- * (soft-delete + mass-deletion guard, using every id upserted this run), then
- * ST-11 {@link ExperienceLinker} links the committed catalogue.
+ * — all run **per page**, before the next page is fetched. A **run** (the
+ * whole crawl, start to true finish) spans one or more **segments**
+ * (BRI-176): `ImportRunService` orchestrates a sequence of short-lived OS
+ * processes (`segment-worker.cli.ts`), each running exactly one
+ * {@link runSegment} call. Once the *last* segment's `runSegment` reports
+ * `done: true`, that same process calls
+ * {@link TourUpsertService.finalizeGuardedSoftDelete} once (soft-delete +
+ * mass-deletion guard, using every id upserted across every segment of the
+ * run — reconstructed from the DB, not carried in memory; see that method's
+ * class docstring) and then `ExperienceLinker` links the committed catalogue.
+ * Neither call lives in this class any more — see `segment-worker.cli.ts`.
  *
- * M1 is deliberately synchronous: this is a single straight-line call, **no
- * queue and no worker** (that is ST-33 in M6). The orchestrator adds no counting
- * or validation logic of its own — it only wires the stages and threads the
+ * M1 is deliberately synchronous within a segment: no queue, no worker (that
+ * is ST-33 in M6) — `child_process.spawn` between segments is BRI-176's own
+ * concession to memory, not a queue. `runSegment` adds no counting or
+ * validation logic of its own — it only wires the stages and threads the
  * counts each stage already reports into a caller-owned {@link ImportRunCounts}.
  *
- * That counts object is passed *in* and mutated as the run progresses, so it
- * reflects the work done **even when a later stage throws**. In particular, when
- * {@link TourUpsertService.finalizeGuardedSoftDelete}'s mass-deletion guard trips
- * (`MassDeletionAbortError`), `fetched`, `normalized`, `quarantined`, and
- * `upserted` are already final by the time it throws — BRI-170: `upserted`
- * reflects every page's `upsertBatch` call that already committed, which is a
- * deliberate change from the pre-BRI-170 behavior where an aborted run wrote
- * nothing at all (see the BRI-170 plan's Design Decision for why the guard's
- * scope narrowed to just the soft-delete step).
+ * That counts object is passed *in* and mutated as the segment progresses,
+ * so it reflects the work done **even when a later stage throws**. BRI-170:
+ * `upserted` reflects every page's `upsertBatch` call that already
+ * committed in this segment — a deliberate change from the pre-BRI-170
+ * behavior where an aborted run wrote nothing at all (see the BRI-170 plan's
+ * Design Decision for why the guard's scope narrowed to just the
+ * soft-delete step).
  *
  * **BRI-170.** `/products/modified-since` has no server-side destination
  * filter — it returns Viator's *entire* global catalog, and Atlas only ingests
@@ -64,13 +70,45 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *    instance) showed this is a real, unbounded-by-catalog-size accumulation:
  *    the curated-match rate is roughly 6% of the scanned catalog, not the
  *    handful of tours once assumed here — thousands of `TourDTO`s across a
- *    full ~400K-product crawl, not "~90 tours total." This file's fix is
- *    {@link run} below: every stage after normalize now also runs per page,
- *    so at most one page's curated survivors (a small fraction of ≤500) are
- *    ever held as full `TourDTO` objects. Only a flat list of
- *    `provider_tour_id` strings accumulates across the whole run — for the
- *    mass-deletion guard's final diff — which is negligible even at tens of
- *    thousands of matches.
+ *    full ~400K-product crawl, not "~90 tours total." This file's fix was
+ *    {@link runSegment} below: every stage after normalize also runs per
+ *    page, so at most one page's curated survivors (a small fraction of ≤500)
+ *    are ever held as full `TourDTO` objects.
+ *
+ * **BRI-176.** BRI-170's fix above stopped app-level `TourDTO` accumulation,
+ * but two real nightly runs still OOM-killed on Render's 512MiB instance
+ * afterward (died at page 67, then page 147 — steady climb, no single spike).
+ * Local heap profiling (Docker, capped at Render's real 512MB limit, real
+ * fetch+archive stage against the real Viator API) localized the cause to
+ * `undici`'s HTTP response decoding inside {@link ViatorClient.fetchModifiedSince}
+ * itself: ~90%+ of retained allocation traces there, growing monotonically
+ * with page count, released only when one continuous `fetchModifiedSince()`
+ * generator consumption ends.
+ *
+ * A first fix (an in-process generator restart, breaking and re-entering
+ * `fetchModifiedSince` every N pages within the same call) was tried and
+ * measurably helped — but two capped verification runs showed a real,
+ * if noisy, residual accumulation surviving an in-process `break`, unlike
+ * the clean, complete release BRI-176 confirmed for a *naturally-completed*
+ * generator. So this method ({@link runSegment}) is deliberately bounded to
+ * **one segment** (at most `options.restartEveryNPages` pages, or the whole
+ * crawl if it finishes first) and does not loop or restart internally at
+ * all — the actual restart now happens one level up, as a full **OS process**
+ * exit/respawn, orchestrated by {@link import("./import-run.service").ImportRunService}
+ * spawning a fresh `segment-worker.cli.ts` child per segment. That guarantees
+ * the same complete release BRI-176 measured for a natural exit, since a
+ * process exiting *is* a natural exit for everything in it.
+ *
+ * Because a run now spans multiple processes, this method takes `fetchedAt`
+ * as a required input (sourced from `ImportRun.startedAt`, not computed
+ * locally) so every segment of one run — regardless of which process ran
+ * it — stamps the identical provenance timestamp on every row it touches.
+ * `finalizeGuardedSoftDelete` and `ExperienceLinker` are **not** called here
+ * any more (they must run exactly once per *run*, not once per *segment*) —
+ * see `segment-worker.cli.ts`, which calls them only when {@link runSegment}
+ * reports `done: true`, reconstructing the run's full incoming-id set from
+ * the DB (`Tour` rows sharing this run's `fetchedAt`) rather than carrying an
+ * in-memory list across process boundaries.
  */
 
 /** Mutable per-run tally, owned by the caller and threaded through the run. */
@@ -85,29 +123,65 @@ export class ImportRunCounts {
   upserted = 0;
   /** Rows soft-deleted this run (ST-9, finalize step). */
   softDeleted = 0;
-  /** Draft Experiences auto-created this run (ST-11). */
-  experiencesCreated = 0;
-  /** Tours newly linked to an Experience this run (ST-11). */
-  experiencesLinked = 0;
   /** Last pagination cursor observed; null once the crawl finishes cleanly. */
   cursor: string | null = null;
+  /**
+   * Last global page number this segment reached (BRI-176) — threaded into
+   * the *next* segment's `startPage` so R2 archive keys stay unique across
+   * the whole run. `null` if this segment never saw a page (shouldn't
+   * happen in practice, but a segment resuming past the crawl's real end
+   * would see none).
+   */
+  lastPage: number | null = null;
 }
 
-/** Options for one pipeline run. */
+/** Options for one segment of a run. */
 export interface ImportPipelineOptions {
   /**
-   * Mass-deletion abort threshold (0–100), forwarded verbatim to
-   * {@link TourUpsertService.finalizeGuardedSoftDelete}. Supplied from
-   * `DELETE_GUARD_THRESHOLD_PCT`.
+   * Provenance timestamp (ISO-8601) stamped on every row this segment
+   * touches. Sourced from `ImportRun.startedAt` (BRI-176) rather than
+   * computed locally, so every segment of one run — regardless of which
+   * process ran it — stamps the identical value. That's what lets the last
+   * segment reconstruct the whole run's incoming-id set straight from the
+   * DB (`Tour` rows sharing this `fetchedAt`) instead of carrying an
+   * in-memory list across process boundaries — see `segment-worker.cli.ts`.
    */
-  readonly deleteGuardThresholdPct: number;
+  readonly fetchedAt: string;
   /**
    * Optional ISO-8601 timestamp for a delta crawl (only pages modified since
-   * then). Omitted for a full crawl — the nightly default.
+   * then). Only meaningful — and only ever supplied by the caller — on a
+   * run's very first segment; every resumed segment has `startCursor` set,
+   * and {@link ViatorClient.fetchModifiedSince} already refuses to send
+   * `modifiedSince` whenever a `startCursor` is present.
    */
   readonly modifiedSince?: string;
-  /** Forwarded to each upsert/finalize transaction's timeout; see `upsert.ts`. */
+  /** Forwarded to each upsert transaction's timeout; see `upsert.ts`. */
   readonly transactionTimeoutMs?: number;
+  /**
+   * Stop after this many pages (BRI-176), leaving further pages for the
+   * *next* segment (a fresh OS process — see class docstring) rather than
+   * continuing in this one. Stops early only when a next page actually
+   * exists; the crawl's true last page (no `nextCursor`) always finishes
+   * the segment via natural completion instead. From
+   * `IMPORT_CRAWL_RESTART_PAGES`.
+   */
+  readonly restartEveryNPages: number;
+  /** Resume pagination from this cursor; omitted on a run's first segment. */
+  readonly startCursor?: string;
+  /** Resume page numbering from here; omitted on a run's first segment. */
+  readonly startPage?: number;
+}
+
+/** Result of one {@link ImportPipeline.runSegment} call. */
+export interface RunSegmentResult {
+  /**
+   * `true` once the crawl has reached its true end (no more pages) —
+   * the caller should reconstruct `incomingIds` from the DB and call
+   * `finalizeGuardedSoftDelete`/`ExperienceLinker` exactly once. `false`
+   * means more pages remain; the caller should spawn another segment
+   * resuming from `counts.cursor`.
+   */
+  readonly done: boolean;
 }
 
 export class ImportPipeline {
@@ -119,57 +193,41 @@ export class ImportPipeline {
     private readonly priceResolver: PriceResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
-    private readonly linker: ExperienceLinker,
   ) {}
 
   /**
-   * Run the whole pipeline once, mutating `counts` as each stage completes.
+   * Run one bounded segment of a crawl, mutating `counts` as each stage
+   * completes. Stops after `options.restartEveryNPages` pages or the crawl's
+   * true end, whichever comes first — see class docstring for why this
+   * method never loops or restarts internally. Does **not** call
+   * `finalizeGuardedSoftDelete` or `ExperienceLinker`; the caller does that
+   * exactly once, only when the returned `done` is `true`.
    *
-   * Resolves once the crawl finishes and the final soft-delete has committed
-   * (or thrown). Propagates whatever a stage throws — most importantly
-   * {@link import("./upsert").MassDeletionAbortError} from the guard — after
-   * `counts` already holds every stage's tally up to the failure point, so the
-   * caller can record an accurate partial result.
+   * Propagates whatever a stage throws — `counts` already holds every
+   * stage's tally up to the failure point, so the caller can record an
+   * accurate partial result even on failure.
    */
-  async run(
+  async runSegment(
     counts: ImportRunCounts,
     options: ImportPipelineOptions,
-  ): Promise<void> {
-    // One crawl timestamp for the whole run — the provenance the normalizer
-    // needs (it is pure and never reads the clock itself).
-    const fetchedAt = new Date().toISOString();
-
-    // Accumulated across the whole run, for the final guarded soft-delete
-    // diff. Strings only (BRI-170) — negligible memory even at tens of
-    // thousands of curated matches, unlike accumulating the full TourDTOs.
-    const incomingIds: string[] = [];
-    let provider = "viator";
-
+  ): Promise<RunSegmentResult> {
     let skippedNotCurated = 0;
     let skippedInactive = 0;
     let skippedManualConfirmation = 0;
     const stats = new ImportRunStats();
 
+    let done = true;
+    let pagesThisSegment = 0;
+
     for await (const page of this.client.fetchModifiedSince({
       modifiedSince: options.modifiedSince,
+      startCursor: options.startCursor,
+      startPage: options.startPage,
+      date: options.fetchedAt.slice(0, 10),
     })) {
       counts.fetched += page.products.length;
       counts.cursor = page.nextCursor ?? null;
-
-      // TEMPORARY DIAGNOSTIC (BRI-176) — remove once the post-BRI-170 memory
-      // growth is root-caused and fixed. Logged unconditionally, once per raw
-      // page (not gated behind the curated-survivor checks below), so it
-      // covers every page regardless of match rate. The categorized breakdown
-      // (vs. just rss) is the point: heapUsed climbing means a real JS object
-      // is being retained somewhere; external/arrayBuffers climbing while
-      // heapUsed stays flat points at native buffers (undici/fetch or the S3
-      // SDK not releasing request/response buffers) instead.
-      const bri176Mem = process.memoryUsage();
-      this.logger.debug(
-        `[BRI-176 mem] page ${page.page}: rss=${toMb(bri176Mem.rss)}MB ` +
-          `heapUsed=${toMb(bri176Mem.heapUsed)}MB heapTotal=${toMb(bri176Mem.heapTotal)}MB ` +
-          `external=${toMb(bri176Mem.external)}MB arrayBuffers=${toMb(bri176Mem.arrayBuffers)}MB`,
-      );
+      counts.lastPage = page.page;
 
       // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
       //    goes out of scope at the end of this iteration, and `pageDtos`
@@ -196,7 +254,9 @@ export class ImportPipeline {
         }
 
         try {
-          pageDtos.push(normalizeViatorProduct(raw, { fetchedAt }));
+          pageDtos.push(
+            normalizeViatorProduct(raw, { fetchedAt: options.fetchedAt }),
+          );
           counts.normalized += 1;
         } catch (error) {
           this.logger.warn(
@@ -205,82 +265,65 @@ export class ImportPipeline {
         }
       }
 
-      if (pageDtos.length === 0) continue;
+      if (pageDtos.length > 0) {
+        // 3. Resolve start-location references to coordinates for this page
+        //    (cached across runs and across pages within this run — see
+        //    LocationResolver's persistent cache).
+        const located = await this.resolver.attachLocations(pageDtos);
 
-      // 3. Resolve start-location references to coordinates for this page
-      //    (cached across runs and across pages within this run — see
-      //    LocationResolver's persistent cache).
-      const located = await this.resolver.attachLocations(pageDtos);
+        // 3b. Resolve the "from" price per product from
+        //     `/availability/schedules` (BRI-165), for this page's survivors
+        //     only. BRI-170: bounded to this page's curated count (a small
+        //     fraction of ≤500), never one call per product in Viator's
+        //     entire global catalog, and never accumulated across the whole
+        //     crawl before firing.
+        const priced = await this.priceResolver.attachPrices(located);
 
-      // 3b. Resolve the "from" price per product from `/availability/schedules`
-      //     (BRI-165), for this page's survivors only. BRI-170: bounded to
-      //     this page's curated count (a small fraction of ≤500), never one
-      //     call per product in Viator's entire global catalog, and never
-      //     accumulated across the whole crawl before firing.
-      const priced = await this.priceResolver.attachPrices(located);
+        // 4. Validate this page. Passing tours proceed to this page's
+        //    upsert; quarantined ones are persisted + counted by the
+        //    validator via the shared stats tally, which spans this segment.
+        const passing: TourDTO[] = [];
+        for (const dto of priced) {
+          const result = await this.validator.process(dto, stats);
+          if (result.ok) passing.push(dto);
+        }
 
-      // 4. Validate this page. Passing tours proceed to this page's upsert;
-      //    quarantined ones are persisted + counted by the validator via the
-      //    shared stats tally, which spans the whole run.
-      const passing: TourDTO[] = [];
-      for (const dto of priced) {
-        const result = await this.validator.process(dto, stats);
-        if (result.ok) passing.push(dto);
+        if (passing.length > 0) {
+          // 5. Upsert this page's passing tours immediately — unconditional
+          //    and safe (BRI-170: see upsert.ts's class docstring for why
+          //    this doesn't wait for the mass-deletion guard).
+          const batchResult = await this.upsert.upsertBatch(passing, {
+            transactionTimeoutMs: options.transactionTimeoutMs,
+          });
+          counts.upserted += batchResult.upserted;
+        }
       }
 
-      if (passing.length === 0) continue;
-
-      // 5. Upsert this page's passing tours immediately — unconditional and
-      //    safe (BRI-170: see upsert.ts's class docstring for why this no
-      //    longer waits for the mass-deletion guard). Track every upserted id
-      //    for the final diff.
-      provider = passing[0].provider;
-      const batchResult = await this.upsert.upsertBatch(passing, {
-        transactionTimeoutMs: options.transactionTimeoutMs,
-      });
-      counts.upserted += batchResult.upserted;
-      for (const dto of passing) incomingIds.push(dto.provider_tour_id);
+      // BRI-176: stop this segment every `restartEveryNPages` pages, leaving
+      // the rest for a fresh process (see class docstring). Only when a next
+      // page actually exists — the crawl's true last page (no `nextCursor`)
+      // always finishes via natural completion instead, leaving `done` true.
+      pagesThisSegment += 1;
+      if (page.nextCursor && pagesThisSegment >= options.restartEveryNPages) {
+        done = false;
+        break;
+      }
     }
 
     counts.quarantined = stats.quarantined;
 
     this.logger.log(
-      `Scanned ${counts.fetched} product(s) from provider — ` +
+      `Segment scanned ${counts.fetched} product(s) from provider — ` +
         `${skippedNotCurated} outside curated destinations, ${skippedInactive} inactive, ` +
         `${skippedManualConfirmation} manual-confirmation — ` +
         `${counts.normalized} normalized into the curated ingest set.`,
     );
 
-    // 6. Soft-delete + mass-deletion guard, once, using every id upserted this
-    //    run. Throws MassDeletionAbortError if the guard trips — only this
-    //    step rolls back; every upsertBatch call above already committed.
-    const deletion = await this.upsert.finalizeGuardedSoftDelete(
-      incomingIds,
-      provider,
-      {
-        deleteGuardThresholdPct: options.deleteGuardThresholdPct,
-        transactionTimeoutMs: options.transactionTimeoutMs,
-      },
-    );
-    counts.softDeleted = deletion.softDeleted;
-
-    // 7. Link imported tours to draft Experiences (ST-11 / BRI-164). Runs after
-    //    the soft-delete commits, on the committed catalogue — so it links this
-    //    run's rows plus any curated-city tour left unlinked by an earlier run.
-    //    It operates on one provider; a run crawls one OTA (upsert enforces
-    //    this per batch).
-    const link = await this.linker.linkRun(provider);
-    counts.experiencesCreated = link.created;
-    counts.experiencesLinked = link.linked;
+    return { done };
   }
 }
 
 /** Best-effort message extraction from an unknown thrown value. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-// TEMPORARY DIAGNOSTIC (BRI-176) — remove alongside the log call above.
-function toMb(bytes: number): string {
-  return (bytes / 1024 / 1024).toFixed(1);
 }
