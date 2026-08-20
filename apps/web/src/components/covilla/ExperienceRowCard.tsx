@@ -4,22 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
 import { trackAffiliateClick } from "@/lib/analytics";
-import { experienceDetailPath } from "@/lib/experience-detail";
+import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail";
 import type { Experience } from "@/data/types";
-
-/** Format a provider "from" price as e.g. "From $28" (no fake precision). */
-function formatFromPrice(amount: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    // Unknown currency code — fall back to a plain amount.
-    return `${amount}`;
-  }
-}
 
 /**
  * Horizontal experience card in the Covilla "vacation" style (image left,

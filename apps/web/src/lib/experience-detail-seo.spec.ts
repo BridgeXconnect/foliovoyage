@@ -61,7 +61,8 @@ describe("buildExperienceProductLd", () => {
     expect(ld["@type"]).toBe("Product");
     expect(ld.aggregateRating).toBeUndefined();
     // no fromPrice → no priced Offer (no fabricated price)
-    expect((ld.offers as { price?: string } | undefined)?.price).toBeUndefined();
+    expect((ld.offers as { price?: string; seller?: unknown } | undefined)?.price).toBeUndefined();
+    expect((ld.offers as { price?: string; seller?: unknown } | undefined)?.seller).toBeUndefined();
   });
 });
 

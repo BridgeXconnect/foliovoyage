@@ -13,6 +13,7 @@ import {
   listExperienceDetailParams,
   experienceGoHref,
   experienceDetailAffiliateInput,
+  formatFromPrice,
 } from "@/lib/experience-detail";
 import {
   buildExperienceMetadata,
@@ -36,18 +37,6 @@ export async function generateMetadata({
   const found = findExperienceDetail(slug, experienceId);
   if (!found) return {};
   return buildExperienceMetadata(site.url, found.destination, found.experience);
-}
-
-function formatFromPrice(amount: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${amount}`;
-  }
 }
 
 export default async function ExperienceDetailPage({

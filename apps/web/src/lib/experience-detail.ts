@@ -39,6 +39,20 @@ export function experienceDetailPath(slug: string, experienceId: string): string
   return `/destinations/${slug}/experiences/${experienceId}`;
 }
 
+/** Format a provider "from" price as e.g. "$28" (no fake precision). */
+export function formatFromPrice(amount: number, currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // Unknown currency code — fall back to a plain amount.
+    return `${amount}`;
+  }
+}
+
 /**
  * CTA href for the detail page. A live experience routes through the first-party
  * `/go/:slug/:id` redirect (BRI-136) — which logs the click then 302s to the

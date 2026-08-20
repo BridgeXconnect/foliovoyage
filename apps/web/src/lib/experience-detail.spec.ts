@@ -6,6 +6,7 @@ import {
   experienceDetailPath,
   experienceGoHref,
   experienceDetailAffiliateInput,
+  formatFromPrice,
 } from "@/lib/experience-detail";
 import { getAllDestinations } from "@/data/destinations-helpers";
 
@@ -76,6 +77,20 @@ describe("experienceDetailPath", () => {
     expect(experienceDetailPath("bangkok", "wat-arun-sunset")).toBe(
       "/destinations/bangkok/experiences/wat-arun-sunset",
     );
+  });
+});
+
+describe("formatFromPrice", () => {
+  it("formats a USD amount with no decimal places", () => {
+    expect(formatFromPrice(28, "USD")).toBe("$28");
+  });
+
+  it("rounds to whole units (no cents)", () => {
+    expect(formatFromPrice(99.99, "USD")).not.toMatch(/\./);
+  });
+
+  it("falls back to the plain amount string for an invalid currency code", () => {
+    expect(formatFromPrice(28, "ZZZ")).toContain("28");
   });
 });
 
