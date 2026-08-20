@@ -1,10 +1,39 @@
 import { describe, expect, it } from "@jest/globals";
+import type { Destination, Experience } from "@folio/shared";
 import {
   findExperienceDetail,
   listExperienceDetailParams,
   experienceDetailPath,
+  experienceGoHref,
+  experienceDetailAffiliateInput,
 } from "@/lib/experience-detail";
 import { getAllDestinations } from "@/data/destinations-helpers";
+
+const baseExperience: Experience = {
+  id: "base",
+  title: "Base",
+  description: "Desc.",
+  image: "https://example.test/i.jpg",
+  imageAlt: "alt",
+  category: "Culture & History",
+  priceBand: "$$",
+};
+
+const baseDestination: Destination = {
+  slug: "bangkok",
+  city: "Bangkok",
+  country: "Thailand",
+  tagline: "t",
+  heroImage: "https://example.test/h.jpg",
+  heroImageAlt: "h",
+  intro: ["p"],
+  knownFor: ["k"],
+  bestTime: "Nov–Feb",
+  fromPrice: 100,
+  experiences: [],
+  lat: 13.75,
+  lng: 100.5,
+};
 
 describe("findExperienceDetail", () => {
   it("returns the destination + experience for a real slug/id pair", () => {
@@ -47,5 +76,55 @@ describe("experienceDetailPath", () => {
     expect(experienceDetailPath("bangkok", "wat-arun-sunset")).toBe(
       "/destinations/bangkok/experiences/wat-arun-sunset",
     );
+  });
+});
+
+describe("experienceGoHref", () => {
+  it("routes a live experience through /go/:slug/:id (never the raw affiliateUrl)", () => {
+    const live = { ...baseExperience, id: "x1", affiliateUrl: "https://www.viator.com/tours/abc" };
+    expect(experienceGoHref("bangkok", live)).toBe("/go/bangkok/x1");
+  });
+
+  it("returns undefined when there is no affiliate link", () => {
+    const notLive = { ...baseExperience, id: "x1", affiliateUrl: undefined };
+    expect(experienceGoHref("bangkok", notLive)).toBeUndefined();
+  });
+});
+
+describe("experienceDetailAffiliateInput", () => {
+  it("carries the stable id + destination context + provider signals", () => {
+    const input = experienceDetailAffiliateInput(baseDestination, {
+      ...baseExperience,
+      id: "x1",
+      title: "T",
+      provider: "Viator",
+      category: "Food & Drink",
+      priceBand: "$$",
+      rating: 4.5,
+      freeCancel: true,
+    });
+    expect(input).toEqual({
+      experienceId: "x1",
+      title: "T",
+      provider: "Viator",
+      category: "Food & Drink",
+      priceBand: "$$",
+      hasRating: true,
+      freeCancel: true,
+      city: baseDestination.city,
+      country: baseDestination.country,
+      destinationSlug: baseDestination.slug,
+    });
+  });
+
+  it("reports hasRating=false and freeCancel=false when those fields are absent", () => {
+    const input = experienceDetailAffiliateInput(baseDestination, {
+      ...baseExperience,
+      id: "x2",
+      rating: undefined,
+      freeCancel: undefined,
+    });
+    expect(input.hasRating).toBe(false);
+    expect(input.freeCancel).toBe(false);
   });
 });
