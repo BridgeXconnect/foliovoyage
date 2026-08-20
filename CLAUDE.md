@@ -74,6 +74,23 @@ pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 through Turbo with caching and `dependsOn: ["^build"]`; CI runs them with
 `--affected` on PRs (full run on `master` pushes) — see `.github/workflows/ci.yml`.
 
+## Skill persistence across worktrees
+
+Claude Code planning skills (`writing-plans`, `subagent-driven-development`,
+from `obra/superpowers` via `npx skills add`) are **tracked in git**, not
+per-developer local state. `npx skills add` writes real files to
+`.agents/skills/<name>/` and symlinks them from `.claude/skills/<name>` — both
+paths are committed, and `.gitignore` carves an explicit exception out of the
+blanket `.claude/` ignore for `.claude/skills/` (switched to `.claude/*` so a
+negation can reach inside it; `.claude/worktrees/` and local settings stay
+ignored). This was **not** the case before 2026-08-20: skills installed in a
+worktree lived only in that worktree's untracked `.claude/`/`.agents/` dirs
+and vanished when the worktree was deleted, so every prior "plan" (BRI-170,
+BRI-175, BRI-176) was Claude following the brief's instructions directly, not
+this skill. If a new planning/execution skill gets installed, commit
+`.agents/skills/<name>/` and `.claude/skills/<name>` the same way, or a fresh
+`git worktree add` won't have it.
+
 ## Architecture
 
 ### `apps/api` — NestJS modular monolith
