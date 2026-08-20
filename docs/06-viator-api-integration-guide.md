@@ -1,91 +1,82 @@
-# 06 — Viator Partner API: Integration Guide (Basic Access)
+# 06 — Viator Partner API: Integration Guide (Full Access, DB ingest)
 
-**Source docs reviewed:** `docs.viator.com/partner-api/technical/` (full technical reference) and the implementation guides at `partnerresources.viator.com` (Golden Path for Basic Access, Affiliate Attribution, Front-End Guide).
+**Source docs reviewed:** `docs.viator.com/partner-api/technical/` (full technical reference) and the implementation guides at `partnerresources.viator.com`. For a line-by-line audit of the ingest code against the live docs, see the companion `docs/13-viator-api-audit.md`.
 
-## The one thing that changes the plan: you're on Basic Access, and that means no catalog ingestion yet
+**Status note:** This guide originally described a Basic-Access, no-ingestion, fetch-and-cache plan. That is obsolete. Atlas is now a Viator **Full-Access** affiliate and runs a real Postgres ingest pipeline (`apps/api/src/modules/import/`). This document has been rewritten to match what is actually built. Two Viator-backed content systems now coexist — see the "Two content systems" note in the root `CLAUDE.md`; this guide covers the **database-backed ingest** one. The hand-authored link-matching path is `docs/07` + `docs/10`.
 
-Viator affiliates have four access tiers: **Basic Access → Full Access → Full Access + Booking → Merchant**. Fresh approval puts you at Basic Access by default (confirm this in your partner dashboard, but this is the standard starting tier).
+## Access tier: Full Access
 
-Basic Access gives you:
+Viator affiliates have four access tiers: **Basic Access → Full Access → Full Access + Booking → Merchant**. Atlas is a **Full-Access Affiliate** (confirmed via the "Access to endpoints" table). That unlocks the endpoints the ingest pipeline depends on:
 
-| Endpoint | Access | Use |
-|---|---|---|
-| `/products/search` | ✅ | Product summaries by destination/filter — your main workhorse |
-| `/products/{product-code}` | ✅ | Full detail for one product, on demand |
-| `/products/tags` | ✅ | Category/tag taxonomy |
-| `/attractions/search`, `/attractions/{id}` | ✅ | Attraction data |
-| `/availability/schedules/{product-code}` | ✅ | Pricing/schedule for one product at a time |
-| `/destinations` / `/v1/taxonomy/destinations` | ✅ | Destination hierarchy (country → region → city) |
-| `/search/freetext`, `/locations/bulk`, `/exchange-rates` | ✅ | Supporting lookups |
-
-But **not** available at Basic Access:
-
-| Endpoint | Why it matters |
+| Endpoint | Use in Atlas |
 |---|---|
-| `/products/modified-since` | This is the bulk/delta catalog ingestion endpoint — the thing a nightly "import pipeline into Postgres" architecture depends on. **Not available until Full Access.** |
-| `/products/bulk` | Also gated to Full Access+ |
-| `/availability/check`, `/availability/schedules/bulk`, `/availability/schedules/modified-since` | Real-time/bulk availability checking — Full Access+ |
-| `/reviews/product` | Review content — Full Access+ |
-| All `/bookings/*` endpoints | Irrelevant to you anyway — see below |
+| `/products/modified-since` | Bulk/delta catalogue crawl — the ingest pipeline's fetch stage (`ViatorClient.fetchModifiedSince`). |
+| `/products/search` | Per-destination product lookup — used by the hand-authored path (`docs/07`) and for code discovery, **not** as the ingest crawl. |
+| `/availability/schedules/{product-code}` | The "from" price for a single product — the price resolver (ST-7c/BRI-165). |
+| `/locations/bulk` | Resolve opaque location refs → lat/lng — the location resolver (ST-7b). |
+| `/destinations` / taxonomy | Destination hierarchy; the source of the curated-city refs and centroids in `curated-cities.ts`. |
 
-**Practical consequence:** the Architecture Spec's nightly-ingest-into-Postgres pipeline (FR-IMPORT-1/2) can't be built yet. Right now, the right architecture is **fetch-on-demand with caching** — call `/products/search` per destination and cache the response (Next.js ISR/revalidate on a several-hour interval is a natural fit), rather than standing up a database-backed ingestion job. That's not a workaround, it's just what the current access tier supports well. Revisit the Postgres pipeline when you apply for Full Access.
+As a Full-Access **affiliate** (not merchant), Atlas has **no** access to any `/bookings/*` endpoint and never processes a booking — booking always happens on viator.com after the click-through (see attribution below).
 
-## You don't need to build booking or a redirect-tracking system — Viator already does it
+## Attribution: never process a booking, never touch the tracking URL
 
-This is genuinely simpler than the original plan assumed. As a Basic Access **affiliate** (not merchant), you never process a booking on your own site. The flow is:
+As an affiliate you never process a booking on your own site. The flow:
 
-1. Show product content on your site (from `/products/search` / `/products/{code}`).
-2. User clicks through to **the exact `productUrl` the API already returns** — e.g. `https://www.viator.com/tours/.../d4371-227717P1?mcid=42383&pid=P00063937&medium=api&api_version=2.0`. This URL already has your account's `pid` and `mcid` baked in.
-3. Landing on viator.com sets a cookie. **Any purchase within 30 days is attributed to your account automatically.** Viator tracks and pays the commission — you don't build any of this.
+1. Show Atlas's own editorial content for a product (title/description are Atlas-owned — see "ownership boundary" below).
+2. The CTA links through to **the exact `productUrl` the API returns**, e.g. `https://www.viator.com/tours/.../d4371-227717P1?mcid=42383&pid=P00063937&medium=api&api_version=2.0`. That URL already carries the account's `pid`/`mcid`.
+3. Landing on viator.com sets a cookie; **any purchase within 30 days is attributed automatically.** Viator tracks and pays commission — Atlas builds none of that.
 
-**The only rule: never strip, reorder, or reconstruct those URL parameters.** Use the `productUrl` field verbatim. The one thing you're free to add is your own `&campaign=your-value` on the end, for your own analytics (e.g. `campaign=bangkok-page` vs `campaign=blog-post`, so you can see which content drives clicks in your own dashboard) — alphanumeric and dashes only, no other special characters, or tracking can break.
+**The only rule: never strip, reorder, or reconstruct those URL parameters.** Use `productUrl` verbatim. You may append your own `&campaign=<value>` (alphanumeric + dashes only) for your own analytics.
 
-This means **FR-AFF-1's planned `/go/:tourId` server-side redirect-and-log system is now optional infrastructure for your own analytics, not something Viator requires.** If you want click analytics on your end, build a thin internal redirect that logs the click and then 302s straight to the untouched `productUrl` — but it's a nice-to-have, not a blocker.
+Atlas's **first-party click ledger** (FR-AFF-1, shipped in BRI-136) is a thin server-side redirect built on top of this, not a replacement for it: `apps/web`'s `/go/:slug/:id` route logs the click (POST to the API's `POST /v1/affiliate-clicks`, persisted as `AffiliateClick`) and then 302s straight to the untouched `productUrl`.
 
-## A real compliance constraint worth knowing now, even if it doesn't bite yet
+## The ingestion pipeline (as built)
 
-Viator requires that **reviews and anything in the `viatorUniqueContent` object never appear in page source** — not in HTML, not inline in `<script>` tags. It must be loaded via an *external* JS file that is itself blocked in `robots.txt`, so search engines can't index Viator's proprietary content.
+The pipeline lives in `apps/api/src/modules/import/` and is orchestrated per page by `import.pipeline.ts` (`ImportPipeline.runSegment`). Read that file's class docstring for the authoritative, current description; this is the summary.
 
-You don't have review access at Basic tier, so this doesn't bite yet. But it's worth flagging now: when you move to Full Access and start pulling reviews, this sits in real tension with an SSR-everything approach to SEO. The pattern to use later: reviews get fetched client-side from a separate, robots-disallowed endpoint, while everything else on the page stays server-rendered for indexing. Good to know before you build it, not after.
+**Stages, all run per page before the next page is fetched:**
+
+1. **Fetch + archive** — `ViatorClient.fetchModifiedSince` crawls `/products/modified-since` (paginated, rate-limited with backoff, honours `Retry-After`), archiving each raw page to Cloudflare R2 via `RawArchiveStore`.
+2. **Scope filter** (`decideIngestScope`, BRI-170/171) — runs on the **raw** product, before anything downstream. `/products/modified-since` has **no server-side destination filter** — it returns Viator's entire global catalogue — so the partner must filter. Three independent exclusions: not one of the 6 curated cities (exact `destinations[].ref` match against `curated-cities.ts`), `INACTIVE`, or manual-confirmation (`MANUAL` / `INSTANT_THEN_MANUAL`). Only ~6% of the scanned catalogue survives. Applying this *first* is what keeps the expensive later stages off the full catalogue.
+3. **Normalize** (`normalizeViatorProduct`, ST-7) — pure function, no DB/network/clock. Maps a raw `ViatorProduct` → `TourDTO`. See the ownership boundary below. **Detail payloads carry no price**, so it leaves price null.
+4. **Location resolve** (`LocationResolver`, ST-7b) — resolves start-location refs to coordinates via `/locations/bulk`, cached indefinitely in `ProviderLocation`.
+5. **Price resolve** (`PriceResolver`, ST-7c/BRI-165) — attaches the "from" price per product from `/availability/schedules/{code}` (see the price section below).
+6. **Validate / quarantine** (`TourValidator`, ST-8) — passing tours proceed; bad rows are persisted to `QuarantinedTour` and counted.
+7. **Upsert** (`TourUpsertService.upsertBatch`, ST-9) — idempotent per-page upsert into `Tour`. A once-per-**run** `finalizeGuardedSoftDelete` handles soft-deletes behind a mass-deletion guard, and `ExperienceLinker` links the committed catalogue to curated `City`/`Experience` rows.
+
+**Memory discipline (BRI-170 → BRI-176).** Two production OOM-kills on Render's 512 MiB free tier drove the current shape. BRI-170 stopped buffering the whole crawl in memory (stream every stage per page; scope-filter before accumulating). BRI-176 then found the residual growth was in `undici`'s HTTP response decoding, released cleanly only when a `fetchModifiedSince` generator *naturally* completes — so a run is now split into short-lived **OS-process segments**: `ImportRunService` spawns a fresh `segment-worker.cli.ts` child per segment (`IMPORT_CRAWL_RESTART_PAGES` pages each), and a process exiting *is* a natural release. `finalizeGuardedSoftDelete`/`ExperienceLinker` run once, only in the process whose segment reports `done: true`, reconstructing the run's full incoming-id set from the DB (rows sharing the run's `fetchedAt`) rather than carrying it across process boundaries.
+
+**Scheduling.** `ImportScheduler` (`scheduler.ts`, ST-10/BRI-107) registers a nightly cron, env-driven (`IMPORT_CRON_SCHEDULE`, `IMPORT_CRON_ENABLED`). BRI-173 adds an external wake trigger + self-heartbeat so the crawl survives Render's free-tier idle sleep. Runs can also be fired manually via `POST /v1/import/trigger` or `trigger-import.cli.ts`. Each firing is recorded as an `ImportRun`.
+
+### Open policy question: `/products/bulk` vs `/products/modified-since`
+
+Viator's own docs **contradict themselves** on whether a partner ingesting a small curated subset should use `/products/bulk` (content for a known code set) or `/products/modified-since` (full-catalogue delta). The Workflows guide sanctions bulk for a "small subset"; three endpoint-reference notes forbid bulk-for-ingestion with no such exception. The pipeline currently uses `/products/modified-since` + the per-page scope filter (unambiguously sanctioned, and the fix that resolved the OOM). Do **not** switch models without resolving this with Viator directly — their ingestion strategy is a **certification requirement** reviewed before production access. Full analysis and quotes: `docs/13-viator-api-audit.md`.
+
+## Ownership boundary: match, don't overwrite
+
+The normalizer only ever sets **provider-sourced** fields + provenance (`title`, rating, `affiliate_url`, price, images) — never Atlas-owned fields (editor rating, curated tags, slug, curation status). Crucially, the provider's `title`/`description` are **not** the canonical public copy: the canonical `/destinations/:slug` page renders Atlas's own editorial copy (the reason the site can honestly say "independently written" and the reason it cleared OTA review). The ingested `Tour` is intended to supply only price/image/`affiliateUrl` onto those editorial cards (BRI-168). This "match, don't overwrite" rule is the same one the hand-authored path follows — see `docs/07`.
+
+## Price is endpoint-specific (verified live, BRI-165)
+
+The `/products/search` **summary** returns `pricing.summary.fromPrice`. The Full-Access **product _detail_** shape (`GET /products/{code}` and the `/products/modified-since` crawl the ingest pipeline consumes) does **not** carry a price at all — a real detail payload has `pricingInfo` = `{ type, ageBands }` (booking constraints only, no amount). The "from" price for a detail-ingested product lives in a separate per-product endpoint, `GET /availability/schedules/{code}` → `{ "currency": "USD", "summary": { "fromPrice": 28 } }`. The normalizer therefore leaves price null and the price resolver attaches it from `/availability/schedules`, exactly as the location resolver attaches coordinates. Do not assume the search-summary price path holds for detail payloads — it doesn't, and assuming it did quarantined 100% of real imports before BRI-165.
+
+The aggregate `reviews` object (`combinedAverageRating` + `totalReviews`, sourced from Viator + TripAdvisor), `flags` (e.g. `FREE_CANCELLATION`), `duration`, and `images` **are** present on the detail payload and safe to surface — they carry no duplicate-content risk (unlike the supplier `title`/`description`, which Atlas deliberately does not show as canonical copy). What is separately gated is the dedicated `/reviews/product` endpoint (individual review *content*), not the aggregate rating.
+
+## A compliance constraint worth knowing before you show reviews
+
+Viator requires that **reviews and anything in the `viatorUniqueContent` object never appear in page source** — not in HTML, not inline in `<script>` tags. It must load via an *external* JS file that is itself blocked in `robots.txt`, so search engines can't index Viator's proprietary content. Atlas doesn't display individual review content today, so this doesn't bite yet — but it sits in real tension with an SSR-everything approach to SEO. The pattern when the time comes: reviews fetched client-side from a separate, robots-disallowed endpoint, while everything else stays server-rendered for indexing.
 
 ## Front-end shape (recommended, not mandatory)
 
-Viator's own guide, based on evaluating "hundreds of affiliate sites," recommends: **Landing page → Search Results Page (SRP) → Product Display Page (PDP)**. Encouragingly, this already matches your sitemap almost exactly (destinations → experience list → detail), so this is a data-source swap on your existing pages, not a redesign.
+Viator's own guide recommends **Landing page → Search Results Page (SRP) → Product Display Page (PDP)**, which already matches Atlas's sitemap (destinations → experience list → detail):
 
-- **SRP** (your destination pages): rating, thumbnail, teaser, free-cancellation flag, price, category filters via tags, destination breadcrumb.
-- **PDP** (a real product detail, if you build one — currently your "experience cards" link back to the destination page, which is a valid simpler pattern too): title, rating, 3-level breadcrumb (country/region/city), photos, "price from," cancellation policy, duration, languages, overview, inclusions/exclusions, itinerary, nearby attractions.
+- **SRP** (destination pages): rating, thumbnail, teaser, free-cancellation flag, price, category filters via tags, destination breadcrumb.
+- **PDP** (if built): title, rating, 3-level breadcrumb (country/region/city), photos, "price from," cancellation policy, duration, languages, overview, inclusions/exclusions, itinerary, nearby attractions.
 
-**Correction (verified live, 2026-07-16):** the `/products/search` summary **does** return
-useful commerce fields at Basic tier — confirmed by dumping a real product: `pricing.summary.fromPrice`,
-an **aggregate `reviews` object** (`combinedAverageRating` + `totalReviews`, sourced from Viator +
-TripAdvisor), `flags` (e.g. `FREE_CANCELLATION`, `PRIVATE_TOUR`), `duration`, `images`, and
-`description`. What is Full-Access-gated is the dedicated **`/reviews/product`** endpoint (review
-*content* / individual reviews), not the aggregate rating in the search summary.
+## Known follow-ups from the audit (`docs/13`)
 
-**Critical correction — price is endpoint-specific (verified live, 2026-07-25, BRI-165):** the
-`pricing.summary.fromPrice` shape above is real **only for the `POST /products/search` _summary_**.
-The Full-Access **product _detail_** shape (`GET /products/{code}` and the `/products/modified-since`
-crawl the ingest pipeline consumes) does **not** carry a price at all — a real detail payload has
-`pricingInfo` = `{ type, ageBands }` (booking constraints only, no amount), and a deep scan of a full
-product turns up no price/amount field anywhere. The "from" price for a detail-ingested product lives
-in a **separate per-product endpoint**, `GET /availability/schedules/{code}` →
-`{ "currency": "USD", "summary": { "fromPrice": 28 } }`. The ingest normalizer therefore leaves
-price null and a dedicated price resolver (ST-7c) attaches it from `/availability/schedules`, exactly
-as the location resolver attaches coordinates. Do not assume the search-summary price path holds for
-detail payloads — it doesn't, and assuming it did quarantined 100% of real imports.
+Flagged there, not yet implemented — each a scoped decision for Roy, not a doc-only guess:
 
-So `fromPrice`, star rating, and a free-cancellation badge are all **safe to surface now** — they
-carry no duplicate-content risk (unlike Viator's supplier `title`/`description`/`images`, which we
-deliberately do not show; see [docs/07](07-viator-integration-brief.md)). We currently persist only
-`productUrl` (+ `productCode`/`title` for matching); surfacing price/rating/free-cancellation is a
-small, high-signal credibility upgrade short of Full Access.
-
-## Concrete next steps, in order
-
-1. **Get your API key**: partner dashboard → Tools → Affiliate API → Start your development.
-2. **Test in Postman** using Viator's provided collection before writing integration code.
-3. **Resolve your 6 destinations to Viator's destination IDs** — call `/destinations` (or `/v1/taxonomy/destinations`, referenced in the Golden Path guide; check both, there may be a version discrepancy between the v1 and v2 docs) once, and build a lookup: Bangkok → id, Kyoto → id, Hanoi → id, Bali → id, Lisbon → id, Rome → id. This is the first real API call to make.
-4. **Replace the 8 placeholder experience cards per city** with real product summaries from `/products/search` filtered by destination ID — same visual card, real data.
-5. **Swap "Booking soon" for the real `productUrl`** (plus your own `&campaign=` value) as the CTA link.
-6. **Cache responses** (Next.js ISR, revalidate every few hours) rather than building a database pipeline — appropriate for Basic Access; revisit when Full Access is granted.
-7. When ready to scale beyond hand-picked destinations, apply for **Full Access** — unlocks `/products/modified-since` (true catalog ingestion), `/availability/check`, `/reviews/product`, and `/products/recommendations`. Worth applying once the Basic integration is live and generating some traffic/data to strengthen the case — it's a separate approval, not automatic.
+- **Bulk price fetch** — `/availability/schedules/bulk` (500 codes/request) would replace the per-product price-resolver fanout; the exact bulk response envelope needs one live call to verify first.
+- **Request timeouts** — no timeout is configured on any Viator call (`viator.client.ts`, `price-resolver.ts`, `location-resolver.ts`, `allowlist-fetch.ts`); a hung request can occupy a concurrency slot indefinitely. Recommend a timeout well under Viator's booking-specific 120s ceiling for these read-only endpoints.
+- **Explicit `status`/`confirmationType` gates** — the scope filter now excludes `INACTIVE` and manual-confirmation products deliberately (BRI-171), closing the two gaps the audit raised.

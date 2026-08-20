@@ -1,11 +1,11 @@
 # 10 — Adding a New Destination (Playbook)
 
-**Run from:** `/Users/roymkhabela/Folio_Voyage/frontend`
+**Run from:** `apps/web` (the web app; the repo is now a pnpm + Turborepo monorepo — the old `frontend/` folder is gone). Shell commands below assume you are in `apps/web`.
 **Read alongside:** `docs/07-viator-integration-brief.md` (link wire-up) and `docs/08-brand-voice-style-guide.md` (voice).
 
-This is the repeatable process for adding a destination to Folio Voyage — writing the guide, then attaching real Viator links. **It works today, on Basic Access, with no database and no Full Access.** Viator's `/products/search` is available at Basic tier, so research and matching need nothing we don't already have. The only step that requires anything new is the last one (a real `VIATOR_API_KEY` to run the enrichment script), and that's the same key the existing six destinations use.
+This is the repeatable process for adding a destination to Folio Voyage via the **hand-authored content path** — writing the guide, then attaching real Viator links with the enrichment script. This is deliberately the *static* system (`apps/web/src/data/*`), independent of the DB-backed ingest pipeline in `apps/api` (see the "Two content systems" note in the root `CLAUDE.md`, and `docs/06`/`docs/13` for the pipeline). The only step that requires anything is the last one (a real `VIATOR_API_KEY` to run the enrichment script), and that's the same key the existing six destinations use.
 
-There is no ingestion pipeline to feed and no backend to deploy (see TD-11 in `docs/02`). A destination is just data plus a one-time link-matching pass.
+Atlas is now a Viator **Full-Access** affiliate and a Postgres ingest pipeline exists, but this playbook does **not** touch it: a hand-authored destination is just data plus a one-time link-matching pass. Nothing here writes to the database or needs the backend running.
 
 ---
 
@@ -25,7 +25,7 @@ Four steps, in order:
 Find what Viator carries so your hand-written experiences map onto real, bookable products later. Two ways:
 
 - **Quick look:** browse the destination on viator.com and note the strongest, most distinctive products (specific landmarks, food tours, day trips).
-- **From the API:** temporarily add the new city to the parser's reach and print search results, or hit `/products/search` in Postman with the destination's ID. The `fetch-viator-links.mjs` script already resolves IDs and searches — you can read its console output as a research dump before you've written anything.
+- **From the API:** temporarily add the new city to the parser's reach and print search results, or hit `/products/search` in Postman with the destination's ID (available at Atlas's Full-Access tier). The `fetch-viator-links.mjs` script already resolves IDs and searches — you can read its console output as a research dump before you've written anything.
 
 **Do not copy Viator's product titles or descriptions into the site.** That supplier copy appears on viator.com and other affiliate sites; reusing it creates duplicate content and breaks the site's "independently written" promise. Research tells you *what exists to link to*; you still write the cards yourself.
 
@@ -54,8 +54,8 @@ The new destination auto-appears in the nav, sliders, `/destinations`, sitemap, 
 Verify it renders:
 
 ```
-npm run build        # SSG prerenders the new page; catches type/data errors
-npm run dev          # eyeball the new /destinations/<slug>
+pnpm --filter @folio/web build   # SSG prerenders the new page; catches type/data errors
+pnpm --filter @folio/web dev     # eyeball the new /destinations/<slug> (:3000)
 ```
 
 At this point the experience cards show "Booking coming soon" — correct, until step 3.
@@ -67,9 +67,10 @@ At this point the experience cards show "Booking coming soon" — correct, until
 This is doc 07's process, and it already handles any number of destinations — the script reads every destination out of `destinations.ts`, so a new city is picked up automatically.
 
 ```
-# frontend/.env.local  (gitignored)
+# apps/web/.env.local  (gitignored)
 VIATOR_API_KEY=your-real-key
 
+# from apps/web:
 node scripts/fetch-viator-links.mjs
 ```
 
@@ -90,15 +91,16 @@ The script:
 ## Step 4 — Publish
 
 ```
-npm run build        # confirm the new links render and nothing regressed
+pnpm --filter @folio/web build   # confirm the new links render and nothing regressed
 ```
 
 Review the new page and its links locally, then ship. Do not deploy without Roy's go-ahead.
 
 ---
 
-## Why no Full Access or database is needed
+## Why this path uses no database
 
-- `/products/search` is a **Basic Access** endpoint, so both research (step 1) and matching (step 3) work today.
-- Viator handles booking, tracking, and commission after the click-through — we host no checkout and store no product catalogue, so there is no database to feed.
-- The only endpoint we'd want that Basic Access lacks is `/products/modified-since` (bulk catalogue delta ingestion). We don't use it: we match a fixed, hand-written set of experiences per city, not an auto-synced catalogue. Full Access becomes worth applying for when you want to scale *beyond* hand-picked destinations (true ingestion, reviews, availability) — see TD-11 in `docs/02`. Until then, this playbook is fully repeatable as-is.
+- This is the **hand-authored** content system by design. We match a fixed, hand-written set of experiences per city and store only their links in `viator-links.json` — no product catalogue is persisted, so there is nothing for this path to write to a database.
+- Viator handles booking, tracking, and commission after the click-through — we host no checkout.
+- Both research (step 1) and matching (step 3) use `/products/search`, a lookup call, not catalogue ingestion.
+- Atlas *does* also run a separate DB-backed ingest pipeline (`/products/modified-since` → Postgres, in `apps/api`) for scaling beyond hand-picked destinations — that's the "database-backed" system in `CLAUDE.md`, documented in `docs/06`/`docs/13`. This playbook is intentionally the lightweight alternative to it and stays fully repeatable without touching it.

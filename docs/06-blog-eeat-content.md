@@ -1,15 +1,15 @@
 # 06 — Blog content & E-E-A-T (status + follow-ups)
 
 **Status:** The Folio blog has been rewritten into researched, cited, structured
-long-form content. The live content now lives in `frontend/src/data/blog.ts`
+long-form content. The live content now lives in `apps/web/src/data/blog.ts`
 (not in this doc). This file records what shipped and the remaining E-E-A-T
 follow-ups that need a human decision.
 
 ## What shipped
 
 - **Structured content model** — `Block[]` (`p` / `h2` / `list` / `pick`) plus a
-  per-post `Source[]`, in `frontend/src/data/blog.ts`, rendered by
-  `frontend/src/components/covilla/BlogBody.tsx`. Real `<h2>` structure, bullet
+  per-post `Source[]`, in `apps/web/src/data/blog.ts`, rendered by
+  `apps/web/src/components/covilla/BlogBody.tsx`. Real `<h2>` structure, bullet
   lists, curated **pick** callouts that link to the destination guides, and a
   visible **Sources** list.
 - **8 posts, all substantive** (~800–1,100 words of body each, up from ~200–300):
@@ -48,7 +48,7 @@ is not.
    scraper can't produce.
 3. **`Person` vs `Organization` author in schema.** If you adopt a personal
    byline, switch the JSON-LD `author` type from `Organization` to `Person` in
-   `frontend/src/app/blog/[slug]/page.tsx`.
+   `apps/web/src/app/blog/[slug]/page.tsx`.
 4. **Publisher social profiles.** Add real `sameAs` social URLs to the publisher
    `Organization` schema once the accounts exist (the footer currently links to
    placeholder platform homepages).

@@ -1,6 +1,14 @@
 # 04 — MVP Scaffold Brief for Claude Code
 
-**Run this from:** `/Users/roymkhabela/Bon voyage ` (note the trailing space in the folder name — quote it in any shell commands: `cd "/Users/roymkhabela/Bon voyage "`)
+> **Status: completed & historical (kept for provenance).** This brief describes
+> the original one-time scaffold that created the Next.js app in a `frontend/`
+> subfolder of `/Users/roymkhabela/Bon voyage `. That work shipped. The repo has
+> since become a pnpm + Turborepo monorepo: the app moved to **`apps/web`** and
+> the `frontend/` directory no longer exists. The paths and `cd` commands below
+> are the historical context of the original task — do not run them today; for
+> current layout and commands see the root `CLAUDE.md`.
+
+**Ran from (historical):** `/Users/roymkhabela/Bon voyage ` (note the trailing space in the folder name — quote it in any shell commands: `cd "/Users/roymkhabela/Bon voyage "`)
 
 ## Context — read before doing anything
 
