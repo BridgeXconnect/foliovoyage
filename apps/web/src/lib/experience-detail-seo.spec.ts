@@ -43,7 +43,7 @@ describe("buildExperienceMetadata", () => {
 
 describe("buildExperienceProductLd", () => {
   it("emits Product with aggregateRating + offers for a rich experience", () => {
-    const ld = buildExperienceProductLd(SITE, dest, rich) as Record<string, any>;
+    const ld = buildExperienceProductLd(SITE, dest, rich) as Record<string, unknown>;
     expect(ld["@type"]).toBe("Product");
     expect(ld.name).toBe(rich.title);
     expect(ld.aggregateRating).toEqual({
@@ -57,17 +57,17 @@ describe("buildExperienceProductLd", () => {
   });
 
   it("omits aggregateRating and offers-price when those fields are absent", () => {
-    const ld = buildExperienceProductLd(SITE, dest, sparse) as Record<string, any>;
+    const ld = buildExperienceProductLd(SITE, dest, sparse) as Record<string, unknown>;
     expect(ld["@type"]).toBe("Product");
     expect(ld.aggregateRating).toBeUndefined();
     // no fromPrice → no priced Offer (no fabricated price)
-    expect(ld.offers?.price).toBeUndefined();
+    expect((ld.offers as { price?: string } | undefined)?.price).toBeUndefined();
   });
 });
 
 describe("buildExperienceBreadcrumbLd", () => {
   it("chains Home → Destinations → City → Experience", () => {
-    const ld = buildExperienceBreadcrumbLd(SITE, dest, rich) as Record<string, any>;
+    const ld = buildExperienceBreadcrumbLd(SITE, dest, rich) as Record<string, unknown>;
     expect(ld["@type"]).toBe("BreadcrumbList");
     const items = ld.itemListElement as { position: number; name: string; item: string }[];
     expect(items.map((i) => i.name)).toEqual(["Home", "Destinations", "Bangkok", rich.title]);
