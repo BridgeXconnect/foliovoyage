@@ -1,11 +1,11 @@
-# 07 — Wire Up Live Viator Data (Basic Access)
+# 07 — Wire Up Live Viator Data (hand-authored path)
 
-**Run this from:** `/Users/roymkhabela/Folio_Voyage/frontend`
-**Read first:** `docs/06-viator-api-integration-guide.md` for full API reference and reasoning — this brief is the actionable subset of it.
+**Run this from:** `apps/web` (the repo is now a pnpm + Turborepo monorepo; the old `frontend/` folder is gone).
+**Scope:** This brief is the **static, hand-authored** link-matching path — attaching real Viator `productUrl`s to hand-written Experience cards. It is separate from the DB-backed ingest pipeline in `apps/api` (see `docs/06-viator-api-integration-guide.md` / `docs/13-viator-api-audit.md` for that, and the "Two content systems" note in the root `CLAUDE.md`). Both exist; this one powers the canonical `/destinations/:slug` pages.
 
 ## Context
 
-You are on Viator's **Basic Access** affiliate tier. The site already has 6 destinations (Bangkok, Kyoto, Hanoi, Bali, Lisbon, Rome), each with 8 hand-written Experience cards in `src/data/destinations.ts`. The `Experience` type in `src/data/types.ts` already has the exact seam designed for this task:
+Atlas is a Viator **Full-Access** affiliate. This brief doesn't need any Full-Access endpoint, though — `/products/search` (a per-destination lookup) is all the matching step uses. The site has 6 destinations (Bangkok, Kyoto, Hanoi, Bali, Lisbon, Rome), each with 8 hand-written Experience cards in `apps/web/src/data/destinations.ts`. The `Experience` type in `apps/web/src/data/types.ts` already has the exact seam designed for this task:
 
 ```ts
 affiliateUrl?: string;
@@ -38,9 +38,7 @@ Call `/destinations` (check both this and `/v1/taxonomy/destinations` referenced
 
 For each destination, call `/products/search` filtered by its destination ID. Use the matching approach above to attach `affiliateUrl`/`provider` to existing Experience objects.
 
-Decide the mechanism that fits the existing project conventions — there's already a `scripts/` folder in this project, which suggests a script (e.g. `scripts/fetch-viator-links.ts`) that runs periodically and writes the enrichment data (id → affiliateUrl/provider mapping) to a small file that `destinations-helpers.ts` merges in, rather than fetching live on every request. This avoids needing a database and fits the "cache, don't ingest" guidance in doc 06 (you don't have `/products/modified-since` at this tier).
-
-If you'd rather fetch live with Next.js ISR (ie inside the destination page itself, `revalidate` on a several-hour interval) instead of a script — that's a reasonable alternative. Pick one, don't build both.
+This is the mechanism actually in use: `apps/web/scripts/fetch-viator-links.mjs` runs on demand and writes the enrichment data (keyed `"<slug>/<experienceId>"` → `{ affiliateUrl, provider }`) to `apps/web/src/data/viator-links.json`, which `destinations-helpers.ts` merges into the experiences at load time — no live fetch on every request, no database. (Live catalogue ingestion is a deliberately separate concern handled by the `apps/api` pipeline, not this path.)
 
 ### 4. Campaign tracking
 
@@ -48,7 +46,7 @@ Append `&campaign=<destination-slug>-card` (or similar, alphanumeric and dashes 
 
 ### 5. Leave everything else alone
 
-No database. No booking flow (not applicable — you're an affiliate, not a merchant; booking happens on viator.com). No review display (not available at Basic Access). No changes to page layout, design, or the 6 destinations/cities already built.
+No database. No booking flow (not applicable — you're an affiliate, not a merchant; booking happens on viator.com). No review display in this path. No changes to page layout, design, or the 6 destinations/cities already built.
 
 ## Definition of done
 

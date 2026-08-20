@@ -1,5 +1,16 @@
 # Viator Partner API ingestion audit
 
+> **Reader's note (added later):** this is a point-in-time snapshot from
+> 2026-08-18, left intact as a record. Two things it flags as unresolved have
+> since shipped: BRI-170's full-catalogue OOM mechanism (the `rawProducts.push`
+> buffering it cites at `import.pipeline.ts:105-112` no longer exists — the crawl
+> now streams per page and restarts per OS-process segment, BRI-170/176), and the
+> missing `status` / `confirmationType` gates in "Additional bugs" #1–#2 (now
+> handled explicitly by `scope-filter.ts`, BRI-171). Still open and accurate: the
+> `/products/bulk` vs `/products/modified-since` policy contradiction, the
+> `/availability/schedules/bulk` price-fetch win, and the missing request
+> timeouts. See `docs/06` for the current pipeline shape.
+
 **Date:** 2026-08-18
 **Scope:** Every file in `apps/api/src/modules/import/` × the real, live Viator Partner API docs (fetched directly from `docs.viator.com/partner-api/technical/` this session — a JS-rendered Redoc page; `WebFetch` returns only the SPA shell, so this was done via a live browser render, not training-data recall).
 **Trigger:** Two real bugs (BRI-165 wrong price path, BRI-170 unscoped full-catalog crawl/OOM) both traced to the pipeline being built against assumption/memory of the API rather than current docs. This is the line-by-line check against source.
