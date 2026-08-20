@@ -41,5 +41,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...destinationRoutes, ...blogRoutes];
+  // ST-17: one indexable detail page per experience, nested under its
+  // canonical destination.
+  const experienceRoutes: MetadataRoute.Sitemap = getAllDestinations().flatMap((d) =>
+    d.experiences.map((e) => ({
+      url: `${site.url}/destinations/${d.slug}/experiences/${e.id}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  );
+
+  return [...staticRoutes, ...destinationRoutes, ...experienceRoutes, ...blogRoutes];
 }
