@@ -3,8 +3,18 @@
 *.swp
 
 # Local agent / editor tooling state — per-developer, not shared project config.
-.claude/
+# Note: `.claude/*` (not `.claude/`) so the exception below can re-include
+# .claude/skills/ — a trailing-slash directory match prunes traversal
+# entirely and negation can't reach inside it.
+.claude/*
 .cursor/
+
+# Exception: installed Claude Code skills (e.g. `npx skills add`) ARE shared
+# project config — every worktree needs them, so they must be tracked. The
+# real files live in .agents/skills/; .claude/skills/ holds relative symlinks
+# into it. See CLAUDE.md "Skill persistence across worktrees".
+!.claude/skills/
+!.claude/skills/**
 
 # npm cruft — this is a pnpm workspace (pnpm-lock.yaml is the lockfile). A stray
 # package-lock.json is accidental and can mislead contributors/CI.
