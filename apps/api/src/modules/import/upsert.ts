@@ -235,6 +235,28 @@ export class TourUpsertService {
   }
 
   /**
+   * Every `providerTourId` for `provider` whose `fetchedAt` exactly matches
+   * `fetchedAt` (BRI-176) — i.e. every row any segment of one run touched.
+   * Read-only; does not affect `upsertBatch` or the guard below at all.
+   *
+   * Exists because a run can now span several `segment-worker.cli.ts`
+   * processes (BRI-176), so the "every id this run upserted" list
+   * {@link finalizeGuardedSoftDelete} needs can no longer be accumulated in
+   * one process's memory across the whole run. Every segment of a run stamps
+   * the *same* `fetchedAt` (`ImportRun.startedAt`, passed to
+   * `ImportPipeline.runSegment` — see that class's docstring) on every row
+   * it touches, so this query reconstructs the exact same set an in-memory
+   * accumulator would have held, straight from the DB.
+   */
+  async findUpsertedIds(provider: string, fetchedAt: Date): Promise<string[]> {
+    const rows = await this.prisma.tour.findMany({
+      where: { provider, fetchedAt },
+      select: { providerTourId: true },
+    });
+    return rows.map((r) => r.providerTourId);
+  }
+
+  /**
    * Diff `incomingIds` (every `provider_tour_id` this run upserted, across
    * every `upsertBatch` call) against the live active catalogue for
    * `provider`, and soft-delete anything active-but-absent — guarded by the

@@ -149,6 +149,25 @@ export const envSchema = z.object({
     .positive()
     .default(120),
 
+  /**
+   * How many pages each segment-worker child covers before exiting for a
+   * fresh one to resume (BRI-176). Local heap profiling localized a real
+   * cause of two production OOM kills to memory `undici` retains for the
+   * lifetime of one continuous `fetchModifiedSince()` generator consumption
+   * — confirmed released the instant that consumption ends. An in-process
+   * generator restart (breaking and re-entering the same call) was tried
+   * first and measurably helped, but capped verification runs showed a real
+   * residual accumulation surviving it — only a full OS process exit
+   * reliably gets the complete release. `ImportRunService` spawns a fresh
+   * `segment-worker.cli.ts` child every N pages instead (see that class's
+   * docstring); this value is read directly by each child from its own
+   * environment, not threaded through the parent. Sized from real capped
+   * verification runs against the *combined* parent+child memory budget
+   * (they share one 512MiB Render instance) — see BRI-176 in Linear for the
+   * measurements behind the current default.
+   */
+  IMPORT_CRAWL_RESTART_PAGES: z.coerce.number().int().positive().default(25),
+
   // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
 
   /**

@@ -150,6 +150,39 @@ describe("ViatorClient — pagination", () => {
     expect(urls[1]).toContain("cursor=C2");
   });
 
+  it("BRI-176: resumes from startCursor without ever sending modified-since, even if supplied", async () => {
+    const { fetchImpl, urls } = queuedFetch([
+      { status: 200, body: JSON.stringify({ products: [] }) },
+    ]);
+    const { client } = makeClient(fetchImpl);
+
+    await drain(
+      client.fetchModifiedSince({
+        modifiedSince: "2026-07-01T00:00:00Z",
+        startCursor: "RESUME_CUR",
+      }),
+    );
+
+    expect(urls[0]).toContain("cursor=RESUME_CUR");
+    expect(urls[0]).not.toContain("modified-since=");
+  });
+
+  it("BRI-176: startPage continues page numbering instead of restarting at 1", async () => {
+    const { fetchImpl } = queuedFetch([
+      { status: 200, body: JSON.stringify({ products: [{ productCode: "A" }] }) },
+    ]);
+    const { client, archive } = makeClient(fetchImpl);
+
+    const pages = (await drain(
+      client.fetchModifiedSince({ startPage: 10, date: "2026-07-24" }),
+    )) as Array<{ page: number }>;
+
+    expect(pages[0].page).toBe(11);
+    // Archive key must continue too, or a restart would overwrite an earlier
+    // segment's archived page (BRI-176).
+    expect(archive.writes[0].ref.page).toBe(11);
+  });
+
   it("sends v2 auth and content-negotiation headers", async () => {
     const { fetchImpl, inits } = queuedFetch([
       { status: 200, body: JSON.stringify({ products: [] }) },

@@ -5,18 +5,18 @@ import {
   ImportRunService,
   type ImportRunPrisma,
 } from "./import-run.service";
-import type { ImportPipeline, ImportRunCounts } from "./import.pipeline";
-import { MassDeletionAbortError } from "./upsert";
+import type { SegmentRunner, SegmentRunResult } from "./segment-runner";
 
 /**
- * Unit tests for {@link ImportRunService} (ST-10 / BRI-107).
+ * Unit tests for {@link ImportRunService} (ST-10 / BRI-107, restructured by
+ * BRI-176 into an orchestrator that spawns segment-worker children).
  *
- * The service's whole job is the record lifecycle around a run, so these tests
- * assert exactly that against an in-memory `importRun` store and a stubbed
- * pipeline — no DB. The three acceptance-relevant outcomes: a clean run finishes
- * `succeeded` with counts; a guard trip finishes `aborted` (not `failed`, not
- * left `running`) carrying the partial counts; an unexpected throw finishes
- * `failed`. In every case exactly one record exists and it is finalized.
+ * The service's whole job is the record lifecycle around a run, so these
+ * tests assert exactly that against an in-memory `importRun` store and a
+ * fake {@link SegmentRunner} — no DB, no real child process. A fake segment
+ * writes to the store directly (mimicking what a real segment-worker child
+ * does to its own row) and reports its exit code separately, the same
+ * two-channel contract the real spawn uses.
  */
 
 /** Minimal in-memory stand-in for Prisma's `importRun` model surface. */
@@ -38,6 +38,7 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         upserted: 0,
         softDeleted: 0,
         cursor: null,
+        lastPage: null,
         error: null,
         startedAt: new Date(),
         finishedAt: null,
@@ -86,6 +87,15 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       }
       return null;
     },
+    findUniqueOrThrow: async ({
+      where,
+    }: {
+      where: { id: string };
+    }): Promise<ImportRun> => {
+      const row = this.rows.get(where.id);
+      if (!row) throw new Error(`no such run ${where.id}`);
+      return { ...row };
+    },
   } as unknown as ImportRunPrisma["importRun"];
 
   /** Test helper: insert a row directly, bypassing `create`'s auto-fields. */
@@ -100,6 +110,7 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       upserted: 0,
       softDeleted: 0,
       cursor: null,
+      lastPage: null,
       error: null,
       startedAt: new Date(),
       finishedAt: null,
@@ -108,20 +119,34 @@ class InMemoryImportRunStore implements ImportRunPrisma {
   }
 }
 
-/** A pipeline stub that applies `mutate` to the counts, then optionally throws. */
-function fakePipeline(
-  mutate: (counts: ImportRunCounts) => void,
-  throwAfter?: Error,
-): ImportPipeline {
+/**
+ * A {@link SegmentRunner} whose behavior per call is scripted by `steps` —
+ * each step optionally mutates the store (mimicking a real child's DB
+ * writes) before resolving with the given exit result. Records every
+ * `runId`/`modifiedSince` it was called with.
+ */
+function fakeSegmentRunner(
+  store: InMemoryImportRunStore,
+  steps: Array<{
+    mutate?: (rows: Map<string, ImportRun>, runId: string) => void;
+    result: SegmentRunResult;
+  }>,
+): SegmentRunner & { calls: Array<{ runId: string; modifiedSince?: string }> } {
+  const calls: Array<{ runId: string; modifiedSince?: string }> = [];
+  let i = 0;
   return {
-    async run(counts: ImportRunCounts): Promise<void> {
-      mutate(counts);
-      if (throwAfter) throw throwAfter;
+    calls,
+    async runSegment(runId: string, modifiedSince?: string): Promise<SegmentRunResult> {
+      calls.push({ runId, modifiedSince });
+      const step = steps[Math.min(i, steps.length - 1)];
+      i += 1;
+      step.mutate?.(store.rows, runId);
+      return step.result;
     },
-  } as unknown as ImportPipeline;
+  };
 }
 
-const CONFIG = { deleteGuardThresholdPct: 10 };
+const CONFIG = {};
 
 describe("ImportRunService", () => {
   let store: InMemoryImportRunStore;
@@ -130,86 +155,145 @@ describe("ImportRunService", () => {
     store = new InMemoryImportRunStore();
   });
 
-  it("records a clean run as succeeded with the pipeline's counts", async () => {
-    const pipeline = fakePipeline((c) => {
-      c.fetched = 5;
-      c.normalized = 5;
-      c.quarantined = 1;
-      c.upserted = 4;
-      c.softDeleted = 2;
-      c.cursor = null;
-    });
-    const service = new ImportRunService(store, pipeline, CONFIG);
+  it("spawns segments until the row leaves running, returning the finalized row", async () => {
+    const runner = fakeSegmentRunner(store, [
+      {
+        mutate: (rows, id) =>
+          rows.set(id, { ...rows.get(id)!, fetched: 3, cursor: "c1" }),
+        result: { exitCode: 0 },
+      },
+      {
+        mutate: (rows, id) =>
+          rows.set(id, {
+            ...rows.get(id)!,
+            fetched: 5,
+            status: "succeeded",
+            finishedAt: new Date(),
+          }),
+        result: { exitCode: 0 },
+      },
+    ]);
+    const service = new ImportRunService(store, runner, CONFIG);
 
     const run = await service.execute("manual");
 
     expect(run.status).toBe("succeeded");
-    expect(run.trigger).toBe("manual");
     expect(run.fetched).toBe(5);
-    expect(run.normalized).toBe(5);
-    expect(run.quarantined).toBe(1);
-    expect(run.upserted).toBe(4);
-    expect(run.softDeleted).toBe(2);
-    expect(run.error).toBeNull();
-    expect(run.finishedAt).not.toBeNull();
-    // Exactly one record, and it is not left running.
+    expect(runner.calls).toHaveLength(2);
+    expect(runner.calls[0].runId).toBe(run.id);
+    expect(runner.calls[1].runId).toBe(run.id);
     expect(store.rows.size).toBe(1);
   });
 
-  it("records a guard-tripped run as aborted with the partial counts", async () => {
-    const abort = new MassDeletionAbortError("viator", 10, 8, 80, 10);
-    const pipeline = fakePipeline((c) => {
-      // Pre-upsert stages tallied; upsert committed nothing.
-      c.fetched = 10;
-      c.normalized = 10;
-      c.quarantined = 0;
-    }, abort);
-    const service = new ImportRunService(store, pipeline, CONFIG);
+  it("returns after one spawn when a single segment finishes the whole run", async () => {
+    const runner = fakeSegmentRunner(store, [
+      {
+        mutate: (rows, id) =>
+          rows.set(id, {
+            ...rows.get(id)!,
+            status: "succeeded",
+            fetched: 2,
+            finishedAt: new Date(),
+          }),
+        result: { exitCode: 0 },
+      },
+    ]);
+    const service = new ImportRunService(store, runner, CONFIG);
+
+    const run = await service.execute("manual");
+
+    expect(run.status).toBe("succeeded");
+    expect(runner.calls).toHaveLength(1);
+  });
+
+  it("records a guard-tripped segment's aborted status as-is (already written by the child)", async () => {
+    const runner = fakeSegmentRunner(store, [
+      {
+        mutate: (rows, id) =>
+          rows.set(id, {
+            ...rows.get(id)!,
+            status: "aborted",
+            fetched: 10,
+            error: "Mass-deletion guard tripped for provider \"viator\": …",
+            finishedAt: new Date(),
+          }),
+        result: { exitCode: 0 },
+      },
+    ]);
+    const service = new ImportRunService(store, runner, CONFIG);
 
     const run = await service.execute("scheduled");
 
     expect(run.status).toBe("aborted");
-    expect(run.trigger).toBe("scheduled");
-    expect(run.fetched).toBe(10);
-    expect(run.normalized).toBe(10);
-    expect(run.upserted).toBe(0);
-    expect(run.softDeleted).toBe(0);
     expect(run.error).toContain("Mass-deletion guard tripped");
-    expect(run.finishedAt).not.toBeNull();
-    expect(store.rows.size).toBe(1);
   });
 
-  it("records an unexpected error as failed (not aborted)", async () => {
-    const pipeline = fakePipeline((c) => {
-      c.fetched = 3;
-    }, new Error("Viator returned 500"));
-    const service = new ImportRunService(store, pipeline, CONFIG);
+  it("finalizes as failed when a segment exits non-zero, preserving the prior segment's committed progress", async () => {
+    const runner = fakeSegmentRunner(store, [
+      {
+        // First segment completes cleanly and commits real progress.
+        mutate: (rows, id) =>
+          rows.set(id, { ...rows.get(id)!, fetched: 7, cursor: "c1" }),
+        result: { exitCode: 0 },
+      },
+      {
+        // Second segment crashes before it can write anything at all.
+        result: { exitCode: 1 },
+      },
+    ]);
+    const service = new ImportRunService(store, runner, CONFIG);
 
     const run = await service.execute("manual");
 
     expect(run.status).toBe("failed");
-    expect(run.fetched).toBe(3);
-    expect(run.error).toBe("Viator returned 500");
+    expect(run.fetched).toBe(7); // untouched from the crashed segment
+    expect(run.error).toContain("exited abnormally");
+    expect(run.error).toContain("code 1");
     expect(run.finishedAt).not.toBeNull();
-    expect(store.rows.size).toBe(1);
+  });
+
+  it("finalizes as failed when a segment is killed by a signal (exitCode null)", async () => {
+    const runner = fakeSegmentRunner(store, [{ result: { exitCode: null } }]);
+    const service = new ImportRunService(store, runner, CONFIG);
+
+    const run = await service.execute("manual");
+
+    expect(run.status).toBe("failed");
+    expect(run.error).toContain("code null");
   });
 
   it("never re-throws — the finalized record is always returned", async () => {
-    const pipeline = fakePipeline(() => {}, new Error("boom"));
-    const service = new ImportRunService(store, pipeline, CONFIG);
+    const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
+    const service = new ImportRunService(store, runner, CONFIG);
     await expect(service.execute("manual")).resolves.toMatchObject({
       status: "failed",
     });
+  });
+
+  it("forwards modifiedSince to every segment spawn", async () => {
+    const runner = fakeSegmentRunner(store, [
+      {
+        mutate: (rows, id) =>
+          rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
+        result: { exitCode: 0 },
+      },
+    ]);
+    const service = new ImportRunService(store, runner, CONFIG);
+
+    await service.execute("manual", { modifiedSince: "2026-08-01T00:00:00Z" });
+
+    expect(runner.calls[0].modifiedSince).toBe("2026-08-01T00:00:00Z");
   });
 
   describe("reapStuckRuns (BRI-170)", () => {
     it("marks a run stuck 'running' past the timeout as failed", async () => {
       const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3h ago
       store.seed({ id: "orphan", status: "running", startedAt: staleStart });
-      const service = new ImportRunService(store, fakePipeline(() => {}), {
-        ...CONFIG,
-        stuckRunTimeoutMinutes: 120,
-      });
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+      );
 
       const count = await service.reapStuckRuns();
 
@@ -223,10 +307,11 @@ describe("ImportRunService", () => {
     it("leaves a recent, legitimately in-flight run untouched", async () => {
       const recentStart = new Date(Date.now() - 5 * 60 * 1000); // 5 min ago
       store.seed({ id: "in-flight", status: "running", startedAt: recentStart });
-      const service = new ImportRunService(store, fakePipeline(() => {}), {
-        ...CONFIG,
-        stuckRunTimeoutMinutes: 120,
-      });
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+      );
 
       const count = await service.reapStuckRuns();
 
@@ -237,10 +322,11 @@ describe("ImportRunService", () => {
     it("leaves already-terminal runs untouched", async () => {
       const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000);
       store.seed({ id: "done", status: "succeeded", startedAt: staleStart });
-      const service = new ImportRunService(store, fakePipeline(() => {}), {
-        ...CONFIG,
-        stuckRunTimeoutMinutes: 120,
-      });
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+      );
 
       const count = await service.reapStuckRuns();
 
@@ -251,7 +337,11 @@ describe("ImportRunService", () => {
     it("defaults to a 120-minute timeout when not configured", async () => {
       const staleStart = new Date(Date.now() - 121 * 60 * 1000);
       store.seed({ id: "orphan", status: "running", startedAt: staleStart });
-      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        CONFIG,
+      );
 
       const count = await service.reapStuckRuns();
 
@@ -261,19 +351,31 @@ describe("ImportRunService", () => {
 
   describe("hasRunningRun (BRI-173)", () => {
     it("returns false when no run exists", async () => {
-      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        CONFIG,
+      );
       await expect(service.hasRunningRun()).resolves.toBe(false);
     });
 
     it("returns true while a run is in progress", async () => {
       store.seed({ id: "in-flight", provider: "viator", status: "running" });
-      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        CONFIG,
+      );
       await expect(service.hasRunningRun()).resolves.toBe(true);
     });
 
     it("returns false once the run has finished", async () => {
       store.seed({ id: "done", provider: "viator", status: "succeeded" });
-      const service = new ImportRunService(store, fakePipeline(() => {}), CONFIG);
+      const service = new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        CONFIG,
+      );
       await expect(service.hasRunningRun()).resolves.toBe(false);
     });
   });
@@ -286,25 +388,30 @@ describe("ImportRunService", () => {
       (globalThis as { fetch: typeof fetch }).fetch = realFetch;
     });
 
-    it("pings the heartbeat URL while the pipeline is running, and stops once it settles", async () => {
+    it("pings the heartbeat URL while segments are still spawning, and stops once the run settles", async () => {
       jest.useFakeTimers();
       const fetchMock = jest
         .fn<typeof fetch>()
         .mockResolvedValue({ ok: true, status: 200 } as Response);
       (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
 
-      let releasePipeline: (() => void) | undefined;
-      const pipeline = {
-        run: (counts: ImportRunCounts) =>
-          new Promise<void>((resolve) => {
-            releasePipeline = () => {
-              counts.fetched = 1;
-              resolve();
+      let releaseSegment: (() => void) | undefined;
+      const runner: SegmentRunner = {
+        runSegment: (runId: string) =>
+          new Promise<SegmentRunResult>((resolve) => {
+            releaseSegment = () => {
+              store.rows.set(runId, {
+                ...store.rows.get(runId)!,
+                status: "succeeded",
+                fetched: 1,
+                finishedAt: new Date(),
+              });
+              resolve({ exitCode: 0 });
             };
           }),
-      } as unknown as ImportPipeline;
+      };
 
-      const service = new ImportRunService(store, pipeline, {
+      const service = new ImportRunService(store, runner, {
         ...CONFIG,
         heartbeatUrl: "https://atlas-api.onrender.com",
       });
@@ -312,7 +419,7 @@ describe("ImportRunService", () => {
       const runPromise = service.execute("scheduled-external");
 
       // The heartbeat's own default interval is 10 minutes; advance well past
-      // two ticks while the pipeline is still "in flight".
+      // two ticks while the (single, long) segment is still in flight.
       await jest.advanceTimersByTimeAsync(21 * 60_000);
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenCalledWith(
@@ -320,7 +427,7 @@ describe("ImportRunService", () => {
         expect.objectContaining({ signal: expect.anything() }),
       );
 
-      releasePipeline?.();
+      releaseSegment?.();
       await runPromise;
 
       // Stopped: further elapsed time must not produce more pings.
@@ -328,15 +435,15 @@ describe("ImportRunService", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    it("stops the heartbeat even when the pipeline throws", async () => {
+    it("stops the heartbeat even when a segment exits abnormally", async () => {
       jest.useFakeTimers();
       const fetchMock = jest
         .fn<typeof fetch>()
         .mockResolvedValue({ ok: true, status: 200 } as Response);
       (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
 
-      const pipeline = fakePipeline(() => {}, new Error("boom"));
-      const service = new ImportRunService(store, pipeline, {
+      const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
+      const service = new ImportRunService(store, runner, {
         ...CONFIG,
         heartbeatUrl: "https://atlas-api.onrender.com",
       });
@@ -355,11 +462,14 @@ describe("ImportRunService", () => {
         .mockResolvedValue({ ok: true, status: 200 } as Response);
       (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
 
-      const service = new ImportRunService(
-        store,
-        fakePipeline((c) => (c.fetched = 1)),
-        CONFIG,
-      );
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) =>
+            rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
+          result: { exitCode: 0 },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
 
       await service.execute("manual");
       await jest.advanceTimersByTimeAsync(30 * 60_000);

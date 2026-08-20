@@ -2,44 +2,63 @@ import { Logger } from "@nestjs/common";
 import type { ImportRun, PrismaClient } from "@prisma/client";
 
 import { ImportRunHeartbeat } from "./heartbeat";
-import {
-  ImportPipeline,
-  ImportRunCounts,
-  type ImportPipelineOptions,
-} from "./import.pipeline";
-import { MassDeletionAbortError } from "./upsert";
+import type { SegmentRunner } from "./segment-runner";
 
 /**
- * Import-run recorder (ST-10 / BRI-107).
+ * Import-run orchestrator (ST-10 / BRI-107, restructured by BRI-176).
  *
- * Owns the `import_run` audit record around one execution of the
- * {@link ImportPipeline}: it writes a `running` row before the pipeline starts
- * and updates that same row exactly once when the run reaches a terminal state.
- * The row is the durable answer to "did the nightly import run, and what
- * happened?" — so the two invariants this class guarantees are:
+ * Owns the `import_run` audit record around one run: it writes a `running`
+ * row before any work starts and updates that same row exactly once when the
+ * run reaches a terminal state. The row is the durable answer to "did the
+ * nightly import run, and what happened?" — so the two invariants this class
+ * guarantees are:
  *
  * 1. **Every run leaves exactly one record.** A run is never silently missing.
  * 2. **No run is left stuck as `running`.** Success, failure, and the guard's
  *    abort all finalize the row (status + counts + `finishedAt`).
  *
- * The abort case is called out explicitly in the spec: when ST-9's guard trips,
- * the pipeline throws {@link MassDeletionAbortError} after the earlier stages'
- * counts are already tallied, so the row is finalized as `aborted` carrying
- * those partial counts — not `failed`, and not left `running`.
- *
  * It does **not** re-throw: a scheduled cron and a manual trigger both want the
  * finalized record back (describing the failure) rather than an exception to
  * handle. The record's `status` + `error` communicate the outcome.
  *
+ * **BRI-176.** This class no longer runs the crawl itself. It spawns a
+ * `segment-worker.cli.ts` child process per segment (via the injected
+ * {@link SegmentRunner} — real spawning in production, fakeable in tests)
+ * and loops: run a segment, check the row, spawn another if it's still
+ * `running`. Each child is the one that calls `ImportPipeline.runSegment`,
+ * increments the row's counts/cursor, and — on the segment that finally
+ * finishes the crawl — calls `finalizeGuardedSoftDelete`/`ExperienceLinker`
+ * and writes the row's terminal state itself; see `segment-worker.cli.ts`.
+ * That split exists because an in-process generator restart (tried first)
+ * measurably helped but left a real residual memory accumulation across
+ * many pages — BRI-176's diagnosis confirmed only a *fully completed*
+ * process/generator releases everything, so the restart had to become a real
+ * OS process exit, and the real production trigger path (`POST
+ * /v1/import/trigger`, BRI-173) runs inside the same long-lived web-server
+ * process that also serves other traffic — it cannot `process.exit()` itself
+ * to get that release. Spawning a disposable child gets the same guarantee
+ * without taking the API down. This class's own memory footprint therefore
+ * stays flat regardless of crawl length: it never parses a page or holds a
+ * `TourDTO` itself, only spawns and waits.
+ *
+ * A child's exit code communicates whether it could reliably record its own
+ * outcome — 0 whether that outcome was `succeeded`, `aborted`, or a caught
+ * `failed` (the row's `status` carries the actual business outcome), non-zero
+ * or `null` only when the process died before it could (a crash, or an OOM
+ * kill the OS delivered as a raw signal). This class finalizes the row itself
+ * only in that latter case; the row's `cursor` still reflects wherever the
+ * *last successfully completed* segment left off, so a fresh run resuming
+ * from there loses no committed work (idempotent upserts mean, at worst, one
+ * partially-done page gets safely redone).
+ *
  * **BRI-170.** Invariant 2 above ("no run is left stuck as `running`") holds
  * for every failure mode this class's own try/catch can see — but not for a
- * process that dies *without unwinding the stack at all* (a `kill -9`, or an
- * OOM kill, exactly what BRI-170's evidence showed: one `ImportRun` row left
- * `running` with no `finishedAt` and no `error`, because the OOM killed the
- * process before the `catch` block ever ran). No in-process guarantee can
- * cover that — the fix is {@link reapStuckRuns}, an out-of-process safeguard
- * run once at every app boot (see `scheduler.ts`), which finalizes any row
- * still `running` well past how long a real run should ever take.
+ * process that dies *without unwinding the stack at all* (the long-lived
+ * parent process itself getting killed mid-orchestration, not just one
+ * child). No in-process guarantee can cover that — the fix is
+ * {@link reapStuckRuns}, an out-of-process safeguard run once at every app
+ * boot (see `scheduler.ts`), which finalizes any row still `running` well
+ * past how long a real run should ever take.
  */
 
 /**
@@ -59,10 +78,19 @@ export type ImportRunTrigger = "scheduled" | "manual" | "scheduled-external";
 /** Just the `importRun` surface this service needs (a `PrismaClient` satisfies it). */
 export type ImportRunPrisma = Pick<PrismaClient, "importRun">;
 
-/** Config the recorder needs, injected so it doesn't read env directly. */
+/** Options for one {@link ImportRunService.execute} call. */
+export interface ExecuteOptions {
+  /**
+   * Optional ISO-8601 timestamp for a delta crawl (only pages modified since
+   * then). Forwarded to every segment-worker child spawned for this run;
+   * only the first (the one with no cursor yet) ever actually sends it — see
+   * `ViatorClient.fetchModifiedSince`'s `startCursor` gating.
+   */
+  readonly modifiedSince?: string;
+}
+
+/** Config the orchestrator needs, injected so it doesn't read env directly. */
 export interface ImportRunServiceConfig {
-  /** Mass-deletion abort threshold (0–100), from `DELETE_GUARD_THRESHOLD_PCT`. */
-  readonly deleteGuardThresholdPct: number;
   /** Provider this deployment crawls. Always "viator" today. */
   readonly provider?: string;
   /**
@@ -86,7 +114,7 @@ export class ImportRunService {
 
   constructor(
     private readonly prisma: ImportRunPrisma,
-    private readonly pipeline: ImportPipeline,
+    private readonly segmentRunner: SegmentRunner,
     private readonly config: ImportRunServiceConfig,
   ) {
     this.provider = config.provider ?? "viator";
@@ -99,8 +127,9 @@ export class ImportRunService {
    * at process boot (before a new run might start), so an orphaned row from a
    * crashed previous process is cleaned up before it can confuse "is an import
    * currently running?" checks or clutter the audit trail. A run that is
-   * merely slow (still legitimately in flight) is untouched — the timeout is
-   * set well above how long a real crawl+ingest takes.
+   * merely slow (still legitimately in flight, spawning its next segment) is
+   * untouched — the timeout is set well above how long a real crawl+ingest
+   * takes.
    */
   async reapStuckRuns(): Promise<number> {
     const cutoff = new Date(
@@ -127,58 +156,65 @@ export class ImportRunService {
   }
 
   /**
-   * Execute one import run and record it. Creates the `running` row, runs the
-   * pipeline, then finalizes the row to `succeeded` / `aborted` / `failed`.
-   * Always resolves to the finalized record; never re-throws.
+   * Execute one import run and record it: create the `running` row, then
+   * spawn segment-worker children one at a time until the row leaves
+   * `running` (BRI-176). Always resolves to the finalized record; never
+   * re-throws.
    *
    * @param trigger  Whether the nightly cron or a manual path started this run.
-   * @param options  Pipeline overrides (e.g. a `modifiedSince` for a delta crawl).
+   * @param options  E.g. a `modifiedSince` for a delta crawl.
    */
   async execute(
     trigger: ImportRunTrigger,
-    options: Partial<ImportPipelineOptions> = {},
+    options: ExecuteOptions = {},
   ): Promise<ImportRun> {
     const run = await this.prisma.importRun.create({
       data: { provider: this.provider, trigger, status: "running" },
     });
     this.logger.log(`Import run ${run.id} started (trigger: ${trigger}).`);
 
-    // Owned here so its tallies survive a pipeline throw (see ImportPipeline).
-    const counts = new ImportRunCounts();
-
-    // BRI-173: started right before the work begins, stopped in `finally` so
-    // it never outlives this run regardless of how it ends — the same
-    // cleanup shape `reapStuckRuns` uses for its own best-effort guarantee.
-    // No-ops entirely when `heartbeatUrl` is unset (off-Render).
+    // BRI-173: spans every segment of the run, not just one — started right
+    // before the first spawn, stopped in `finally` so it never outlives the
+    // run regardless of how many segments it takes or how it ends.
     const heartbeat = new ImportRunHeartbeat({ url: this.config.heartbeatUrl });
     heartbeat.start();
 
     try {
-      await this.pipeline.run(counts, {
-        deleteGuardThresholdPct: this.config.deleteGuardThresholdPct,
-        ...options,
-      });
-      const finalized = await this.finalize(run.id, "succeeded", counts, null);
-      this.logger.log(
-        `Import run ${run.id} succeeded — ` +
-          `fetched ${counts.fetched}, normalized ${counts.normalized}, ` +
-          `quarantined ${counts.quarantined}, upserted ${counts.upserted}, ` +
-          `soft-deleted ${counts.softDeleted}.`,
-      );
-      return finalized;
-    } catch (error) {
-      if (error instanceof MassDeletionAbortError) {
-        // The guard did its job: a deliberate rollback, not a crash. Record the
-        // partial counts gathered before the abort.
-        this.logger.warn(
-          `Import run ${run.id} aborted by mass-deletion guard: ${error.message}`,
+      for (;;) {
+        const result = await this.segmentRunner.runSegment(
+          run.id,
+          options.modifiedSince,
         );
-        return this.finalize(run.id, "aborted", counts, error.message);
-      }
 
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Import run ${run.id} failed: ${message}`);
-      return this.finalize(run.id, "failed", counts, message);
+        if (result.exitCode !== 0) {
+          // The child died before it could reliably record its own outcome
+          // (crash, or an OS-delivered signal like an OOM kill — exitCode is
+          // `null` in that case). Whatever the last successfully completed
+          // segment committed (cursor, counts) is untouched; finalize here
+          // instead of leaving the row `running` for reapStuckRuns to
+          // eventually clean up.
+          const message =
+            `segment-worker exited abnormally (code ${result.exitCode ?? "null"}) ` +
+            `before it could record its own outcome`;
+          this.logger.error(`Import run ${run.id} failed: ${message}`);
+          return this.finalize(run.id, message);
+        }
+
+        const current = await this.prisma.importRun.findUniqueOrThrow({
+          where: { id: run.id },
+        });
+        if (current.status !== "running") {
+          this.logger.log(
+            `Import run ${run.id} ${current.status} — ` +
+              `fetched ${current.fetched}, normalized ${current.normalized}, ` +
+              `quarantined ${current.quarantined}, upserted ${current.upserted}, ` +
+              `soft-deleted ${current.softDeleted}.`,
+          );
+          return current;
+        }
+        // Still running: the segment that just finished left more pages for
+        // the next one (its cursor is already on the row) — loop.
+      }
     } finally {
       heartbeat.stop();
     }
@@ -200,26 +236,11 @@ export class ImportRunService {
     return existing !== null;
   }
 
-  /** Update the run row to a terminal state in one write. */
-  private finalize(
-    id: string,
-    status: "succeeded" | "failed" | "aborted",
-    counts: ImportRunCounts,
-    error: string | null,
-  ): Promise<ImportRun> {
+  /** Finalize a run this class itself is failing (a child died abnormally). */
+  private finalize(id: string, error: string): Promise<ImportRun> {
     return this.prisma.importRun.update({
       where: { id },
-      data: {
-        status,
-        fetched: counts.fetched,
-        normalized: counts.normalized,
-        quarantined: counts.quarantined,
-        upserted: counts.upserted,
-        softDeleted: counts.softDeleted,
-        cursor: counts.cursor,
-        error,
-        finishedAt: new Date(),
-      },
+      data: { status: "failed", error, finishedAt: new Date() },
     });
   }
 }

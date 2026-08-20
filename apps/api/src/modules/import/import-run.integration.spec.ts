@@ -4,29 +4,35 @@ import { PrismaClient } from "@prisma/client";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import { ExperienceLinker } from "./experience-linker";
-import { ImportPipeline } from "./import.pipeline";
-import { ImportRunService } from "./import-run.service";
+import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { LocationResolver } from "./location-resolver";
 import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import type { PrismaService } from "../../prisma/prisma.service";
-import { TourUpsertService } from "./upsert";
+import { MassDeletionAbortError, TourUpsertService } from "./upsert";
 import { TourValidator } from "./validator";
 
 /**
- * End-to-end integration test for the ST-10 run (BRI-107), against a **real
- * Postgres**. It drives the exact production path a manual/scheduled trigger
- * takes — {@link ImportRunService.execute} → {@link ImportPipeline} →
- * (real validator + real upsert + real Prisma) — with only the Viator network
- * legs (product fetch, location resolve, price resolve) stubbed, since those need
- * live credentials. It proves the acceptance criteria that can't be faked:
+ * Integration test for the ST-10 run's data path (BRI-107, restructured by
+ * BRI-176), against a **real Postgres**. Drives {@link ImportPipeline} +
+ * (real validator + real upsert + real `ExperienceLinker` + real Prisma)
+ * directly — the same stages a real `segment-worker.cli.ts` child threads
+ * together, minus its own process boundary and DB-row bookkeeping (covered
+ * separately by `segment-worker.integration.spec.ts`, which spawns the real
+ * compiled CLI as a child process). Only the Viator network legs (product
+ * fetch, location resolve, price resolve) are stubbed, since those need live
+ * credentials. It proves the acceptance criteria that can't be faked:
  *
- * - every run leaves one `ImportRun` record with accurate status/counts/timestamps;
  * - a run actually writes validated tours to the live catalogue;
  * - a quarantined tour is counted and kept out of the catalogue;
- * - a guard-tripped run is recorded `aborted` (not `running`, not missing) and
- *   commits nothing.
+ * - a guard-tripped run commits its upserts but rolls back only the
+ *   soft-delete (BRI-170);
+ * - re-running is idempotent: no new tours, nothing soft-deleted;
+ * - `TourUpsertService.findUpsertedIds` (BRI-176) reconstructs the exact
+ *   same incoming-id set `finalizeGuardedSoftDelete` needs, straight from
+ *   the DB — the mechanism that replaces carrying that list across process
+ *   boundaries.
  *
  * Requires `DATABASE_URL` pointed at a migrated dev database. Excluded from the
  * default `test` task (runs via `pnpm --filter @folio/api test:integration`).
@@ -39,6 +45,7 @@ const prisma = new PrismaClient(
 );
 
 const PROVIDER = "viator";
+const FETCHED_AT = new Date("2026-08-20T00:00:00.000Z");
 
 /**
  * A raw Viator product the normalizer accepts and — since BRI-170 — that
@@ -99,27 +106,63 @@ function priceResolverFor(
   } as unknown as PriceResolver;
 }
 
-function makeService(
+const upsert = new TourUpsertService(prisma);
+const linker = new ExperienceLinker(prisma);
+
+/**
+ * Runs one full (single-segment) crawl through `ImportPipeline.runSegment`
+ * and then, mirroring exactly what `segment-worker.cli.ts` does when a
+ * segment reports `done`, reconstructs `incomingIds` from the DB and calls
+ * the finalize steps. Returns the same shape the old whole-run test cared
+ * about, so the acceptance criteria below stay a direct, readable diff of
+ * what changed.
+ */
+async function runOnce(
   deleteGuardThresholdPct: number,
   products: ViatorProduct[],
   priceFor?: (code: string) => number | null,
-) {
-  // The bare PrismaClient satisfies the store's query surface; it only lacks
-  // PrismaService's Nest lifecycle hooks, which this test doesn't exercise.
+): Promise<{
+  counts: ImportRunCounts;
+  status: "succeeded" | "aborted";
+  error: string | null;
+  softDeleted: number;
+}> {
   const validator = new TourValidator(
     new PrismaQuarantineStore(prisma as unknown as PrismaService),
   );
-  const upsert = new TourUpsertService(prisma);
-  const linker = new ExperienceLinker(prisma);
   const pipeline = new ImportPipeline(
     client(products),
     resolver,
     priceResolverFor(priceFor),
     validator,
     upsert,
-    linker,
   );
-  return new ImportRunService(prisma, pipeline, { deleteGuardThresholdPct });
+
+  // A fresh timestamp per call (never the shared FETCHED_AT constant below)
+  // — every real run gets a unique ImportRun.startedAt, and findUpsertedIds
+  // matches by exact fetchedAt, so two `runOnce` calls sharing one timestamp
+  // would incorrectly see each other's rows as "this run's" incoming set.
+  const fetchedAt = new Date();
+  const counts = new ImportRunCounts();
+  const result = await pipeline.runSegment(counts, {
+    fetchedAt: fetchedAt.toISOString(),
+    restartEveryNPages: 1000,
+  });
+  expect(result.done).toBe(true); // every fixture here is one page
+
+  const incomingIds = await upsert.findUpsertedIds(PROVIDER, fetchedAt);
+  try {
+    const deletion = await upsert.finalizeGuardedSoftDelete(incomingIds, PROVIDER, {
+      deleteGuardThresholdPct,
+    });
+    await linker.linkRun(PROVIDER);
+    return { counts, status: "succeeded", error: null, softDeleted: deletion.softDeleted };
+  } catch (error) {
+    if (error instanceof MassDeletionAbortError) {
+      return { counts, status: "aborted", error: error.message, softDeleted: 0 };
+    }
+    throw error;
+  }
 }
 
 function activeCount(): Promise<number> {
@@ -139,85 +182,97 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("ImportRunService end-to-end", () => {
-  it("records a succeeded run and writes tours to the catalogue", async () => {
-    const service = makeService(10, [
+describe("ImportPipeline data path end-to-end", () => {
+  it("writes tours to the catalogue on a clean segment", async () => {
+    const { counts, status, softDeleted } = await runOnce(10, [
       rawProduct("A"),
       rawProduct("B"),
       rawProduct("C"),
     ]);
 
-    const run = await service.execute("manual");
-
-    expect(run.status).toBe("succeeded");
-    expect(run.trigger).toBe("manual");
-    expect(run.fetched).toBe(3);
-    expect(run.normalized).toBe(3);
-    expect(run.quarantined).toBe(0);
-    expect(run.upserted).toBe(3);
-    expect(run.softDeleted).toBe(0);
-    expect(run.startedAt).toBeInstanceOf(Date);
-    expect(run.finishedAt).toBeInstanceOf(Date);
-    // The run persisted exactly one record…
-    expect(await prisma.importRun.count({ where: { provider: PROVIDER } })).toBe(1);
-    // …and actually wrote the tours.
+    expect(status).toBe("succeeded");
+    expect(counts.fetched).toBe(3);
+    expect(counts.normalized).toBe(3);
+    expect(counts.quarantined).toBe(0);
+    expect(counts.upserted).toBe(3);
+    expect(softDeleted).toBe(0);
     expect(await activeCount()).toBe(3);
   });
 
   it("counts a quarantined tour and keeps it out of the catalogue", async () => {
     // "B" resolves to no price → quarantined by the real validator (MISSING_PRICE).
-    const service = makeService(
+    const { counts, status } = await runOnce(
       10,
       [rawProduct("A"), rawProduct("B")],
       (code) => (code === "B" ? null : 2500),
     );
 
-    const run = await service.execute("manual");
-
-    expect(run.status).toBe("succeeded");
-    expect(run.fetched).toBe(2);
-    expect(run.quarantined).toBe(1);
-    expect(run.upserted).toBe(1);
+    expect(status).toBe("succeeded");
+    expect(counts.fetched).toBe(2);
+    expect(counts.quarantined).toBe(1);
+    expect(counts.upserted).toBe(1);
     expect(await activeCount()).toBe(1);
     expect(
       await prisma.quarantinedTour.count({ where: { provider: PROVIDER } }),
     ).toBe(1);
   });
 
-  it("records an aborted run and commits nothing when the guard trips", async () => {
-    // Seed a 10-tour catalogue via a first successful run.
+  it("commits nothing extra and rolls back only the soft-delete when the guard trips", async () => {
+    // Seed a 10-tour catalogue via a first successful segment.
     const seed = Array.from({ length: 10 }, (_, i) => rawProduct(`t${i}`));
-    await makeService(10, seed).execute("manual");
+    await runOnce(10, seed);
     expect(await activeCount()).toBe(10);
 
-    // A second run returning nothing would soft-delete 100% → guard trips.
-    const run = await makeService(10, []).execute("scheduled");
+    // A second, empty segment would soft-delete 100% → guard trips.
+    const { status, error, softDeleted } = await runOnce(10, []);
 
-    expect(run.status).toBe("aborted");
-    expect(run.error).toContain("Mass-deletion guard tripped");
-    expect(run.upserted).toBe(0);
-    expect(run.softDeleted).toBe(0);
-    expect(run.finishedAt).toBeInstanceOf(Date);
+    expect(status).toBe("aborted");
+    expect(error).toContain("Mass-deletion guard tripped");
+    expect(softDeleted).toBe(0);
     // The catalogue is untouched: nothing soft-deleted.
     expect(await activeCount()).toBe(10);
-    // Both runs are recorded; none is left "running".
-    expect(
-      await prisma.importRun.count({
-        where: { provider: PROVIDER, status: "running" },
-      }),
-    ).toBe(0);
-    expect(await prisma.importRun.count({ where: { provider: PROVIDER } })).toBe(2);
   });
 
   it("is idempotent: a re-run creates no new tours and soft-deletes nothing", async () => {
     const products = [rawProduct("A"), rawProduct("B")];
-    await makeService(10, products).execute("manual");
-    const second = await makeService(10, products).execute("manual");
+    await runOnce(10, products);
+    const second = await runOnce(10, products);
 
     expect(second.status).toBe("succeeded");
-    expect(second.upserted).toBe(2);
+    expect(second.counts.upserted).toBe(2);
     expect(second.softDeleted).toBe(0);
     expect(await activeCount()).toBe(2);
     expect(await prisma.tour.count({ where: { provider: PROVIDER } })).toBe(2);
+  });
+
+  it("BRI-176: findUpsertedIds reconstructs exactly the ids this fetchedAt touched, across multiple upsertBatch calls", async () => {
+    // Two separate upsertBatch calls sharing one fetchedAt — simulating two
+    // different segment-worker children in the same run.
+    const dto = (code: string): TourDTO => ({
+      provider: PROVIDER,
+      provider_tour_id: code,
+      title: `Tour ${code}`,
+      description: null,
+      duration_min: null,
+      rating_avg: null,
+      rating_count: null,
+      price_minor: 2500,
+      currency: "USD",
+      affiliate_url: null,
+      location_ref: null,
+      latitude: null,
+      longitude: null,
+      image_url: null,
+      image_alt: null,
+      destination_refs: ["343"],
+      fetched_at: FETCHED_AT.toISOString(),
+      source_hash: "hash",
+    });
+
+    await upsert.upsertBatch([dto("X")]);
+    await upsert.upsertBatch([dto("Y")]);
+
+    const ids = await upsert.findUpsertedIds(PROVIDER, FETCHED_AT);
+    expect(ids.sort()).toEqual(["X", "Y"]);
   });
 });

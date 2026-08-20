@@ -288,11 +288,19 @@ model ImportRun {
   upserted    Int             @default(0)
   /// Rows soft-deleted this run (active before, absent now) (ST-9).
   softDeleted Int             @default(0)
-  /// Last pagination cursor observed. The ST-6 client walks the cursor to
-  /// completion within a run, so this is null on a clean finish; it retains the
-  /// cursor reached if a crawl breaks off early. (M1 is synchronous — there is
-  /// no resume yet; this only records where the run got to.)
+  /// Last pagination cursor observed. Null on a clean finish; otherwise the
+  /// resume point for this run's next segment (BRI-176: a run now spans one
+  /// or more segment-worker child processes — see ImportRunService's
+  /// docstring). Was write-only before BRI-176 (M1 was fully synchronous, one
+  /// process, no resume); now it's the actual handoff between segments.
   cursor      String?
+  /// Last global page number this run reached, across every segment so far
+  /// (BRI-176). Threaded into the next segment's `startPage` so R2 archive
+  /// keys (`raw/{source}/{date}/{page}.json`) stay unique across the whole
+  /// run instead of each segment restarting page numbering at 1 and
+  /// overwriting an earlier segment's archives. Null until the first segment
+  /// completes at least one page.
+  lastPage    Int?
   /// Human-readable failure/abort message, when status is `failed` or `aborted`.
   error       String?
   /// When the run started (row created).
