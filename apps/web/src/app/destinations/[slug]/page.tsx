@@ -7,7 +7,7 @@ import { CovillaHeader } from "@/components/covilla/CovillaHeader";
 import { CovillaFooter } from "@/components/covilla/CovillaFooter";
 import { FixedRail } from "@/components/covilla/FixedRail";
 import { StickyFeaturedPanel } from "@/components/covilla/StickyFeaturedPanel";
-import { ExperienceRowCard } from "@/components/covilla/ExperienceRowCard";
+import { ExperienceComparePicker } from "@/components/covilla/ExperienceComparePicker";
 import { OtherDestinationsGrid } from "@/components/covilla/OtherDestinationsGrid";
 import { PlanTripCta } from "@/components/PlanTripCta";
 import { View3DButton } from "@/components/map/View3DButton";
@@ -226,15 +226,7 @@ export default async function DestinationPage({
               <View3DButton tour={bangkokTour} />
             )}
 
-            <div className="mt-8 space-y-6">
-              {d.experiences.map((e) => (
-                <ExperienceRowCard
-                  key={e.id}
-                  experience={e}
-                  destination={{ slug: d.slug, city: d.city, country: d.country }}
-                />
-              ))}
-            </div>
+            <ExperienceComparePicker destination={d} />
 
             <p className="mt-6 max-w-xl text-[13px] leading-6 text-muted">
               Hand-picked and independently written. Booking links go live as
