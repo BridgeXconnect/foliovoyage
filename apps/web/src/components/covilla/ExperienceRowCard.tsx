@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Star, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Star, ShieldCheck, CheckSquare, Square } from "lucide-react";
 import { trackAffiliateClick } from "@/lib/analytics";
 import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail";
 import type { Experience } from "@/data/types";
@@ -25,6 +25,7 @@ import type { Experience } from "@/data/types";
 export function ExperienceRowCard({
   experience: e,
   destination,
+  compare,
 }: {
   experience: Experience;
   /**
@@ -32,6 +33,12 @@ export function ExperienceRowCard({
    * the first path segment of the `/go` link key.
    */
   destination: { slug: string; city: string; country: string };
+  /**
+   * When present (ST-18), renders a "compare" checkbox. `disabled` is true when
+   * the selection is at the cap and this card isn't already selected. Absent on
+   * every other use of the card, which then renders exactly as before.
+   */
+  compare?: { selected: boolean; disabled: boolean; onToggle: () => void };
 }) {
   const live = Boolean(e.affiliateUrl);
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
@@ -53,6 +60,29 @@ export function ExperienceRowCard({
       </div>
 
       <div className="flex flex-1 flex-col p-6 sm:p-7">
+        {compare && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={compare.selected}
+            aria-label={
+              compare.selected ? `Remove ${e.title} from comparison` : `Add ${e.title} to comparison`
+            }
+            disabled={compare.disabled && !compare.selected}
+            onClick={compare.onToggle}
+            title={
+              compare.disabled && !compare.selected ? "You can compare up to 4 tours" : undefined
+            }
+            className="mb-3 inline-flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.14em] text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {compare.selected ? (
+              <CheckSquare size={16} className="text-accent" aria-hidden />
+            ) : (
+              <Square size={16} aria-hidden />
+            )}
+            Compare
+          </button>
+        )}
         <p className="eyebrow">{e.category}</p>
         <h3 className="mt-2 font-display text-[22px] font-medium leading-snug">
           <Link
