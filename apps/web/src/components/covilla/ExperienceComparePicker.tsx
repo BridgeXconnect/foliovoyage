@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Scale, X } from "lucide-react";
 import type { Destination } from "@folio/shared";
 import { ExperienceRowCard } from "@/components/covilla/ExperienceRowCard";
@@ -23,6 +23,7 @@ import { trackToursCompared } from "@/lib/analytics";
 export function ExperienceComparePicker({ destination }: { destination: Destination }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const compareButtonRef = useRef<HTMLButtonElement>(null);
 
   const atMax = selected.length >= MAX_COMPARE;
   const ready = canCompare(selected);
@@ -40,6 +41,12 @@ export function ExperienceComparePicker({ destination }: { destination: Destinat
       experienceIds: selected,
     });
     setOpen(true);
+  }
+
+  function closeCompare() {
+    setOpen(false);
+    // Return focus to the tray button that opened the modal.
+    compareButtonRef.current?.focus();
   }
 
   return (
@@ -76,6 +83,7 @@ export function ExperienceComparePicker({ destination }: { destination: Destinat
                 <X size={14} /> Clear
               </button>
               <button
+                ref={compareButtonRef}
                 type="button"
                 onClick={openCompare}
                 disabled={!ready}
@@ -92,7 +100,7 @@ export function ExperienceComparePicker({ destination }: { destination: Destinat
         <ExperienceCompareModal
           destination={destination}
           selectedIds={selected}
-          onClose={() => setOpen(false)}
+          onClose={closeCompare}
         />
       )}
     </>

@@ -31,14 +31,41 @@ export function ExperienceCompareModal({
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const model = buildComparison(destination, selectedIds);
   const byId = new Map(destination.experiences.map((e) => [e.id, e] as const));
 
-  // Close on Escape; focus the close button on open; lock body scroll.
+  // Close on Escape; trap Tab within the dialog; focus the close button on
+  // open; lock body scroll.
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") onClose();
+      if (ev.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (ev.key !== "Tab") return;
+
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (ev.shiftKey) {
+        if (active === first || !panelRef.current?.contains(active)) {
+          ev.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !panelRef.current?.contains(active)) {
+          ev.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -58,15 +85,20 @@ export function ExperienceCompareModal({
       aria-modal="true"
       aria-label={`Compare ${model.tours.length} tours in ${destination.city}`}
     >
-      {/* Backdrop */}
+      {/* Backdrop — mouse-only close target; hidden from a11y tree and tab
+          order so it doesn't duplicate the X button's "Close comparison" label. */}
       <button
         type="button"
-        aria-label="Close comparison"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-ink/60"
       />
 
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[4px] bg-white shadow-2xl">
+      <div
+        ref={panelRef}
+        className="relative z-10 flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[4px] bg-white shadow-2xl"
+      >
         <div className="flex items-center justify-between border-b border-line px-6 py-4">
           <h2 className="font-display text-[20px] font-medium">
             Compare tours — {destination.city}
