@@ -147,6 +147,15 @@ _Goal: users can find things. New concept: full-text search + faceting._
 - **ST-18 (3)** — _As a traveler, I want to compare 2–4 tours, so that I can choose confidently._
   - Traces: FR-DEST-4.
   - AC: Selecting 2–4 tours opens a comparison of price, duration, rating, provider, inclusions.
+  - As built (2026-08-21): shipped on the **static** destination page as a client
+    selection tray + side-by-side **modal** (no `/compare` route — a user-selected
+    2–4 set has no SEO value). Compare is scoped to one destination; selection is
+    in-memory (URL-param shareability deferred). Columns reuse ST-17's `/go` CTA
+    seam + `trackAffiliateClick`. **Inclusions:** the static dataset has no
+    itemized inclusions, so the compared cancellation row uses the one real policy
+    signal (free cancellation) and a footnote points to each tour's provider page;
+    true per-tour inclusions are deferred to the DB `Tour` model. New event:
+    `tours_compared`.
 
 **M2 exit:** search + filters + detail/compare pages work on the seed dataset.
 
