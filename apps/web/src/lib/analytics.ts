@@ -55,3 +55,19 @@ export function trackAffiliateClick(input: AffiliateClickInput): void {
     destination_slug: input.destinationSlug,
   });
 }
+
+/** Capture a "compare tours" interaction (FR-ANALYTICS-1 structured events). */
+export function trackToursCompared(input: {
+  destinationSlug: string;
+  city: string;
+  country: string;
+  experienceIds: string[];
+}): void {
+  posthog.capture("tours_compared", {
+    destination_slug: input.destinationSlug,
+    city: input.city,
+    country: input.country,
+    experience_ids: input.experienceIds,
+    tour_count: input.experienceIds.length,
+  });
+}
