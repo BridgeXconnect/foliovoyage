@@ -71,3 +71,35 @@ export function trackToursCompared(input: {
     tour_count: input.experienceIds.length,
   });
 }
+
+/**
+ * Capture a search execution (ST-13/16). `result_count === 0` is the deliberate
+ * content-gap signal — a future admin/analytics pass reads zero-result queries
+ * to find demand the catalogue doesn't yet cover (see the plan's Decision 5).
+ */
+export type SearchAnalyticsInput = {
+  query: string;
+  resultCount: number;
+  priceBands: string[];
+  categories: string[];
+  durations: string[];
+  minRating?: number;
+};
+
+export function trackSearch(input: SearchAnalyticsInput): void {
+  posthog.capture("search_performed", {
+    query: input.query,
+    query_length: input.query.length,
+    result_count: input.resultCount,
+    zero_results: input.resultCount === 0,
+    price_bands: input.priceBands,
+    categories: input.categories,
+    durations: input.durations,
+    min_rating: input.minRating,
+    filter_count:
+      input.priceBands.length +
+      input.categories.length +
+      input.durations.length +
+      (input.minRating !== undefined ? 1 : 0),
+  });
+}
