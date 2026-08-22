@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -38,6 +38,11 @@ export function SearchControls({
   const router = useRouter();
   const pathname = usePathname();
   const [draft, setDraft] = useState(state.q);
+  // Keep the input in sync when the query changes from outside this component
+  // (browser back/forward, "Clear all") — the URL is the source of truth.
+  useEffect(() => {
+    setDraft(state.q);
+  }, [state.q]);
 
   function push(next: SearchState) {
     const qs = searchStateToQuery(next);
