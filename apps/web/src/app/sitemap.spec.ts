@@ -21,4 +21,9 @@ describe("sitemap", () => {
       expect(urls.has(`${site.url}/destinations/${d.slug}`)).toBe(true);
     }
   });
+
+  it("lists the /search page", () => {
+    const urls = new Set(sitemap().map((r) => r.url));
+    expect(urls.has(`${site.url}/search`)).toBe(true);
+  });
 });
