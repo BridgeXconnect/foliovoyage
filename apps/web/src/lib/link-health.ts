@@ -12,6 +12,11 @@
  * `apps/api`'s `ImportScheduler`/`trigger-import.cli.ts` split (pure trigger
  * logic vs. cron registration) so wiring a schedule later is a small, isolated
  * change, not a rewrite.
+ *
+ * A DataDome bot-challenge (BRI-180) is treated as `ok: true` (never demotes
+ * a link that's merely unconfirmed) but also `blocked: true`, so a report can
+ * tell "confirmed healthy" apart from "inconclusive, blocked by anti-bot" —
+ * see `LinkCheckResult.blocked` and `scripts/check-link-health.ts`'s `ping`.
  */
 
 export interface LinkCheckResult {
@@ -20,6 +25,15 @@ export interface LinkCheckResult {
   ok: boolean;
   status?: number;
   error?: string;
+  /**
+   * True when `ok: true` reflects a DataDome bot-challenge (BRI-180), not a
+   * confirmed-healthy response — the ping was inconclusive, so `/go`'s
+   * `isFlaggedUnhealthy` gate deliberately treats it as passing rather than
+   * demoting a link that may well be fine. Surfaced here so a report can
+   * distinguish "confirmed healthy" from "blocked, unconfirmed" instead of
+   * making them look identical.
+   */
+  blocked?: boolean;
 }
 
 export interface LinkHealthReport {
@@ -28,7 +42,7 @@ export interface LinkHealthReport {
   failingKeys: string[];
 }
 
-export type Pinger = (url: string) => Promise<{ ok: boolean; status?: number }>;
+export type Pinger = (url: string) => Promise<{ ok: boolean; status?: number; blocked?: boolean }>;
 
 type LinkEntry = { affiliateUrl?: string };
 
@@ -66,7 +80,13 @@ export async function checkLinkHealth(
 
     try {
       const outcome = await ping(url);
-      results.push({ key, url, ok: outcome.ok, status: outcome.status });
+      results.push({
+        key,
+        url,
+        ok: outcome.ok,
+        status: outcome.status,
+        ...(outcome.blocked ? { blocked: true } : {}),
+      });
     } catch (error) {
       results.push({
         key,
