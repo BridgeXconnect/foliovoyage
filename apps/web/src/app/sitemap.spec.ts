@@ -22,6 +22,12 @@ describe("sitemap", () => {
     }
   });
 
+  it("lists /guides and no longer lists /blog", () => {
+    const urls = new Set(sitemap().map((r) => r.url));
+    expect(urls.has(`${site.url}/guides`)).toBe(true);
+    for (const u of urls) expect(u.startsWith(`${site.url}/blog`)).toBe(false);
+  });
+
   it("lists the /search page", () => {
     const urls = new Set(sitemap().map((r) => r.url));
     expect(urls.has(`${site.url}/search`)).toBe(true);

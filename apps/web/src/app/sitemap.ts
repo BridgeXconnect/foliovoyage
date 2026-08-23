@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
 import { getAllDestinations } from "@/data/destinations-helpers";
-import { posts } from "@/data/blog";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -20,7 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6,
       lastModified: now,
     },
-    { url: `${site.url}/blog`, changeFrequency: "weekly", priority: 0.7, lastModified: now },
+    { url: `${site.url}/guides`, changeFrequency: "weekly", priority: 0.5, lastModified: now },
     { url: `${site.url}/legal/disclosure`, priority: 0.3, lastModified: now },
     { url: `${site.url}/legal/privacy`, priority: 0.2, lastModified: now },
     { url: `${site.url}/legal/terms`, priority: 0.2, lastModified: now },
@@ -40,13 +39,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }),
   );
 
-  const blogRoutes: MetadataRoute.Sitemap = posts.map((p) => ({
-    url: `${site.url}/blog/${p.slug}`,
-    lastModified: new Date(p.date),
-    changeFrequency: "yearly",
-    priority: 0.6,
-  }));
-
   // ST-17: one indexable detail page per experience, nested under its
   // canonical destination.
   const experienceRoutes: MetadataRoute.Sitemap = getAllDestinations().flatMap((d) =>
@@ -58,5 +50,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
   );
 
-  return [...staticRoutes, ...destinationRoutes, ...experienceRoutes, ...blogRoutes];
+  return [...staticRoutes, ...destinationRoutes, ...experienceRoutes];
 }

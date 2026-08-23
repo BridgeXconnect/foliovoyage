@@ -65,7 +65,7 @@ export function CovillaHeader({
           : "text-white/70 hover:text-white",
     );
   const onDestinations = pathname?.startsWith("/destinations");
-  const onBlog = pathname?.startsWith("/blog");
+  const onGuides = pathname?.startsWith("/guides");
   const onSearch = pathname?.startsWith("/search");
   const onContact = pathname === "/legal/contact";
 
@@ -215,8 +215,8 @@ export function CovillaHeader({
             <Link href="/search" className={navLink(Boolean(onSearch))}>
               Search
             </Link>
-            <Link href="/blog" className={navLink(Boolean(onBlog))}>
-              The Folio
+            <Link href="/guides" className={navLink(Boolean(onGuides))}>
+              Guides
             </Link>
             <Link
               href="/legal/contact"
@@ -356,7 +356,7 @@ function FlyoutMenu({
                 { href: "/", label: "Home" },
                 { href: "/destinations", label: "All destinations" },
                 { href: "/search", label: "Search" },
-                { href: "/blog", label: "The Folio — blog" },
+                { href: "/guides", label: "Guides" },
                 { href: "/legal/contact", label: "Contact" },
               ].map((l) => (
                 <li key={l.href}>

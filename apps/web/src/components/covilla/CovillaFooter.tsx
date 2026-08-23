@@ -18,7 +18,7 @@ const columns = [
     heading: "Explore",
     links: [
       { href: "/destinations", label: "All destinations" },
-      { href: "/blog", label: "The Folio — blog" },
+      { href: "/guides", label: "Guides" },
       { href: "/legal/contact", label: "Contact" },
     ],
   },
