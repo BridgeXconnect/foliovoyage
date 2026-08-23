@@ -17,9 +17,11 @@ import { trackAffiliateClick } from "@/lib/analytics";
  * it turns `selectedIds` into a `ComparisonModel` (pure) and lays the tours out
  * as columns with a sticky left label column. Facts a tour lacks render as "—"
  * (honest absence — see plan Findings §I/§II). Each column's booking CTA reuses
- * ST-17's `/go` seam and the shared `trackAffiliateClick` payload — no new link
- * logic. Itemized inclusions aren't in the dataset, so a footnote points to each
- * tour's provider page instead of fabricating a list.
+ * ST-17's `/go` seam and the shared `trackAffiliateClick` payload: a matched
+ * tour gets a live booking link, an unmatched one a provider-search fallback
+ * (BRI-138 / ST-26) — no new link logic, no dead-end CTA. Itemized inclusions
+ * aren't in the dataset, so a footnote points to each tour's provider page
+ * instead of fabricating a list.
  */
 export function ExperienceCompareModal({
   destination,
@@ -163,25 +165,25 @@ export function ExperienceCompareModal({
                 <th scope="row" className="sticky left-0 z-10 bg-white py-4 pr-4" />
                 {model.tours.map((t) => {
                   const e = byId.get(t.id)!;
+                  const isLive = Boolean(e.affiliateUrl);
                   const goHref = experienceGoHref(destination.slug, e);
                   const clickInput = experienceDetailAffiliateInput(destination, e);
                   return (
                     <td key={t.id} className="px-3 py-4">
-                      {goHref ? (
-                        <a
-                          href={goHref}
-                          target="_blank"
-                          rel="sponsored nofollow noopener"
-                          onClick={() => trackAffiliateClick(clickInput)}
-                          className="inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-accent transition-colors hover:bg-accent hover:text-white"
-                        >
-                          Book on {e.provider ?? "Viator"} <ArrowUpRight size={13} />
-                        </a>
-                      ) : (
-                        <span className="inline-flex cursor-default items-center rounded-[2px] border border-line px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                          Booking soon
-                        </span>
-                      )}
+                      <a
+                        href={goHref}
+                        target="_blank"
+                        rel="sponsored nofollow noopener"
+                        onClick={() => trackAffiliateClick(clickInput)}
+                        className={
+                          isLive
+                            ? "inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-accent transition-colors hover:bg-accent hover:text-white"
+                            : "inline-flex items-center gap-1.5 rounded-[2px] border border-line px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted transition-colors hover:border-ink hover:text-ink"
+                        }
+                      >
+                        {isLive ? `Book on ${e.provider ?? "Viator"}` : `Search on ${e.provider ?? "Viator"}`}{" "}
+                        <ArrowUpRight size={13} />
+                      </a>
                     </td>
                   );
                 })}
