@@ -26,14 +26,52 @@ const TIMEOUT_MS = 8000;
 
 type LinkEntry = { affiliateUrl?: string };
 
-/** HEAD first (cheaper); a 405 means the host doesn't support it, so retry with GET. */
+// Real browser headers (BRI-180). A bare Node `fetch` with no headers is an
+// instant, uniform tell for anti-bot layers — but for viator.com specifically
+// these alone are NOT sufficient (verified by hand): the site is fronted by
+// DataDome, which walls off the *entire* domain (including the homepage, and
+// even a fabricated/nonexistent product path) with an identical 403 + a
+// "Please enable JS and disable any ad blocker" challenge page, regardless of
+// headers, User-Agent, or Accept-* — it fingerprints the TLS/HTTP client
+// itself, not just request headers. So a real 403-vs-200 signal from a plain
+// server-side fetch isn't achievable here; the headers below are still sent
+// (correct hygiene, and harmless), but the actual fix is detecting DataDome's
+// stable signature and treating it as inconclusive rather than "unhealthy" —
+// see below.
+const BROWSER_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+
+/** True when a response is DataDome's bot-challenge wall, not the real target page. */
+function isBotChallenge(res: Response): boolean {
+  return res.status === 403 && res.headers.get("server")?.toLowerCase() === "datadome";
+}
+
+/**
+ * HEAD first (cheaper); a 405 means the host doesn't support it, so retry with GET.
+ *
+ * A DataDome challenge (see BRI-180 note above) is reported as `ok: true` —
+ * not because the link is confirmed healthy, but because it's NOT confirmed
+ * broken, and this report drives `/go` routing real traffic away from a link
+ * the moment it's flagged. Treating "blocked by anti-bot" the same as
+ * "unhealthy" would cascade into needlessly routing working links to
+ * fallback search on every run. A genuine failure (real non-DataDome error
+ * status, timeout, network error) still fails normally below.
+ */
 const ping: Pinger = async (url) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    let res = await fetch(url, { method: "HEAD", signal: controller.signal });
+    let res = await fetch(url, { method: "HEAD", headers: BROWSER_HEADERS, signal: controller.signal });
     if (res.status === 405) {
-      res = await fetch(url, { method: "GET", signal: controller.signal });
+      res = await fetch(url, { method: "GET", headers: BROWSER_HEADERS, signal: controller.signal });
+    }
+    if (isBotChallenge(res)) {
+      console.warn(`  (blocked by DataDome bot-challenge, not treated as unhealthy) ${url}`);
+      return { ok: true, status: res.status };
     }
     return { ok: res.ok, status: res.status };
   } finally {
