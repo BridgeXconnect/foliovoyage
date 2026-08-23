@@ -1,27 +1,27 @@
 import { NextResponse } from "next/server";
 
 import links from "@/data/viator-links.json";
+import healthReport from "@/data/link-health-report.json";
+import { findExperienceDetail } from "@/lib/experience-detail";
+import { isFlaggedUnhealthy, type LinkHealthReport } from "@/lib/link-health";
+import {
+  extractAccountAffiliateParams,
+  buildProviderSearchFallbackUrl,
+} from "@/lib/affiliate-fallback";
 
 /**
- * `GET /go/:slug/:id` — first-party affiliate click redirect (ST-24 / BRI-136).
+ * `GET /go/:slug/:id` — first-party affiliate click redirect (ST-24 / BRI-136),
+ * extended with a graceful fallback (BRI-138 / ST-26).
  *
- * Logs the click **before** it 302s to the provider deep link, so no click is
- * lost (FR-AFF-1) — even though Viator attributes commission via the `productUrl`
- * itself (docs/06). This is our own click analytics, not a Viator requirement.
- *
- * Why this lives in `apps/web` and not the API: the live CTAs and the static
- * affiliate-link registry (`viator-links.json`) are here, so `/go` resolves the
- * verbatim deep link locally, then hands the DB write to the API
- * (`POST /v1/affiliate-clicks`, which owns Prisma) over a shared internal secret.
- *
- * Safety:
- * - **No open redirect.** `:slug/:id` is only ever a key into `viator-links.json`;
- *   an unknown key 404s. We additionally require the resolved URL to be a Viator
- *   host before redirecting.
- * - **Verbatim URL.** The stored `affiliateUrl` (with `pid`/`mcid` intact) is used
- *   as the 302 target unchanged (FR-AFF-2).
- * - `Cache-Control: no-store` + `X-Robots-Tag: noindex` so the hop is never
- *   cached or indexed.
+ * A key with no matched link, a non-Viator target, or a link the last
+ * `check-link-health` run flagged unhealthy all fall through to a Viator
+ * provider-search URL instead of 404ing — but ONLY when `:slug/:id` resolves to
+ * a real Experience in the static content system (`findExperienceDetail`); a
+ * truly unknown key still 404s, so this never becomes an open redirect for
+ * arbitrary input. The fallback click is logged with `providerId:
+ * "viator-search-fallback"` — a distinct, unvalidated string value (the
+ * `AffiliateClick.providerId` column has no enum/allowlist) — so it's flagged
+ * apart from a real direct-link click with zero schema/API changes.
  */
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
@@ -30,6 +30,7 @@ const INTERNAL_CLICK_SECRET =
 
 type LinkEntry = { affiliateUrl?: string; provider?: string };
 const registry = links as Record<string, LinkEntry>;
+const report = healthReport as LinkHealthReport;
 
 /** Only ever redirect to the provider's own host. */
 function isAllowedTarget(url: string): boolean {
@@ -47,13 +48,27 @@ export async function GET(
   const { slug, id } = await params;
   const key = `${slug}/${id}`;
   const entry = registry[key];
+  const directUrl = entry?.affiliateUrl;
 
-  // Unknown link or non-Viator target → 404, never an open redirect.
-  if (!entry?.affiliateUrl || !isAllowedTarget(entry.affiliateUrl)) {
-    return new NextResponse("Unknown affiliate link.", { status: 404 });
+  let target: string;
+  let providerId: string;
+
+  if (directUrl && isAllowedTarget(directUrl) && !isFlaggedUnhealthy(key, report)) {
+    target = directUrl;
+    providerId = (entry?.provider ?? "Viator").toLowerCase();
+  } else {
+    const detail = findExperienceDetail(slug, id);
+    // Not a real Experience at all → never fabricate a redirect for arbitrary input.
+    if (!detail) {
+      return new NextResponse("Unknown affiliate link.", { status: 404 });
+    }
+    const account = extractAccountAffiliateParams(registry);
+    target = buildProviderSearchFallbackUrl(
+      `${detail.experience.title} ${detail.destination.city}`,
+      account,
+    );
+    providerId = "viator-search-fallback";
   }
-  const target = entry.affiliateUrl;
-  const provider = (entry.provider ?? "Viator").toLowerCase();
 
   // Log the click BEFORE redirecting. The API owns the DB write. A logging
   // failure must not cost the user their booking, so we log-and-continue rather
@@ -68,7 +83,7 @@ export async function GET(
       },
       body: JSON.stringify({
         tourId: key,
-        providerId: provider,
+        providerId,
         referrer: request.headers.get("referer") ?? undefined,
         userAgent: request.headers.get("user-agent") ?? undefined,
         ip: forwardedFor ? forwardedFor.split(",")[0]?.trim() : undefined,
