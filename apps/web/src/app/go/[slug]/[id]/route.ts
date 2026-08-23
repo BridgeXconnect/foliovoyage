@@ -1,25 +1,41 @@
 import { NextResponse } from "next/server";
 
 import links from "@/data/viator-links.json";
+import { buildFallbackSearchUrl } from "@/lib/affiliate-fallback";
+import { findExperienceDetail } from "@/lib/experience-detail";
 
 /**
- * `GET /go/:slug/:id` — first-party affiliate click redirect (ST-24 / BRI-136).
+ * `GET /go/:slug/:id` — first-party affiliate click redirect (ST-24 / BRI-136),
+ * extended to resolve *any* real experience, not just matched ones (ST-26 /
+ * BRI-138, FR-AFF-3).
  *
- * Logs the click **before** it 302s to the provider deep link, so no click is
- * lost (FR-AFF-1) — even though Viator attributes commission via the `productUrl`
- * itself (docs/06). This is our own click analytics, not a Viator requirement.
+ * Logs the click **before** it 302s to the outbound target, so no click is
+ * lost (FR-AFF-1) — even though Viator attributes commission via the target
+ * URL itself (docs/06). This is our own click analytics, not a Viator
+ * requirement.
  *
- * Why this lives in `apps/web` and not the API: the live CTAs and the static
- * affiliate-link registry (`viator-links.json`) are here, so `/go` resolves the
- * verbatim deep link locally, then hands the DB write to the API
- * (`POST /v1/affiliate-clicks`, which owns Prisma) over a shared internal secret.
+ * Resolution order:
+ * 1. `:slug/:id` is a matched key in `viator-links.json` → 302 to the
+ *    verbatim provider deep link (with `pid`/`mcid` intact, FR-AFF-2).
+ * 2. `:slug/:id` is a real experience with no match → 302 to a constructed
+ *    Viator search-results page for it (`buildFallbackSearchUrl`), and the
+ *    click is logged with `providerId` suffixed `-fallback` (e.g.
+ *    `"viator-fallback"`) so fallback traffic is queryable in the
+ *    `AffiliateClick` ledger without any schema change — this is the
+ *    "flags the tour" half of BRI-138's AC.
+ * 3. `:slug/:id` doesn't resolve to a real experience at all → 404. This is
+ *    actually a *stronger* open-redirect guard than before: previously only
+ *    the `viator-links.json` key was checked, so any garbage key not in that
+ *    file 404'd by omission. Now it's checked against the real destinations
+ *    dataset, and every additionally-allowed target is either a verbatim
+ *    Viator deep link or a `viator.com` URL Atlas constructs itself.
  *
  * Safety:
- * - **No open redirect.** `:slug/:id` is only ever a key into `viator-links.json`;
- *   an unknown key 404s. We additionally require the resolved URL to be a Viator
- *   host before redirecting.
- * - **Verbatim URL.** The stored `affiliateUrl` (with `pid`/`mcid` intact) is used
- *   as the 302 target unchanged (FR-AFF-2).
+ * - **No open redirect.** Every possible 302 target is validated against
+ *   `isAllowedTarget` (a Viator host) before use, regardless of which branch
+ *   produced it.
+ * - **Verbatim URL for matches.** The stored `affiliateUrl` is used as the
+ *   302 target unchanged.
  * - `Cache-Control: no-store` + `X-Robots-Tag: noindex` so the hop is never
  *   cached or indexed.
  */
@@ -46,18 +62,36 @@ export async function GET(
 ): Promise<NextResponse> {
   const { slug, id } = await params;
   const key = `${slug}/${id}`;
-  const entry = registry[key];
+  const registryEntry = registry[key];
 
-  // Unknown link or non-Viator target → 404, never an open redirect.
-  if (!entry?.affiliateUrl || !isAllowedTarget(entry.affiliateUrl)) {
+  const matchedTarget =
+    registryEntry?.affiliateUrl && isAllowedTarget(registryEntry.affiliateUrl)
+      ? registryEntry.affiliateUrl
+      : undefined;
+
+  const detail = matchedTarget ? undefined : findExperienceDetail(slug, id);
+
+  if (!matchedTarget && !detail) {
+    // Neither a matched link nor a real experience — never an open redirect.
     return new NextResponse("Unknown affiliate link.", { status: 404 });
   }
-  const target = entry.affiliateUrl;
-  const provider = (entry.provider ?? "Viator").toLowerCase();
+
+  const isFallback = !matchedTarget;
+  const target = matchedTarget ?? buildFallbackSearchUrl(detail!.experience, detail!.destination);
+
+  if (!isAllowedTarget(target)) {
+    // Defensive: buildFallbackSearchUrl always emits a viator.com URL, so
+    // this only guards against a future change to that function.
+    return new NextResponse("Unable to resolve an outbound link.", { status: 404 });
+  }
+
+  const providerRaw = (matchedTarget ? registryEntry?.provider : detail!.experience.provider) ?? "Viator";
+  const providerId = isFallback ? `${providerRaw.toLowerCase()}-fallback` : providerRaw.toLowerCase();
 
   // Log the click BEFORE redirecting. The API owns the DB write. A logging
-  // failure must not cost the user their booking, so we log-and-continue rather
-  // than block the redirect — the happy path still writes before the 302.
+  // failure must not cost the user their booking, so we log-and-continue
+  // rather than block the redirect — the happy path still writes before the
+  // 302.
   const forwardedFor = request.headers.get("x-forwarded-for");
   try {
     await fetch(`${API_BASE_URL}/v1/affiliate-clicks`, {
@@ -68,7 +102,7 @@ export async function GET(
       },
       body: JSON.stringify({
         tourId: key,
-        providerId: provider,
+        providerId,
         referrer: request.headers.get("referer") ?? undefined,
         userAgent: request.headers.get("user-agent") ?? undefined,
         ip: forwardedFor ? forwardedFor.split(",")[0]?.trim() : undefined,
