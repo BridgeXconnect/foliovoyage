@@ -66,6 +66,7 @@ export function CovillaHeader({
     );
   const onDestinations = pathname?.startsWith("/destinations");
   const onGuides = pathname?.startsWith("/guides");
+  const onSearch = pathname?.startsWith("/search");
   const onContact = pathname === "/legal/contact";
 
   useEffect(() => {
@@ -211,6 +212,9 @@ export function CovillaHeader({
               )}
             </div>
 
+            <Link href="/search" className={navLink(Boolean(onSearch))}>
+              Search
+            </Link>
             <Link href="/guides" className={navLink(Boolean(onGuides))}>
               Guides
             </Link>
@@ -351,6 +355,7 @@ function FlyoutMenu({
               {[
                 { href: "/", label: "Home" },
                 { href: "/destinations", label: "All destinations" },
+                { href: "/search", label: "Search" },
                 { href: "/guides", label: "Guides" },
                 { href: "/legal/contact", label: "Contact" },
               ].map((l) => (

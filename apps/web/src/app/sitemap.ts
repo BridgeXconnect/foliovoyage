@@ -13,6 +13,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
       lastModified: now,
     },
+    {
+      url: `${site.url}/search`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+      lastModified: now,
+    },
     { url: `${site.url}/guides`, changeFrequency: "weekly", priority: 0.5, lastModified: now },
     { url: `${site.url}/legal/disclosure`, priority: 0.3, lastModified: now },
     { url: `${site.url}/legal/privacy`, priority: 0.2, lastModified: now },
