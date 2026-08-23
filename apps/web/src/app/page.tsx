@@ -16,7 +16,6 @@ import { HowItWorks } from "@/components/covilla/HowItWorks";
 import { AboutSection } from "@/components/covilla/AboutSection";
 import { GalleryRow } from "@/components/covilla/GalleryRow";
 import { TrustSection } from "@/components/covilla/TrustSection";
-import { BlogSection } from "@/components/covilla/BlogSection";
 import { getAllDestinations, getNavDestinations } from "@/data/destinations-helpers";
 import { testimonials } from "@/data/testimonials";
 import { IMG } from "@/data/media";
@@ -93,8 +92,6 @@ export default function HomePage() {
         <GalleryRow />
 
         <TrustSection />
-
-        <BlogSection />
       </main>
 
       <CovillaFooter />
