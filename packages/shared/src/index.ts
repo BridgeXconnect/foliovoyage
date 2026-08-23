@@ -43,8 +43,11 @@ export interface Experience {
   duration?: string;
   /**
    * When an affiliate program is approved, set this to the deep link and
-   * optionally `provider`. Presence flips the card CTA from "Coming soon" to a
-   * live, disclosed booking link. This is the intended one-line swap.
+   * optionally `provider`. Presence determines the CTA's outbound target and
+   * label: set → a live "Book on {provider}" link to the matched product;
+   * unset → a "Search on {provider}" link to a constructed provider-search
+   * fallback (BRI-138 / ST-26). Both routes exist for every experience — see
+   * `apps/web/src/app/go/[slug]/[id]/route.ts`.
    */
   affiliateUrl?: string;
   provider?: "Viator" | "GetYourGuide";

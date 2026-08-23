@@ -139,7 +139,12 @@ export default async function ExperienceDetailPage({
                 </p>
               )}
             </div>
-            <ExperienceDetailCta goHref={goHref} provider={e.provider} clickInput={clickInput} />
+            <ExperienceDetailCta
+              goHref={goHref}
+              isLive={Boolean(e.affiliateUrl)}
+              provider={e.provider}
+              clickInput={clickInput}
+            />
           </div>
           <p className="mt-5 max-w-xl text-[12px] leading-6 text-muted">
             Hand-picked and independently written. Booking links go live as partner programs are
