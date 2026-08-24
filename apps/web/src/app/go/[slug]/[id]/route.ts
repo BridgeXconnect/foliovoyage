@@ -6,7 +6,7 @@ import { findExperienceDetail } from "@/lib/experience-detail";
 import { isFlaggedUnhealthy, type LinkHealthReport } from "@/lib/link-health";
 import {
   extractAccountAffiliateParams,
-  buildProviderSearchFallbackUrl,
+  buildProviderFallbackUrl,
 } from "@/lib/affiliate-fallback";
 
 /**
@@ -15,7 +15,8 @@ import {
  *
  * A key with no matched link, a non-Viator target, or a link the last
  * `check-link-health` run flagged unhealthy all fall through to a Viator
- * provider-search URL instead of 404ing — but ONLY when `:slug/:id` resolves to
+ * destination-page URL (or, if no destination ID can be derived, the bare
+ * account-root URL) instead of 404ing — but ONLY when `:slug/:id` resolves to
  * a real Experience in the static content system (`findExperienceDetail`); a
  * truly unknown key still 404s, so this never becomes an open redirect for
  * arbitrary input. The fallback click is logged with `providerId:
@@ -63,10 +64,7 @@ export async function GET(
       return new NextResponse("Unknown affiliate link.", { status: 404 });
     }
     const account = extractAccountAffiliateParams(registry);
-    target = buildProviderSearchFallbackUrl(
-      `${detail.experience.title} ${detail.destination.city}`,
-      account,
-    );
+    target = buildProviderFallbackUrl(slug, registry, account);
     providerId = "viator-search-fallback";
   }
 
