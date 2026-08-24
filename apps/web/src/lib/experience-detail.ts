@@ -54,17 +54,17 @@ export function formatFromPrice(amount: number, currency = "USD"): string {
 }
 
 /**
- * CTA href for the detail page. A live experience routes through the first-party
- * `/go/:slug/:id` redirect (BRI-136) — which logs the click then 302s to the
- * verbatim provider deep link — never the raw `affiliateUrl`. Undefined when the
- * experience has no live link (→ "booking coming soon"). This is deliberately the
- * same seam `ExperienceRowCard` uses; expected to be revisited under BRI-137/138.
+ * CTA href for the detail page. Always routes through the first-party
+ * `/go/:slug/:id` redirect (BRI-136) — never the raw `affiliateUrl` — for
+ * every real experience, whether or not it has a matched Viator product.
+ * `/go` itself decides the 302 target: the verbatim deep link when matched,
+ * or a constructed provider-search fallback when not (BRI-138 / ST-26,
+ * FR-AFF-3) — see `apps/web/src/app/go/[slug]/[id]/route.ts`. This is
+ * deliberately the same seam `ExperienceRowCard` and `ExperienceCompareModal`
+ * use.
  */
-export function experienceGoHref(
-  destinationSlug: string,
-  experience: Experience,
-): string | undefined {
-  return experience.affiliateUrl ? `/go/${destinationSlug}/${experience.id}` : undefined;
+export function experienceGoHref(destinationSlug: string, experience: Experience): string {
+  return `/go/${destinationSlug}/${experience.id}`;
 }
 
 /** The affiliate-click payload for the detail-page CTA — identical shape to the card's. */

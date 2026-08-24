@@ -71,7 +71,7 @@ const ping: Pinger = async (url) => {
     }
     if (isBotChallenge(res)) {
       console.warn(`  (blocked by DataDome bot-challenge, not treated as unhealthy) ${url}`);
-      return { ok: true, status: res.status };
+      return { ok: true, status: res.status, blocked: true };
     }
     return { ok: res.ok, status: res.status };
   } finally {
@@ -92,7 +92,11 @@ async function main() {
   const { checkedAt, results, failingKeys } = await checkLinkHealth(links, keys, ping);
 
   for (const r of results) {
-    const label = r.ok ? "OK" : `FAIL${r.status ? ` (${r.status})` : r.error ? ` (${r.error})` : ""}`;
+    const label = r.blocked
+      ? `BLOCKED (bot protection, ${r.status})`
+      : r.ok
+        ? "OK"
+        : `FAIL${r.status ? ` (${r.status})` : r.error ? ` (${r.error})` : ""}`;
     console.log(`  [${label}] ${r.key}`);
   }
 

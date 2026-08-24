@@ -66,6 +66,27 @@ describe("checkLinkHealth", () => {
     expect(report.results).toEqual([]);
     expect(report.failingKeys).toEqual([]);
   });
+
+  it("surfaces a DataDome-blocked ping as blocked, but not as a failure (BRI-180)", async () => {
+    const ping = async () => ({ ok: true, status: 403, blocked: true });
+    const report = await checkLinkHealth(links, ["bangkok/a"], ping);
+    expect(report.failingKeys).toEqual([]);
+    expect(report.results).toEqual([
+      { key: "bangkok/a", url: "https://www.viator.com/tours/a", ok: true, status: 403, blocked: true },
+    ]);
+  });
+
+  it("omits `blocked` entirely for an ordinary result, not just falsy", async () => {
+    const ping = async () => ({ ok: true, status: 200 });
+    const report = await checkLinkHealth(links, ["bangkok/a"], ping);
+    expect(report.results[0]).toEqual({
+      key: "bangkok/a",
+      url: "https://www.viator.com/tours/a",
+      ok: true,
+      status: 200,
+    });
+    expect("blocked" in report.results[0]!).toBe(false);
+  });
 });
 
 describe("isFlaggedUnhealthy", () => {

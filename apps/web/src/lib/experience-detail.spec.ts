@@ -100,9 +100,9 @@ describe("experienceGoHref", () => {
     expect(experienceGoHref("bangkok", live)).toBe("/go/bangkok/x1");
   });
 
-  it("returns undefined when there is no affiliate link", () => {
+  it("still returns a /go href when there is no affiliate link (BRI-138 fallback lives behind /go)", () => {
     const notLive = { ...baseExperience, id: "x1", affiliateUrl: undefined };
-    expect(experienceGoHref("bangkok", notLive)).toBeUndefined();
+    expect(experienceGoHref("bangkok", notLive)).toBe("/go/bangkok/x1");
   });
 });
 

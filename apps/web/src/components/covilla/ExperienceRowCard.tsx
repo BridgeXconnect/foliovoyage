@@ -9,18 +9,17 @@ import type { Experience } from "@/data/types";
 
 /**
  * Horizontal experience card in the Covilla "vacation" style (image left,
- * details right) for the destination page's right column. Keeps the affiliate
- * seam: a live `sponsored nofollow` booking link when `affiliateUrl` is set,
- * otherwise a clearly non-functional "Booking coming soon" state.
+ * details right) for the destination page's right column. The booking CTA
+ * always routes through the first-party `/go/:slug/:id` redirect (BRI-136):
+ * a matched experience gets an accent "Book on {provider}" link to the real
+ * product; an unmatched one gets a secondary "Search on {provider}" link to
+ * a provider-search fallback (BRI-138 / ST-26) — never a dead end.
  *
  * When a card is matched to a real Viator product (BRI-168) it surfaces the
  * provider's commerce signals — "from" price, aggregate rating, free-cancellation
  * — as additive badges. These never replace the editorial `title`/`description`
- * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before.
- *
- * The booking CTA points at the first-party `/go/:slug/:id` redirect (BRI-136),
- * which logs the click then 302s to the verbatim provider deep link — never the
- * raw `affiliateUrl` in the href, so every outbound click is measured.
+ * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before
+ * apart from the CTA.
  */
 export function ExperienceRowCard({
   experience: e,
@@ -43,9 +42,10 @@ export function ExperienceRowCard({
   const live = Boolean(e.affiliateUrl);
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
   const hasRating = typeof e.rating === "number" && e.rating > 0;
-  // Route the click through /go (log-before-redirect); the raw deep link is the
+  // Route the click through /go (log-before-redirect); the raw deep link (or
+  // the BRI-138 fallback search page, for an unmatched experience) is the
   // 302 target resolved server-side, never the clicked href.
-  const goHref = live ? `/go/${destination.slug}/${e.id}` : undefined;
+  const goHref = `/go/${destination.slug}/${e.id}`;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-[3px] border border-line bg-white transition-shadow duration-300 hover:shadow-[0_18px_40px_-28px_rgba(15,19,38,0.45)] sm:flex-row">
@@ -135,37 +135,33 @@ export function ExperienceRowCard({
             </p>
           </div>
 
-          {live ? (
-            <a
-              href={goHref}
-              target="_blank"
-              rel="sponsored nofollow noopener"
-              onClick={() =>
-                trackAffiliateClick({
-                  experienceId: e.id,
-                  title: e.title,
-                  provider: e.provider,
-                  category: e.category,
-                  priceBand: e.priceBand,
-                  hasRating: typeof e.rating === "number",
-                  freeCancel: Boolean(e.freeCancel),
-                  city: destination.city,
-                  country: destination.country,
-                  destinationSlug: destination.slug,
-                })
-              }
-              className="inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent hover:text-white"
-            >
-              Book on {e.provider} <ArrowUpRight size={14} />
-            </a>
-          ) : (
-            <span
-              aria-disabled
-              className="inline-flex cursor-default items-center rounded-[2px] border border-line px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted"
-            >
-              Booking soon
-            </span>
-          )}
+          <a
+            href={goHref}
+            target="_blank"
+            rel="sponsored nofollow noopener"
+            onClick={() =>
+              trackAffiliateClick({
+                experienceId: e.id,
+                title: e.title,
+                provider: e.provider,
+                category: e.category,
+                priceBand: e.priceBand,
+                hasRating: typeof e.rating === "number",
+                freeCancel: Boolean(e.freeCancel),
+                city: destination.city,
+                country: destination.country,
+                destinationSlug: destination.slug,
+              })
+            }
+            className={
+              live
+                ? "inline-flex items-center gap-1.5 rounded-[2px] border border-accent px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent hover:text-white"
+                : "inline-flex items-center gap-1.5 rounded-[2px] border border-line px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted transition-colors hover:border-ink hover:text-ink"
+            }
+          >
+            {live ? `Book on ${e.provider}` : `Search on ${e.provider ?? "Viator"}`}{" "}
+            <ArrowUpRight size={14} />
+          </a>
         </div>
       </div>
     </article>
