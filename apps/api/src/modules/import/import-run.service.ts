@@ -168,10 +168,27 @@ export class ImportRunService {
     trigger: ImportRunTrigger,
     options: ExecuteOptions = {},
   ): Promise<ImportRun> {
+    // BRI-181: an explicit modifiedSince (the manual one-off re-sync escape
+    // hatch) always wins over the auto-discovered cross-run cursor — asking
+    // for a specific re-sync point means exactly that, not wherever the last
+    // run happened to leave off.
+    const resumeCursor = options.modifiedSince
+      ? null
+      : await this.lookupResumeCursor();
+
     const run = await this.prisma.importRun.create({
-      data: { provider: this.provider, trigger, status: "running" },
+      data: {
+        provider: this.provider,
+        trigger,
+        status: "running",
+        cursor: resumeCursor,
+      },
     });
-    this.logger.log(`Import run ${run.id} started (trigger: ${trigger}).`);
+    this.logger.log(
+      resumeCursor
+        ? `Import run ${run.id} started (trigger: ${trigger}), resuming from cursor "${resumeCursor}".`
+        : `Import run ${run.id} started (trigger: ${trigger}), full crawl (no prior cursor).`,
+    );
 
     // BRI-173: spans every segment of the run, not just one — started right
     // before the first spawn, stopped in `finally` so it never outlives the
@@ -234,6 +251,33 @@ export class ImportRunService {
       select: { id: true },
     });
     return existing !== null;
+  }
+
+  /**
+   * Look up the durable cross-run resume cursor (BRI-181): the most recent
+   * *non-running* run for this provider that ever observed a `lastCursor`
+   * value, regardless of that run's terminal status. Per Viator's own
+   * ongoing-refresh contract (verified live against partnerresources.viator.com,
+   * not memory), cursor-based walking is guaranteed not to miss any product
+   * update regardless of exactly where a new cycle resumes from, and every
+   * upsert in this pipeline is idempotent (see `TourUpsertService`) — so a
+   * `failed` or `aborted` prior run is exactly as safe to resume from as a
+   * `succeeded` one. Forcing a full re-crawl after any non-`succeeded` run
+   * would burn bandwidth (the whole reason BRI-181 exists) for no
+   * correctness benefit. A `running` row is excluded — its progress isn't a
+   * settled resume point yet. Returns `null` (full crawl) when no row has
+   * ever observed a `nextCursor` at all — this deployment's first run.
+   */
+  private async lookupResumeCursor(): Promise<string | null> {
+    const previous = await this.prisma.importRun.findFirst({
+      where: {
+        provider: this.provider,
+        status: { not: "running" },
+        lastCursor: { not: null },
+      },
+      orderBy: { startedAt: "desc" },
+    });
+    return previous?.lastCursor ?? null;
   }
 
   /** Finalize a run this class itself is failing (a child died abnormally). */
