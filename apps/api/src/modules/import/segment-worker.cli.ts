@@ -6,6 +6,7 @@ import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ExperienceLinker } from "./experience-linker";
 import { ImportSegmentWorkerModule } from "./import-segment-worker.module";
+import { incrementData } from "./increment-data";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import { MassDeletionAbortError, TourUpsertService } from "./upsert";
 
@@ -162,18 +163,6 @@ async function main(): Promise<void> {
   } finally {
     await app.close();
   }
-}
-
-/** Increment expressions for one segment's counts, safe to apply repeatedly. */
-function incrementData(counts: ImportRunCounts) {
-  return {
-    fetched: { increment: counts.fetched },
-    normalized: { increment: counts.normalized },
-    quarantined: { increment: counts.quarantined },
-    upserted: { increment: counts.upserted },
-    cursor: counts.cursor,
-    ...(counts.lastPage !== null ? { lastPage: counts.lastPage } : {}),
-  };
 }
 
 function parseArgs(argv: string[]): {
