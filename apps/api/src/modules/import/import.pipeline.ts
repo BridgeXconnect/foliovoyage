@@ -133,6 +133,19 @@ export class ImportRunCounts {
    * would see none).
    */
   lastPage: number | null = null;
+  /**
+   * Last non-null pagination cursor this segment observed — unlike `cursor`
+   * (nulled once the crawl reaches its true end, the signal segment-worker
+   * uses to know no more segments are needed), this never goes back to null
+   * once set. Per Viator's ongoing-refresh contract, the cursor to resume a
+   * *future* run from is the value returned by the second-to-last page —
+   * exactly the last non-null cursor any segment ever saw (BRI-181). `null`
+   * only when this segment's own pages never included one (e.g. its only
+   * page was already the crawl's true, already-terminal last page) — see
+   * `incrementData`'s guarded write in `increment-data.ts`, which is what
+   * keeps that case from clobbering an already-persisted value on the row.
+   */
+  lastCursor: string | null = null;
 }
 
 /** Options for one segment of a run. */
@@ -228,6 +241,9 @@ export class ImportPipeline {
       counts.fetched += page.products.length;
       counts.cursor = page.nextCursor ?? null;
       counts.lastPage = page.page;
+      if (page.nextCursor) {
+        counts.lastCursor = page.nextCursor;
+      }
 
       // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
       //    goes out of scope at the end of this iteration, and `pageDtos`

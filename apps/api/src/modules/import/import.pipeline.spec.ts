@@ -185,6 +185,7 @@ describe("ImportPipeline", () => {
     expect(counts.upserted).toBe(3); // summed across both pages' upsertBatch calls
     expect(counts.cursor).toBeNull(); // segment ran to the crawl's true end
     expect(counts.lastPage).toBe(2);
+    expect(counts.lastCursor).toBe("cursor-1"); // last non-null cursor seen (page 1's), even though `cursor` itself went null on page 2
 
     // BRI-170: one upsertBatch call per page that had survivors, not one
     // call for the whole segment.
@@ -358,6 +359,7 @@ describe("ImportPipeline", () => {
       expect(result1.done).toBe(false);
       expect(counts1.cursor).toBe("cursor-2");
       expect(counts1.lastPage).toBe(2);
+      expect(counts1.lastCursor).toBe("cursor-2"); // matches cursor -- no null step this segment
       expect(calls[0]).toEqual({ startCursor: undefined, startPage: undefined });
 
       // Segment 2 (resumed): pages 3-4.
@@ -371,6 +373,7 @@ describe("ImportPipeline", () => {
       expect(result2.done).toBe(false);
       expect(counts2.cursor).toBe("cursor-4");
       expect(counts2.lastPage).toBe(4);
+      expect(counts2.lastCursor).toBe("cursor-4");
       expect(calls[1]).toEqual({ startCursor: "cursor-2", startPage: 2 });
 
       // Segment 3 (resumed): page 5, reaches the crawl's true end.
@@ -383,6 +386,13 @@ describe("ImportPipeline", () => {
       });
       expect(result3.done).toBe(true);
       expect(counts3.cursor).toBeNull();
+      // This segment's own (fresh) counts object never saw a page with a
+      // nextCursor -- its only page (page 5) was already the crawl's true,
+      // terminal last page. `lastCursor` staying null here is correct and
+      // expected: the durable DB-level value ("cursor-4", written by segment
+      // 2) is preserved by segment-worker's guarded write, not by this
+      // segment re-asserting it -- see increment-data.spec.ts (Task 3).
+      expect(counts3.lastCursor).toBeNull();
       expect(calls[2]).toEqual({ startCursor: "cursor-4", startPage: 4 });
 
       // Every page processed exactly once across the three segments — same
