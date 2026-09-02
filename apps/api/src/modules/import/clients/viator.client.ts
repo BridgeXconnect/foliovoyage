@@ -242,11 +242,24 @@ export class ViatorClient {
 
     for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
       let response: Response;
+      let body = "";
       try {
         response = await this.http.fetch(url, {
           method: "GET",
           headers: this.buildHeaders(ifNoneMatch),
         });
+
+        // 304: the page is unchanged — nothing to re-parse or re-archive.
+        if (response.status === 304) {
+          return { status: 304, body: "", etag: ifNoneMatch };
+        }
+
+        // The body read shares the fetch call's own try/catch, and so its
+        // retry/backoff budget: a slow or truncated read is just as transient
+        // as a failed connection and must not escape as an uncaught
+        // rejection (BRI-182 diagnostic session, 2026-09-02 — this method
+        // previously only wrapped the `fetch()` call itself).
+        if (response.ok) body = await response.text();
       } catch (error) {
         // A configuration error, not a transient one — retrying it changes
         // nothing (the URL's host doesn't change between attempts), so it
@@ -270,15 +283,10 @@ export class ViatorClient {
         continue;
       }
 
-      // 304: the page is unchanged — nothing to re-parse or re-archive.
-      if (response.status === 304) {
-        return { status: 304, body: "", etag: ifNoneMatch };
-      }
-
       if (response.ok) {
         return {
           status: response.status,
-          body: await response.text(),
+          body,
           etag: response.headers.get("etag") ?? undefined,
         };
       }
