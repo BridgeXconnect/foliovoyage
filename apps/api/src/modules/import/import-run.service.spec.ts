@@ -37,8 +37,9 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         quarantined: 0,
         upserted: 0,
         softDeleted: 0,
-        cursor: null,
+        cursor: (data.cursor as string | null | undefined) ?? null,
         lastPage: null,
+        lastCursor: null,
         error: null,
         startedAt: new Date(),
         finishedAt: null,
@@ -77,15 +78,43 @@ class InMemoryImportRunStore implements ImportRunPrisma {
     },
     findFirst: async ({
       where,
+      orderBy,
     }: {
-      where: { provider: string; status: ImportRun["status"] };
+      where: {
+        provider?: string;
+        status?: ImportRun["status"] | { not: ImportRun["status"] };
+        lastCursor?: { not: null };
+      };
+      orderBy?: { startedAt: "desc" | "asc" };
     }): Promise<ImportRun | null> => {
-      for (const row of this.rows.values()) {
-        if (row.provider === where.provider && row.status === where.status) {
-          return { ...row };
+      const matches = (row: ImportRun): boolean => {
+        if (where.provider !== undefined && row.provider !== where.provider) {
+          return false;
         }
+        if (where.status !== undefined) {
+          if (typeof where.status === "string") {
+            if (row.status !== where.status) return false;
+          } else if (row.status === where.status.not) {
+            return false;
+          }
+        }
+        if (where.lastCursor?.not === null && row.lastCursor === null) {
+          return false;
+        }
+        return true;
+      };
+
+      let candidates = [...this.rows.values()].filter(matches);
+      if (orderBy?.startedAt === "desc") {
+        candidates = candidates.sort(
+          (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+        );
+      } else if (orderBy?.startedAt === "asc") {
+        candidates = candidates.sort(
+          (a, b) => a.startedAt.getTime() - b.startedAt.getTime(),
+        );
       }
-      return null;
+      return candidates[0] ? { ...candidates[0] } : null;
     },
     findUniqueOrThrow: async ({
       where,
@@ -111,6 +140,7 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       softDeleted: 0,
       cursor: null,
       lastPage: null,
+      lastCursor: null,
       error: null,
       startedAt: new Date(),
       finishedAt: null,
@@ -377,6 +407,165 @@ describe("ImportRunService", () => {
         CONFIG,
       );
       await expect(service.hasRunningRun()).resolves.toBe(false);
+    });
+  });
+
+  describe("cross-run cursor resume (BRI-181)", () => {
+    /**
+     * Records the `cursor` already on the row at the moment the *first*
+     * segment is spawned — i.e. exactly what `execute()` seeded at
+     * `create()` time, before any segment's own progress could overwrite
+     * it. Immediately finishes the run so `execute()` returns quickly.
+     */
+    function captureFirstSegmentRunner(
+      store: InMemoryImportRunStore,
+    ): SegmentRunner & { seenCursor?: string | null; seenModifiedSince?: string } {
+      const runner: SegmentRunner & {
+        seenCursor?: string | null;
+        seenModifiedSince?: string;
+      } = {
+        async runSegment(runId: string, modifiedSince?: string) {
+          runner.seenCursor = store.rows.get(runId)?.cursor ?? null;
+          runner.seenModifiedSince = modifiedSince;
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, { ...row, status: "succeeded", finishedAt: new Date() });
+          return { exitCode: 0 };
+        },
+      };
+      return runner;
+    }
+
+    it("starts a full crawl (no seeded cursor) when no prior run exists", async () => {
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("manual");
+
+      expect(runner.seenCursor).toBeNull();
+    });
+
+    it("seeds the new run's cursor from a prior succeeded run's lastCursor", async () => {
+      store.seed({
+        id: "prev",
+        status: "succeeded",
+        lastCursor: "cursor-succeeded",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-succeeded");
+    });
+
+    it("resumes from a prior FAILED run's lastCursor rather than forcing a full re-crawl", async () => {
+      store.seed({
+        id: "prev",
+        status: "failed",
+        lastCursor: "cursor-failed",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-failed");
+    });
+
+    it("resumes from a prior ABORTED run's lastCursor (mass-deletion guard only rolls back the finalize step, not the crawl)", async () => {
+      store.seed({
+        id: "prev",
+        status: "aborted",
+        lastCursor: "cursor-aborted",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-aborted");
+    });
+
+    it("picks the most recent of two prior runs with a lastCursor", async () => {
+      store.seed({
+        id: "older",
+        status: "succeeded",
+        lastCursor: "cursor-old",
+        startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      });
+      store.seed({
+        id: "newer",
+        status: "succeeded",
+        lastCursor: "cursor-new",
+        startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-new");
+    });
+
+    it("skips a more recent run that made zero progress, falling back to an older run with a real cursor", async () => {
+      store.seed({
+        id: "older-with-progress",
+        status: "succeeded",
+        lastCursor: "cursor-old",
+        startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      });
+      store.seed({
+        id: "newer-crashed-immediately",
+        status: "failed",
+        lastCursor: null, // crashed before observing a single page
+        startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-old");
+    });
+
+    it("ignores a currently-running row even if it already has a lastCursor", async () => {
+      store.seed({
+        id: "in-flight",
+        status: "running",
+        lastCursor: "cursor-in-flight",
+        startedAt: new Date(),
+      });
+      store.seed({
+        id: "settled",
+        status: "succeeded",
+        lastCursor: "cursor-settled",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("scheduled");
+
+      expect(runner.seenCursor).toBe("cursor-settled");
+    });
+
+    it("an explicit modifiedSince overrides the auto-discovered cursor entirely", async () => {
+      store.seed({
+        id: "prev",
+        status: "succeeded",
+        lastCursor: "cursor-stale",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = captureFirstSegmentRunner(store);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await service.execute("manual", { modifiedSince: "2026-08-01T00:00:00Z" });
+
+      expect(runner.seenCursor).toBeNull();
+      expect(runner.seenModifiedSince).toBe("2026-08-01T00:00:00Z");
     });
   });
 

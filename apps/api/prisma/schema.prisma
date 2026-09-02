@@ -301,6 +301,17 @@ model ImportRun {
   /// overwriting an earlier segment's archives. Null until the first segment
   /// completes at least one page.
   lastPage    Int?
+  /// Last non-null pagination cursor this run ever observed, across every
+  /// segment (BRI-181) — unlike `cursor` (nulled on a clean finish, the
+  /// signal segment-worker uses to know the crawl is fully done), this is
+  /// never reset back to null once set. Per Viator's documented ongoing-
+  /// refresh contract, the value to resume a *future* run's delta crawl
+  /// from is the cursor that fetched the crawl's final page — exactly the
+  /// last non-null cursor a segment ever saw — so this is what
+  /// ImportRunService.execute() reads back in to seed a new run's `cursor`
+  /// at creation. Null until the first segment of the run observes a page
+  /// with a `nextCursor`.
+  lastCursor  String?
   /// Human-readable failure/abort message, when status is `failed` or `aborted`.
   error       String?
   /// When the run started (row created).
