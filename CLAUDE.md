@@ -50,19 +50,46 @@ most of the active backend work is migrating from the first to the second:
 When working on destination/content features, check which system a given page
 or story actually touches before assuming the other one applies.
 
+## Local secrets — Doppler, not a copied `.env` file
+
+Real env values (API keys, R2 credentials, shared secrets) live in Doppler
+project `foliovoyage`, config `dev` — **not** in a canonical `~/secrets/...env`
+file copied into each worktree's `.env`. Run local dev through
+`doppler run --`, e.g. `doppler run -- pnpm dev`, and Doppler injects the
+values into the process env; no `.env` file with real secrets needs to exist
+on disk at all. `apps/api/.env.example` and `apps/web/.env.example` stay as
+the documented list of which variables exist and what they do — Doppler is
+where the real values live.
+
+**Why:** a copied secrets file sitting in every worktree's `.env` is one more
+place a real credential can end up committed, pasted into a shared terminal,
+or picked up by a tool that reads `.env` blindly (agent transcripts included).
+Doppler keeps the plaintext in one place (Doppler's vault) and only ever
+materializes it transiently into a process's environment. Don't silently
+revert to the copy-a-file pattern — if `doppler run` is inconvenient in some
+context, fix that, don't route around it.
+
+A single `dev` config is shared by both apps (see the variable groups below)
+rather than split per-app, because a few variables (`VIATOR_API_KEY`,
+`INTERNAL_CLICK_SECRET`) must hold the **same** value in both `apps/api` and
+`apps/web`, and the root `pnpm dev` runs both under one Turbo process tree —
+splitting configs would mean keeping shared values in sync by hand across two
+places, and running two separate `doppler run` invocations to start one `pnpm
+dev`.
+
 ## Commands
 
 Run from the repo root unless noted. Node 22 (`.nvmrc`), pnpm 11 via corepack.
 
 ```bash
 pnpm install                       # install all workspaces
-pnpm dev                           # web (:3000) + api (:3001) via Turbo, watch mode
+doppler run -- pnpm dev            # web (:3000) + api (:3001) via Turbo, watch mode
 pnpm build                         # build every workspace
 pnpm lint                          # lint every workspace
 pnpm typecheck                     # typecheck every workspace
 
-pnpm --filter @folio/web dev       # run a single app
-pnpm --filter @folio/api dev
+doppler run -- pnpm --filter @folio/web dev   # run a single app
+doppler run -- pnpm --filter @folio/api dev
 
 # API tests (jest, specs live next to source as *.spec.ts)
 pnpm --filter @folio/api test
