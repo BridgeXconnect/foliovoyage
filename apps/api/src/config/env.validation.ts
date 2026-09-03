@@ -165,8 +165,65 @@ export const envSchema = z.object({
    * verification runs against the *combined* parent+child memory budget
    * (they share one 512MiB Render instance) — see BRI-176 in Linear for the
    * measurements behind the current default.
+   *
+   * BRI-182 update: this alone turned out to be an insufficient trigger — a
+   * resumed (BRI-181 cursor-based) run can land directly on a heavy-content
+   * region from page 1 of its own counting, spiking memory well before this
+   * page-count fires. `IMPORT_CRAWL_RESTART_MEMORY_PCT` below is the added
+   * fix for that fast-spike case; this var's role narrows back to its
+   * original purpose — guarding the slower, steady-accumulation case a
+   * *long* run of ordinary pages can still cause. Real evidence now shows 25
+   * pages of ordinary content is safe (BRI-182's decisive real-container
+   * test plateaued at 46-52% of the cap over 20 such pages) — this default
+   * was never changed in code, but the live Render value was lowered to 10
+   * as a live-only emergency stopgap before this root cause was understood.
+   * Recommend reverting that live override back toward this default once the
+   * memory trigger below is deployed and verified.
    */
   IMPORT_CRAWL_RESTART_PAGES: z.coerce.number().int().positive().default(25),
+
+  /**
+   * Ceiling this deployment's whole container is allowed, in MB (BRI-182) —
+   * paired with `IMPORT_CRAWL_RESTART_MEMORY_PCT` below to compute the
+   * memory-pressure segment-restart trigger's absolute byte threshold.
+   * Defaults to 512, Render's free-tier limit; override per deployment tier.
+   */
+  IMPORT_MEMORY_LIMIT_MB: z.coerce.number().int().positive().default(512),
+
+  /**
+   * Segment-worker restart trigger (BRI-182), checked every page alongside
+   * `IMPORT_CRAWL_RESTART_PAGES` above (whichever fires first stops the
+   * segment) — restart once this child process's *own*
+   * `process.memoryUsage().rss` crosses this percentage of
+   * `IMPORT_MEMORY_LIMIT_MB`. Exists because BRI-176's page-count trigger
+   * assumes memory grows roughly proportionally with page count, which
+   * BRI-181's cursor-resume broke: a resumed run can land directly on a
+   * heavy-content region from page 1 of its own counting, and a real live
+   * capture confirmed a single heavy page alone can push this process's own
+   * rss up ~97MB in one step — a spike page count alone cannot catch in
+   * time.
+   *
+   * Sized from real evidence, not a round guess: a decisive real-container
+   * test (parent+child, `--memory=512m` cap, 20 ordinary pages/7,000
+   * products) plateaued at 46-52% of the *combined* container total: with
+   * the confirmed-flat ~101-118MB parent baseline subtracted out, this
+   * process's own normal-operation share is roughly 125-156MB. 45% of a
+   * 512MB limit is 230.4MB — comfortably above that normal range (75-105MB
+   * margin, no false-positive risk from ordinary growth) and comfortably
+   * below this process's own effective danger ceiling (~394-402MB, a
+   * ~40% margin below the point Render's OOM killer would act on the whole
+   * container). It's also squarely inside the real heavy-page-spike range: a
+   * light-page baseline (~100-156MB) plus one confirmed ~97MB heavy-page
+   * jump lands at ~200-250MB, straddling this threshold — the real crash's
+   * three heavy products cluster within a few pages of each other, so a
+   * second heavy page reliably crosses it even when the first doesn't. See
+   * BRI-182 in Linear for the full evidence trail behind these numbers.
+   */
+  IMPORT_CRAWL_RESTART_MEMORY_PCT: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .default(45),
 
   // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
 
