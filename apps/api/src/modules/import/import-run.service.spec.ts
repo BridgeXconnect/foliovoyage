@@ -19,10 +19,32 @@ import type { SegmentRunner, SegmentRunResult } from "./segment-runner";
  * two-channel contract the real spawn uses.
  */
 
-/** Minimal in-memory stand-in for Prisma's `importRun` model surface. */
+/** Minimal in-memory stand-in for Prisma's `importRun` + `tour` model surface. */
 class InMemoryImportRunStore implements ImportRunPrisma {
   readonly rows = new Map<string, ImportRun>();
+  /** Committed `Tour` rows, for `tour.count`'s ledger-reconciliation query. */
+  readonly tourRows: Array<{ provider: string; fetchedAt: Date }> = [];
   private seq = 0;
+
+  tour = {
+    count: async ({
+      where,
+    }: {
+      where: { provider: string; fetchedAt: Date };
+    }): Promise<number> =>
+      this.tourRows.filter(
+        (t) =>
+          t.provider === where.provider &&
+          t.fetchedAt.getTime() === where.fetchedAt.getTime(),
+      ).length,
+  } as unknown as ImportRunPrisma["tour"];
+
+  /** Test helper: record N committed `Tour` rows for a given run's `fetchedAt`. */
+  seedTours(provider: string, fetchedAt: Date, count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      this.tourRows.push({ provider, fetchedAt });
+    }
+  }
 
   importRun = {
     create: async ({ data }: { data: Record<string, unknown> }): Promise<ImportRun> => {
@@ -290,6 +312,76 @@ describe("ImportRunService", () => {
 
     expect(run.status).toBe("failed");
     expect(run.error).toContain("code null");
+  });
+
+  describe("ledger/reality reconciliation on abnormal exit (BRI-182 follow-up)", () => {
+    it("reconciles upserted from real committed Tour rows a killed segment never reported", async () => {
+      const runner = fakeSegmentRunner(store, [
+        {
+          // First segment completes cleanly: its own upsertBatch commits and
+          // its `incrementData()` persistence happen together, same as a real
+          // segment-worker on the happy path.
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            rows.set(id, { ...row, upserted: 4, fetched: 4, cursor: "c1" });
+            store.seedTours(row.provider, row.startedAt, 4);
+          },
+          result: { exitCode: 0 },
+        },
+        {
+          // Second segment's upsertBatch commits 3 more real Tour rows before
+          // an OOM kill — it dies before ever reaching the point where it
+          // would persist those as increments on the row itself.
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            store.seedTours(row.provider, row.startedAt, 3);
+          },
+          result: { exitCode: null },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.status).toBe("failed");
+      // fetched has no durable, run-scoped key anywhere in the DB — left
+      // exactly as the last successfully completed segment reported it.
+      expect(run.fetched).toBe(4);
+      // upserted is reconciled against the real Tour count (4 + 3 = 7), not
+      // left frozen at the first segment's 4.
+      expect(run.upserted).toBe(7);
+    });
+
+    it("reconciles upserted to 0 when a segment dies before committing anything", async () => {
+      const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.status).toBe("failed");
+      expect(run.upserted).toBe(0);
+    });
+
+    it("scopes the reconciliation query to this run's own provider and fetchedAt (startedAt)", async () => {
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            // Tours from a different provider and from a different run's
+            // fetchedAt must not leak into this run's reconciled count.
+            store.seedTours("other-provider", row.startedAt, 5);
+            store.seedTours(row.provider, new Date(row.startedAt.getTime() - 1), 5);
+            store.seedTours(row.provider, row.startedAt, 2);
+          },
+          result: { exitCode: 1 },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.upserted).toBe(2);
+    });
   });
 
   it("never re-throws — the finalized record is always returned", async () => {
