@@ -245,6 +245,23 @@ export class ImportPipeline {
         counts.lastCursor = page.nextCursor;
       }
 
+      // TEMPORARY DIAGNOSTIC (BRI-182) — remove once the crash this segment
+      // occasionally produces is root-caused and fixed. Same categorized
+      // process.memoryUsage() breakdown BRI-176 used (commit 172d314), but
+      // via `.warn()` instead of `.debug()`: both `segment-worker.cli.ts` and
+      // `trigger-import.cli.ts` boot their Nest context with
+      // `logger: ["log", "warn", "error"]`, so BRI-176's `.debug()` calls
+      // were silently dropped and never reached Render's logs at all — this
+      // is the fix for that, not a stylistic change. Logged unconditionally,
+      // once per raw page, so it covers every page regardless of curated
+      // match rate.
+      const bri182Mem = process.memoryUsage();
+      this.logger.warn(
+        `[BRI-182 mem] page ${page.page}: rss=${toMb(bri182Mem.rss)}MB ` +
+          `heapUsed=${toMb(bri182Mem.heapUsed)}MB heapTotal=${toMb(bri182Mem.heapTotal)}MB ` +
+          `external=${toMb(bri182Mem.external)}MB arrayBuffers=${toMb(bri182Mem.arrayBuffers)}MB`,
+      );
+
       // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
       //    goes out of scope at the end of this iteration, and `pageDtos`
       //    holds at most this page's curated survivors — never the whole
@@ -342,4 +359,9 @@ export class ImportPipeline {
 /** Best-effort message extraction from an unknown thrown value. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+// TEMPORARY DIAGNOSTIC (BRI-182) — remove alongside the log call above.
+function toMb(bytes: number): string {
+  return (bytes / 1024 / 1024).toFixed(1);
 }
