@@ -57,18 +57,21 @@ import type { SegmentRunner } from "./segment-runner";
  * the kill — but never reached the point in `segment-worker.cli.ts` where it
  * persists that segment's `ImportRunCounts` back onto this row, since that
  * only happens after `runSegment` returns or a caught error unwinds to its
- * own `catch`. Left alone, `finalize` below would leave `upserted` frozen at
+ * own `catch`. Left alone, a naive finalize would leave `upserted` frozen at
  * whatever the *previous* segment reported, silently undercounting what the
- * `Tour` table actually holds for this run. `finalize` recovers exactly that
- * one counter with a real DB count, scoped by `(provider, fetchedAt)` — every
- * row any segment of this run wrote carries this run's `startedAt` as its
- * `fetchedAt` stamp (see `TourUpsertService.findUpsertedIds`'s docstring),
- * so the count is exact regardless of how many segments ran or where the
- * kill landed. `fetched`/`normalized`/`quarantined` have no equivalent
- * durable, run-scoped key anywhere in the DB (`QuarantinedTour` isn't
- * stamped with a run id or `fetchedAt` at all) and are left as whatever the
- * last successful segment reported — an honest best-effort progress figure,
- * not a reconciled one.
+ * `Tour` table actually holds for this run. Both places this class finalizes
+ * a run itself — `finalize` (one child died abnormally) and
+ * {@link reapStuckRuns} (the parent process itself died mid-orchestration,
+ * possibly losing more than one child's worth of unreported progress) —
+ * recover exactly that one counter with a real DB count, scoped by
+ * `(provider, fetchedAt)`. Every row any segment of a run wrote carries that
+ * run's `startedAt` as its `fetchedAt` stamp (see
+ * `TourUpsertService.findUpsertedIds`'s docstring), so the count is exact
+ * regardless of how many segments ran or where the kill landed.
+ * `fetched`/`normalized`/`quarantined` have no equivalent durable, run-scoped
+ * key anywhere in the DB (`QuarantinedTour` isn't stamped with a run id or
+ * `fetchedAt` at all) and are left as whatever the last successful segment
+ * reported — an honest best-effort progress figure, not a reconciled one.
  *
  * **BRI-170.** Invariant 2 above ("no run is left stuck as `running`") holds
  * for every failure mode this class's own try/catch can see — but not for a
@@ -153,29 +156,48 @@ export class ImportRunService {
    * merely slow (still legitimately in flight, spawning its next segment) is
    * untouched — the timeout is set well above how long a real crawl+ingest
    * takes.
+   *
+   * Reconciles each reaped row's `upserted` against a real `Tour` count
+   * before marking it failed — see this class's own docstring ("Ledger/
+   * reality reconciliation") for why. That means one query per stuck row
+   * rather than a single bulk update; in practice there are at most a
+   * handful of these per boot (this only fires for a run whose *entire*
+   * parent process died mid-orchestration), so the extra roundtrips are not
+   * a concern.
    */
   async reapStuckRuns(): Promise<number> {
     const cutoff = new Date(
       Date.now() - this.stuckRunTimeoutMinutes * 60_000,
     );
-    const result = await this.prisma.importRun.updateMany({
+    const stuck = await this.prisma.importRun.findMany({
       where: { status: "running", startedAt: { lt: cutoff } },
-      data: {
-        status: "failed",
-        error:
-          `Marked failed at startup: still "running" after ` +
-          `${this.stuckRunTimeoutMinutes} minutes with no finishedAt — ` +
-          `orphaned by a process that exited without unwinding (crash/OOM kill).`,
-        finishedAt: new Date(),
-      },
     });
-    if (result.count > 0) {
+
+    for (const run of stuck) {
+      const upserted = await this.prisma.tour.count({
+        where: { provider: run.provider, fetchedAt: run.startedAt },
+      });
+      await this.prisma.importRun.update({
+        where: { id: run.id },
+        data: {
+          status: "failed",
+          error:
+            `Marked failed at startup: still "running" after ` +
+            `${this.stuckRunTimeoutMinutes} minutes with no finishedAt — ` +
+            `orphaned by a process that exited without unwinding (crash/OOM kill).`,
+          upserted,
+          finishedAt: new Date(),
+        },
+      });
+    }
+
+    if (stuck.length > 0) {
       this.logger.warn(
-        `Reaped ${result.count} stuck "running" import run(s), stuck past ` +
+        `Reaped ${stuck.length} stuck "running" import run(s), stuck past ` +
           `${this.stuckRunTimeoutMinutes} minutes, as failed.`,
       );
     }
-    return result.count;
+    return stuck.length;
   }
 
   /**
