@@ -349,6 +349,64 @@ describe("ViatorClient — network/timeout error retry (BRI-171)", () => {
     expect(pages).toHaveLength(1);
   });
 
+  it("retries a body-read failure on an otherwise-ok response the same as a failed fetch (BRI-182)", async () => {
+    // A response whose connection succeeded (status 200) but whose body read
+    // fails partway through — the gap this test guards was that
+    // `response.text()` sat outside fetchPageWithBackoff's try/catch, so this
+    // threw uncaught instead of retrying.
+    let calls = 0;
+    const fetchImpl = jest.fn<FetchLike>(() => {
+      calls += 1;
+      if (calls === 1) {
+        const response = new Response(
+          JSON.stringify({ products: [{ productCode: "A" }] }),
+          { status: 200 },
+        );
+        (response as { text: () => Promise<string> }).text = () =>
+          Promise.reject(new Error("body read timed out"));
+        return Promise.resolve(response);
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ products: [{ productCode: "A" }] }), {
+          status: 200,
+        }),
+      );
+    });
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const { client, archive } = makeClient(fetchImpl, { sleep });
+
+    const pages = (await drain(client.fetchModifiedSince())) as unknown[];
+
+    // One failed body read, one retry, then success — same shape as a thrown
+    // fetch error.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(pages).toHaveLength(1);
+    expect(archive.writes).toHaveLength(1);
+  });
+
+  it("gives up after maxRetries consecutive body-read failures, with a clear message", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() => {
+      const response = new Response(JSON.stringify({ products: [] }), {
+        status: 200,
+      });
+      (response as { text: () => Promise<string> }).text = () =>
+        Promise.reject(new Error("body read timed out"));
+      return Promise.resolve(response);
+    });
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const { client } = makeClient(fetchImpl, {
+      sleep,
+      backoff: { baseDelayMs: 10, maxDelayMs: 100, maxRetries: 3 },
+    });
+
+    await expect(drain(client.fetchModifiedSince())).rejects.toThrow(
+      /after 3 attempts.*body read timed out/,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
   it("does not retry HostNotAllowedError — a config error, not a transient one", async () => {
     const { fetchImpl } = queuedFetch([
       { status: 200, body: JSON.stringify({ products: [] }) },
