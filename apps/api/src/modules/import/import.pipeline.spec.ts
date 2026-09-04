@@ -446,4 +446,100 @@ describe("ImportPipeline", () => {
       expect(counts.cursor).toBe("cursor-2");
     });
   });
+
+  describe("BRI-182: memory-pressure restart trigger", () => {
+    /** A scripted MemoryUsageProvider returning one rss value (in MB) per call. */
+    function scriptedMemory(rssMbByCall: number[]): jest.Mock<() => NodeJS.MemoryUsage> {
+      let call = 0;
+      return jest.fn(() => ({
+        rss: rssMbByCall[call++] * 1024 * 1024,
+        heapUsed: 0,
+        heapTotal: 0,
+        external: 0,
+        arrayBuffers: 0,
+      })) as unknown as jest.Mock<() => NodeJS.MemoryUsage>;
+    }
+
+    it("stops early on a memory-pressure trigger even when the page-count limit hasn't been reached", async () => {
+      const pages = [0, 1, 2, 3].map((p) => [rawProduct(`P${p}`)]);
+      const { client } = fakeResumableClient(pages);
+      const { service: upsert } = fakeUpsert();
+      const memoryUsage = scriptedMemory([100, 250, 400, 500]); // crosses 200MB on page 2's reading
+
+      const pipeline = new ImportPipeline(
+        client,
+        passthroughResolver,
+        pricingResolver,
+        validator,
+        upsert,
+        memoryUsage,
+      );
+      const counts = new ImportRunCounts();
+      const result = await pipeline.runSegment(counts, {
+        fetchedAt: FETCHED_AT,
+        restartEveryNPages: NEVER_STOPS_EARLY, // page-count alone would never stop this segment
+        restartMemoryThresholdBytes: 200 * 1024 * 1024,
+      });
+
+      expect(result.done).toBe(false);
+      expect(counts.lastPage).toBe(2); // stopped right after the page whose reading crossed 200MB
+      expect(memoryUsage).toHaveBeenCalledTimes(2); // read once per page processed, not once per fixture page
+    });
+
+    it("never restarts on memory when restartMemoryThresholdBytes is left undefined", async () => {
+      const pages = [0, 1, 2].map((p) => [rawProduct(`P${p}`)]);
+      const { client } = fakeResumableClient(pages);
+      const { service: upsert } = fakeUpsert();
+      // Even a reading that would clearly cross any real threshold must not
+      // stop the segment when the option itself is absent — every existing
+      // caller of runSegment never sets it (see import-run.integration.spec.ts).
+      const memoryUsage = scriptedMemory([10240, 10240, 10240]); // 10GB, absurdly high on purpose
+
+      const pipeline = new ImportPipeline(
+        client,
+        passthroughResolver,
+        pricingResolver,
+        validator,
+        upsert,
+        memoryUsage,
+      );
+      const counts = new ImportRunCounts();
+      const result = await pipeline.runSegment(counts, {
+        fetchedAt: FETCHED_AT,
+        restartEveryNPages: NEVER_STOPS_EARLY,
+        // restartMemoryThresholdBytes intentionally omitted
+      });
+
+      expect(result.done).toBe(true);
+      expect(counts.lastPage).toBe(3);
+    });
+
+    it("still stops on the page-count trigger when a memory threshold is set but never crossed", async () => {
+      const pages = [0, 1, 2, 3, 4].map((p) => [rawProduct(`P${p}`)]);
+      const { client } = fakeResumableClient(pages);
+      const { service: upsert } = fakeUpsert();
+      const memoryUsage = scriptedMemory([50, 50, 50, 50, 50]); // well under the threshold every page
+
+      const pipeline = new ImportPipeline(
+        client,
+        passthroughResolver,
+        pricingResolver,
+        validator,
+        upsert,
+        memoryUsage,
+      );
+      const counts = new ImportRunCounts();
+      const result = await pipeline.runSegment(counts, {
+        fetchedAt: FETCHED_AT,
+        restartEveryNPages: 2,
+        restartMemoryThresholdBytes: 500 * 1024 * 1024,
+      });
+
+      expect(result.done).toBe(false);
+      expect(counts.lastPage).toBe(2); // page-count trigger fires, unaffected by the memory check coexisting
+    });
+
+    // The real-process.memoryUsage() test lives in its own file
+    // (import.pipeline.memory.spec.ts) — see that file's docstring for why.
+  });
 });

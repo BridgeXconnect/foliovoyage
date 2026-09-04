@@ -109,6 +109,22 @@ import { ImportRunStats, type TourValidator } from "./validator";
  * reports `done: true`, reconstructing the run's full incoming-id set from
  * the DB (`Tour` rows sharing this run's `fetchedAt`) rather than carrying an
  * in-memory list across process boundaries.
+ *
+ * **BRI-182.** BRI-176's page-count restart assumes memory grows roughly
+ * proportionally with page count — true for a run starting fresh at page 1,
+ * where Viator's catalog happens to start light. BRI-181's cursor-resume can
+ * land a run directly in a heavy-content region from page 1 of its own
+ * counting instead: three real products from one supplier family each embed
+ * a large nested `logistics.start[].location` pickup-list structure (~910KB
+ * per booking option, 4 options), and a page clustering a few of them can be
+ * 2-3x an ordinary page's weight. A live capture confirmed one such page
+ * alone pushed this process's own `rss` up ~97MB in a single step — enough
+ * on its own to approach the ceiling well before `restartEveryNPages` would
+ * ever fire. `restartMemoryThresholdBytes` below is the fix: a second,
+ * independent restart trigger checked every page alongside the page-count
+ * one (`||`, not instead of — page count still guards the slower, steady-
+ * accumulation case BRI-176 fixed), read via the injectable
+ * {@link MemoryUsageProvider} seam.
  */
 
 /** Mutable per-run tally, owned by the caller and threaded through the run. */
@@ -179,6 +195,17 @@ export interface ImportPipelineOptions {
    * `IMPORT_CRAWL_RESTART_PAGES`.
    */
   readonly restartEveryNPages: number;
+  /**
+   * Stop after this segment's own process rss crosses this many bytes
+   * (BRI-182), leaving further pages for the next segment — same
+   * "next segment" mechanism {@link restartEveryNPages} uses, just a second,
+   * independent trigger checked alongside it (`||`, not instead of). From
+   * `IMPORT_MEMORY_LIMIT_MB` × `IMPORT_CRAWL_RESTART_MEMORY_PCT` (see
+   * `segment-worker.cli.ts`). `undefined` disables the check entirely —
+   * every existing caller that never sets this (e.g.
+   * `import-run.integration.spec.ts`) keeps its exact prior behavior.
+   */
+  readonly restartMemoryThresholdBytes?: number;
   /** Resume pagination from this cursor; omitted on a run's first segment. */
   readonly startCursor?: string;
   /** Resume page numbering from here; omitted on a run's first segment. */
@@ -197,6 +224,18 @@ export interface RunSegmentResult {
   readonly done: boolean;
 }
 
+/**
+ * Injectable seam for {@link ImportPipeline}'s per-page memory check
+ * (BRI-182) — same pattern as
+ * {@link import("./clients/viator.client").Sleep}. Defaults to Node's real
+ * `process.memoryUsage()` in production; tests inject a scripted sequence to
+ * make the memory-pressure trigger deterministic.
+ */
+export type MemoryUsageProvider = () => NodeJS.MemoryUsage;
+
+const defaultMemoryUsageProvider: MemoryUsageProvider = () =>
+  process.memoryUsage();
+
 export class ImportPipeline {
   private readonly logger = new Logger(ImportPipeline.name);
 
@@ -206,6 +245,14 @@ export class ImportPipeline {
     private readonly priceResolver: PriceResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
+    /**
+     * Injectable seam (BRI-182), same pattern as this module's
+     * {@link import("./clients/viator.client").Sleep} sibling — lets this
+     * class's own tests script memory readings instead of depending on real,
+     * non-deterministic GC/heap behavior. Defaults to Node's real
+     * `process.memoryUsage()` in production.
+     */
+    private readonly memoryUsage: MemoryUsageProvider = defaultMemoryUsageProvider,
   ) {}
 
   /**
@@ -245,21 +292,20 @@ export class ImportPipeline {
         counts.lastCursor = page.nextCursor;
       }
 
-      // TEMPORARY DIAGNOSTIC (BRI-182) — remove once the crash this segment
-      // occasionally produces is root-caused and fixed. Same categorized
-      // process.memoryUsage() breakdown BRI-176 used (commit 172d314), but
-      // via `.warn()` instead of `.debug()`: both `segment-worker.cli.ts` and
-      // `trigger-import.cli.ts` boot their Nest context with
-      // `logger: ["log", "warn", "error"]`, so BRI-176's `.debug()` calls
-      // were silently dropped and never reached Render's logs at all — this
-      // is the fix for that, not a stylistic change. Logged unconditionally,
-      // once per raw page, so it covers every page regardless of curated
-      // match rate.
-      const bri182Mem = process.memoryUsage();
+      // Per-page process.memoryUsage() read (BRI-182): logged unconditionally
+      // for operational visibility, and — when
+      // options.restartMemoryThresholdBytes is set — the same reading feeds
+      // the memory-pressure restart trigger below, so this method never reads
+      // it twice in one page. Logged via .warn(), not .debug(): both
+      // segment-worker.cli.ts and trigger-import.cli.ts boot their Nest
+      // context with logger: ["log", "warn", "error"], which silently drops
+      // .debug() calls — BRI-182 found this the hard way (the original
+      // diagnostic used .debug() and never once reached Render's logs).
+      const mem = this.memoryUsage();
       this.logger.warn(
-        `[BRI-182 mem] page ${page.page}: rss=${toMb(bri182Mem.rss)}MB ` +
-          `heapUsed=${toMb(bri182Mem.heapUsed)}MB heapTotal=${toMb(bri182Mem.heapTotal)}MB ` +
-          `external=${toMb(bri182Mem.external)}MB arrayBuffers=${toMb(bri182Mem.arrayBuffers)}MB`,
+        `[mem] page ${page.page}: rss=${toMb(mem.rss)}MB heapUsed=${toMb(mem.heapUsed)}MB ` +
+          `heapTotal=${toMb(mem.heapTotal)}MB external=${toMb(mem.external)}MB ` +
+          `arrayBuffers=${toMb(mem.arrayBuffers)}MB`,
       );
 
       // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
@@ -332,14 +378,38 @@ export class ImportPipeline {
         }
       }
 
-      // BRI-176: stop this segment every `restartEveryNPages` pages, leaving
-      // the rest for a fresh process (see class docstring). Only when a next
-      // page actually exists — the crawl's true last page (no `nextCursor`)
-      // always finishes via natural completion instead, leaving `done` true.
+      // BRI-176/BRI-182: stop this segment — leaving the rest for a fresh
+      // process (see class docstring) — on whichever of two independent
+      // triggers fires first. Only when a next page actually exists; the
+      // crawl's true last page (no `nextCursor`) always finishes via natural
+      // completion instead, leaving `done` true regardless of either trigger.
+      //
+      // - Page count (BRI-176, `restartEveryNPages`): guards against slow,
+      //   steady accumulation over many pages of ordinary content.
+      // - Memory pressure (BRI-182, `restartMemoryThresholdBytes`): guards
+      //   against a single heavy page (or a short run of them) spiking this
+      //   process's own rss well before `restartEveryNPages` would ever fire
+      //   — the failure mode BRI-181's cursor-resume exposed, since a resumed
+      //   segment can land directly on heavy content from its very first page.
       pagesThisSegment += 1;
-      if (page.nextCursor && pagesThisSegment >= options.restartEveryNPages) {
-        done = false;
-        break;
+      if (page.nextCursor) {
+        const overPageLimit = pagesThisSegment >= options.restartEveryNPages;
+        const overMemoryLimit =
+          options.restartMemoryThresholdBytes !== undefined &&
+          mem.rss >= options.restartMemoryThresholdBytes;
+
+        if (overPageLimit || overMemoryLimit) {
+          done = false;
+          this.logger.log(
+            overMemoryLimit
+              ? `Segment stopping after page ${pagesThisSegment}: memory ` +
+                `threshold crossed (rss=${toMb(mem.rss)}MB >= ` +
+                `${toMb(options.restartMemoryThresholdBytes as number)}MB)` +
+                (overPageLimit ? " (page limit also reached)" : "")
+              : `Segment stopping: reached the ${options.restartEveryNPages}-page limit.`,
+          );
+          break;
+        }
       }
     }
 
@@ -361,7 +431,6 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-// TEMPORARY DIAGNOSTIC (BRI-182) — remove alongside the log call above.
 function toMb(bytes: number): string {
   return (bytes / 1024 / 1024).toFixed(1);
 }

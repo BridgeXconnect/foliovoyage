@@ -19,10 +19,32 @@ import type { SegmentRunner, SegmentRunResult } from "./segment-runner";
  * two-channel contract the real spawn uses.
  */
 
-/** Minimal in-memory stand-in for Prisma's `importRun` model surface. */
+/** Minimal in-memory stand-in for Prisma's `importRun` + `tour` model surface. */
 class InMemoryImportRunStore implements ImportRunPrisma {
   readonly rows = new Map<string, ImportRun>();
+  /** Committed `Tour` rows, for `tour.count`'s ledger-reconciliation query. */
+  readonly tourRows: Array<{ provider: string; fetchedAt: Date }> = [];
   private seq = 0;
+
+  tour = {
+    count: async ({
+      where,
+    }: {
+      where: { provider: string; fetchedAt: Date };
+    }): Promise<number> =>
+      this.tourRows.filter(
+        (t) =>
+          t.provider === where.provider &&
+          t.fetchedAt.getTime() === where.fetchedAt.getTime(),
+      ).length,
+  } as unknown as ImportRunPrisma["tour"];
+
+  /** Test helper: record N committed `Tour` rows for a given run's `fetchedAt`. */
+  seedTours(provider: string, fetchedAt: Date, count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      this.tourRows.push({ provider, fetchedAt });
+    }
+  }
 
   importRun = {
     create: async ({ data }: { data: Record<string, unknown> }): Promise<ImportRun> => {
@@ -60,22 +82,17 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       this.rows.set(where.id, updated);
       return { ...updated };
     },
-    updateMany: async ({
+    findMany: async ({
       where,
-      data,
     }: {
       where: { status: ImportRun["status"]; startedAt: { lt: Date } };
-      data: Record<string, unknown>;
-    }): Promise<{ count: number }> => {
-      let count = 0;
-      for (const [id, row] of this.rows) {
-        if (row.status === where.status && row.startedAt < where.startedAt.lt) {
-          this.rows.set(id, { ...row, ...data } as ImportRun);
-          count += 1;
-        }
-      }
-      return { count };
-    },
+    }): Promise<ImportRun[]> =>
+      [...this.rows.values()]
+        .filter(
+          (row) =>
+            row.status === where.status && row.startedAt < where.startedAt.lt,
+        )
+        .map((row) => ({ ...row })),
     findFirst: async ({
       where,
       orderBy,
@@ -292,6 +309,76 @@ describe("ImportRunService", () => {
     expect(run.error).toContain("code null");
   });
 
+  describe("ledger/reality reconciliation on abnormal exit (BRI-182 follow-up)", () => {
+    it("reconciles upserted from real committed Tour rows a killed segment never reported", async () => {
+      const runner = fakeSegmentRunner(store, [
+        {
+          // First segment completes cleanly: its own upsertBatch commits and
+          // its `incrementData()` persistence happen together, same as a real
+          // segment-worker on the happy path.
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            rows.set(id, { ...row, upserted: 4, fetched: 4, cursor: "c1" });
+            store.seedTours(row.provider, row.startedAt, 4);
+          },
+          result: { exitCode: 0 },
+        },
+        {
+          // Second segment's upsertBatch commits 3 more real Tour rows before
+          // an OOM kill — it dies before ever reaching the point where it
+          // would persist those as increments on the row itself.
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            store.seedTours(row.provider, row.startedAt, 3);
+          },
+          result: { exitCode: null },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.status).toBe("failed");
+      // fetched has no durable, run-scoped key anywhere in the DB — left
+      // exactly as the last successfully completed segment reported it.
+      expect(run.fetched).toBe(4);
+      // upserted is reconciled against the real Tour count (4 + 3 = 7), not
+      // left frozen at the first segment's 4.
+      expect(run.upserted).toBe(7);
+    });
+
+    it("reconciles upserted to 0 when a segment dies before committing anything", async () => {
+      const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.status).toBe("failed");
+      expect(run.upserted).toBe(0);
+    });
+
+    it("scopes the reconciliation query to this run's own provider and fetchedAt (startedAt)", async () => {
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) => {
+            const row = rows.get(id)!;
+            // Tours from a different provider and from a different run's
+            // fetchedAt must not leak into this run's reconciled count.
+            store.seedTours("other-provider", row.startedAt, 5);
+            store.seedTours(row.provider, new Date(row.startedAt.getTime() - 1), 5);
+            store.seedTours(row.provider, row.startedAt, 2);
+          },
+          result: { exitCode: 1 },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.upserted).toBe(2);
+    });
+  });
+
   it("never re-throws — the finalized record is always returned", async () => {
     const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
     const service = new ImportRunService(store, runner, CONFIG);
@@ -376,6 +463,88 @@ describe("ImportRunService", () => {
       const count = await service.reapStuckRuns();
 
       expect(count).toBe(1);
+    });
+
+    describe("ledger/reality reconciliation (BRI-182 follow-up)", () => {
+      it("reconciles a reaped run's upserted from real committed Tour rows", async () => {
+        const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        store.seed({
+          id: "orphan",
+          provider: "viator",
+          status: "running",
+          startedAt: staleStart,
+          upserted: 4, // last successfully-completed segment's own report
+        });
+        // A later segment's upsertBatch committed 3 more real Tour rows
+        // before the whole parent process died mid-orchestration, without
+        // ever reporting them back onto the row.
+        store.seedTours("viator", staleStart, 7);
+        const service = new ImportRunService(
+          store,
+          fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+          { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+        );
+
+        const count = await service.reapStuckRuns();
+
+        expect(count).toBe(1);
+        const row = store.rows.get("orphan")!;
+        expect(row.status).toBe("failed");
+        expect(row.upserted).toBe(7);
+      });
+
+      it("reconciles each stuck run independently, scoped to its own provider and fetchedAt", async () => {
+        const staleA = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const staleB = new Date(Date.now() - 4 * 60 * 60 * 1000);
+        store.seed({
+          id: "orphan-a",
+          provider: "viator",
+          status: "running",
+          startedAt: staleA,
+          upserted: 1,
+        });
+        store.seed({
+          id: "orphan-b",
+          provider: "viator",
+          status: "running",
+          startedAt: staleB,
+          upserted: 1,
+        });
+        store.seedTours("viator", staleA, 5);
+        store.seedTours("viator", staleB, 9);
+
+        const service = new ImportRunService(
+          store,
+          fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+          { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+        );
+
+        const count = await service.reapStuckRuns();
+
+        expect(count).toBe(2);
+        expect(store.rows.get("orphan-a")!.upserted).toBe(5);
+        expect(store.rows.get("orphan-b")!.upserted).toBe(9);
+      });
+
+      it("reconciles upserted to 0 when a reaped run never committed anything", async () => {
+        const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        store.seed({
+          id: "orphan",
+          provider: "viator",
+          status: "running",
+          startedAt: staleStart,
+          upserted: 0,
+        });
+        const service = new ImportRunService(
+          store,
+          fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+          { ...CONFIG, stuckRunTimeoutMinutes: 120 },
+        );
+
+        await service.reapStuckRuns();
+
+        expect(store.rows.get("orphan")!.upserted).toBe(0);
+      });
     });
   });
 

@@ -8,6 +8,7 @@ import { ExperienceLinker } from "./experience-linker";
 import { ImportSegmentWorkerModule } from "./import-segment-worker.module";
 import { incrementData } from "./increment-data";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
+import { memoryThresholdBytes } from "./memory-threshold";
 import { MassDeletionAbortError, TourUpsertService } from "./upsert";
 
 /**
@@ -74,6 +75,7 @@ async function main(): Promise<void> {
         restartEveryNPages: config.get("IMPORT_CRAWL_RESTART_PAGES", {
           infer: true,
         }),
+        restartMemoryThresholdBytes: memoryThresholdBytes(config),
         startCursor: run.cursor ?? undefined,
         startPage: run.lastPage ?? undefined,
       });

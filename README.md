@@ -15,18 +15,24 @@ packages/
 
 - Node **22** (`.nvmrc` → `nvm use`)
 - pnpm **11** (`corepack enable` will provide the pinned version)
+- [Doppler CLI](https://docs.doppler.com/docs/install-cli), authenticated and
+  linked to the `foliovoyage` project (`dev` config) — see
+  [Local secrets](CLAUDE.md#local-secrets--doppler-not-a-copied-env-file) in
+  `CLAUDE.md` for why real env values live there instead of a copied `.env` file.
 
 ## Getting started (from a clean clone)
 
 ```bash
-pnpm install        # install all workspaces
-pnpm dev            # runs apps/web + apps/api together via Turbo
+pnpm install                # install all workspaces
+doppler run -- pnpm dev     # runs apps/web + apps/api together via Turbo
 ```
 
 - Web: http://localhost:3000
 - API: http://localhost:3001 — health check: `curl http://localhost:3001/health` → `{"status":"ok"}`
 
 The API port is configurable via the `PORT` env var (defaults to `3001`).
+`apps/api/.env.example` and `apps/web/.env.example` document every variable
+each app reads; the real values are set in Doppler, not in a local `.env` file.
 
 ## Common tasks
 
