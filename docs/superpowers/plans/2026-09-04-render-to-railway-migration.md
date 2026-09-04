@@ -375,175 +375,92 @@ Confirm the returned config shows `cronSchedule: "0 3 * * *"`, `rootDirectory: "
 
 ---
 
-### Task 5: Port and recalibrate BRI-182's memory-restart trigger
+### Task 5: Recalibrate BRI-182's memory-restart trigger for Railway's real ceiling
 
-Covers brief item 6. Ports `IMPORT_MEMORY_LIMIT_MB` / `IMPORT_CRAWL_RESTART_MEMORY_PCT` from the unmerged branch `stewie/bri-182-memory-restart-f192fd` (commit `391d3280edadab23e7e30f432c15985e9cd16955`) into this branch, with **new** default values reasoned from Railway's real resource model rather than copied from the branch's Render-tied defaults.
+Covers brief item 6. **Superseded framing, corrected 2026-09-05:** this was written assuming BRI-182's memory-restart trigger lived only on an unmerged branch and needed porting, and assuming Railway's ceiling was 48GB (an unverified guess). Neither held up:
 
-**Bundled scope (Roy's call, 2026-09-04):** this task's Doppler pass should also decide whether to pin explicit `prd` values for `VIATOR_REQUEST_TIMEOUT_MS`, `DELETE_GUARD_THRESHOLD_PCT`, `IMPORT_CRON_SCHEDULE`, `IMPORT_CRON_ENABLED`, `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`, and `IMPORT_CRAWL_RESTART_PAGES` — all six are currently absent from `prd` and running on `env.validation.ts`'s schema defaults (confirmed harmless, see the "Postgres + Redis provisioning" note above). Left as-is deliberately so this is one Doppler pass instead of two, alongside the new memory-restart vars this task adds.
+- **The code is already merged.** PR #51 (`stewie/bri-182-memory-restart-f192fd`, commit `391d328` onward) landed on `master` while this branch was diverged. This branch was 11 commits behind; `git merge origin/master` (clean, no conflicts) pulled in the full implementation — `IMPORT_MEMORY_LIMIT_MB`/`IMPORT_CRAWL_RESTART_MEMORY_PCT` in `env.validation.ts`, the `memory-threshold.ts` conversion helper (with its own spec), the `runSegment` trigger wiring in `import.pipeline.ts` (with `import.pipeline.memory.spec.ts` replaying a real heavy-page scenario), and the `segment-worker.cli.ts` call site. There is nothing left to port — this task is recalibration only.
+- **Railway's real ceiling is 8GB (8192MiB), not 48GB.** Confirmed directly via `mcp__railway__get-service-metrics` on the live `@folio/api` service: `MEMORY_LIMIT_GB` reports `current: 8, max: 8`, stable across the full 24-hour window (the lower 24h average is a zero-fill artifact from the metric window predating the service's first deployment, not a fluctuating limit). This is Railway's own instrumentation for the actual enforced container limit — the same kind of number Render's 512MiB was, just 16× larger.
 
-**Why the numbers change, not just the platform they're described against:** the branch's original defaults (`IMPORT_MEMORY_LIMIT_MB=512`, `IMPORT_CRAWL_RESTART_MEMORY_PCT=45`) computed an absolute trip threshold of `512 × 0.45 = 230.4MB`, chosen specifically because it sits inside the real evidence range (a decisive real-container test: 125–156MB normal operation, ~200–250MB heavy-page-spike range, ~394–402MB effective danger ceiling before Render's whole-container OOM killer would act). That absolute number — not the percentage, not the "512" — is the real, evidence-backed signal. Railway's Hobby-tier ceiling is 48GB per service; `45%` of that is 21.6GB, which would never trip on this workload's real usage and would defeat the entire mechanism's purpose. Rather than pick an arbitrary new percentage against a ceiling 100× larger than what actually matters, this port keeps `IMPORT_MEMORY_LIMIT_MB` as a **deliberately-chosen reference constant** (not a claim about Railway's real per-service limit) sized so that `LIMIT_MB × PCT` reproduces that same evidence-backed ~400MB absolute trip point: `2048 × 0.20 = 409.6MB`, which lands inside the real 394–402MB danger-ceiling range the original test measured. The mechanism's actual job on Railway is no longer "avoid this platform's hard OOM kill" (48GB makes that essentially unreachable for this workload) — it becomes an anomaly/leak tripwire: normal operation never approaches 400MB, so crossing it means something genuinely unexpected is happening in a segment, worth restarting rather than letting run.
+**Bundled scope (Roy's call, 2026-09-04, still standing):** this task's Doppler pass also pins explicit `prd` values for `VIATOR_REQUEST_TIMEOUT_MS`, `DELETE_GUARD_THRESHOLD_PCT`, `IMPORT_CRON_SCHEDULE`, `IMPORT_CRON_ENABLED`, `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`, and `IMPORT_CRAWL_RESTART_PAGES` if desired — all six are absent from `prd` and running safely on schema defaults (see the "Postgres + Redis provisioning" note above). Not required by this task; bundle only if convenient.
 
-**Flag to Roy in this task's review:** whether the two-variable `LIMIT_MB` × `PCT` shape is worth keeping now that the "percentage of a real platform ceiling" rationale no longer applies, versus collapsing it to one direct `IMPORT_MEMORY_RESTART_THRESHOLD_MB` variable. This plan keeps the original two-variable shape to minimize deviation from the already-reviewed unmerged branch and preserve git history continuity — but it's a real design call, not a foregone one.
+**Redoing the math from scratch, not rescaling 45% onto the new ceiling:** the evidence behind the original `IMPORT_MEMORY_LIMIT_MB=512` / `IMPORT_CRAWL_RESTART_MEMORY_PCT=45` pairing (`env.validation.ts`'s docstring, BRI-182's decisive real-container test) is workload-driven, not platform-driven — none of it changes on Railway:
+- Parent baseline: ~101–118MB flat
+- Child's own normal-operation share (20 ordinary pages, real `--memory=512m` container test): ~125–156MB
+- Confirmed real single heavy-page rss jump (live crash capture): +96.7MB (`heapUsed` +94.8MB — real V8 heap growth, not buffer retention)
+- Heavy-page-spike zone (light baseline + one confirmed jump): ~197–253MB
+
+**The naive-rescale trap:** `45% × 8192MB = 3,686.4MB`. That's outside the entire observed spike zone (197–253MB) — it would never trip under any scenario the evidence actually covers, silently defeating the exact BRI-181 cursor-resume protection this trigger exists for. This is precisely the mistake to avoid: the percentage was never the meaningful number, the absolute MB was.
+
+**Solving fresh against the real 8192MB ceiling:** the two binding constraints from the original derivation still apply and are still workload-evidence-based, not ceiling-based:
+1. Threshold must sit comfortably above the normal-operation range with the original ~75–105MB margin → valid window ≥ ~231MB.
+2. Threshold must sit inside the real observed heavy-spike zone (197–253MB) → valid window ≤ 253MB.
+3. Threshold must sit well below the child's own effective danger ceiling before the *whole container* hits Railway's real limit: `8192 − ~110 ≈ 8,074–8,091MB`. This constraint is no longer binding at all (it was the tight constraint on Render's 512MB, at ~394–402MB); on Railway it's satisfied with enormous headroom regardless of what's chosen inside the [231, 253] window.
+
+Intersecting constraints 1 and 2 gives a valid window of **231–253MB** — the same window as the original derivation, because the workload evidence pinning it hasn't moved. The original **230.4MB** (`45% × 512`) sits essentially at that window's edge and is already the number two independent pieces of real evidence (the decisive container test and the live crash capture) validated as correctly separating "ordinary" pages from the actual BRI-182 incident. Re-deriving lands back on it — not because the percentage was reused, but because the same evidence produces the same answer once you solve for the absolute MB directly instead of inheriting a ratio.
+
+**Recalculated values**, expressing that same 230.4MB threshold as a percentage of the real 8192MB ceiling:
+
+```
+IMPORT_MEMORY_LIMIT_MB = 8192            (Railway's real, confirmed per-service ceiling)
+IMPORT_CRAWL_RESTART_MEMORY_PCT = 2.8125 (8192 × 0.028125 = 230.4MB exactly)
+```
+
+Unlike the earlier draft's "reference constant" workaround (an `IMPORT_MEMORY_LIMIT_MB` that didn't claim to be real), both values here are honest: `8192` is Railway's actual live ceiling, and `2.8125%` is a real, meaningful fraction of it — not an artifact of a wrong assumption about the platform. This also resolves the earlier draft's open design question (whether the two-variable `LIMIT_MB × PCT` shape still made sense against a "reference constant") — it does, now that both operands are real.
+
+**No code change needed.** `env.validation.ts`'s schema defaults (`512` / `45`) stay as-is — they're accurate historical documentation of the Render-era evidence, and the docstring already says "override per deployment tier," which is exactly what this task does via Doppler, matching the pattern already established for the six vars above.
 
 **Files:**
-- Modify: `apps/api/src/config/env.validation.ts` (insert after line 169, before the `// --- Affiliate click log` comment on line 171)
-- Modify: `apps/api/.env.example` (document the two new vars after `IMPORT_CRAWL_RESTART_PAGES`)
-- Create: `apps/api/src/config/env.validation.spec.ts` (no existing spec file for this module — confirmed via `find`)
+- None modified in `apps/api` (code already merged; defaults intentionally left alone — see above).
+- Modify: `apps/api/.env.example` (document the two vars after `IMPORT_CRAWL_RESTART_PAGES`, using the schema's own historical defaults for the example file — not Railway's live-tuned Doppler values, consistent with how `.env.example` documents every other var here).
 
-**Interfaces:**
-- Produces: `Env.IMPORT_MEMORY_LIMIT_MB: number` (default `2048`), `Env.IMPORT_CRAWL_RESTART_MEMORY_PCT: number` (default `20`, range `0`–`100`) — both consumed the same way `IMPORT_CRAWL_RESTART_PAGES` already is, via `ConfigService<Env, true>.get(...)` in whichever segment-worker code reads it (out of scope for this task — the branch's diagnostic-only logging already exists on this branch at `apps/api/src/modules/import/import.pipeline.ts:258-263`; wiring the actual restart-trigger *behavior* into `import.pipeline.ts`/the segment worker is a separate follow-up, tracked as its own Linear issue, not this migration task — this task only ports the validated config surface, matching the scope of what actually exists on the unmerged branch today).
-
-- [ ] **Step 1: Write the failing test**
-
-Create `apps/api/src/config/env.validation.spec.ts`:
-```ts
-import { describe, expect, it } from "@jest/globals";
-
-import { validateEnv } from "./env.validation";
-
-const baseEnv = {
-  DATABASE_URL: "postgres://user:pass@localhost:5432/db",
-  REDIS_URL: "redis://localhost:6379",
-};
-
-describe("validateEnv — BRI-182 memory-restart trigger", () => {
-  it("defaults IMPORT_MEMORY_LIMIT_MB to 2048", () => {
-    const env = validateEnv(baseEnv);
-    expect(env.IMPORT_MEMORY_LIMIT_MB).toBe(2048);
-  });
-
-  it("defaults IMPORT_CRAWL_RESTART_MEMORY_PCT to 20", () => {
-    const env = validateEnv(baseEnv);
-    expect(env.IMPORT_CRAWL_RESTART_MEMORY_PCT).toBe(20);
-  });
-
-  it("coerces and accepts an explicit override for both", () => {
-    const env = validateEnv({
-      ...baseEnv,
-      IMPORT_MEMORY_LIMIT_MB: "4096",
-      IMPORT_CRAWL_RESTART_MEMORY_PCT: "30",
-    });
-    expect(env.IMPORT_MEMORY_LIMIT_MB).toBe(4096);
-    expect(env.IMPORT_CRAWL_RESTART_MEMORY_PCT).toBe(30);
-  });
-
-  it("rejects a non-positive IMPORT_MEMORY_LIMIT_MB", () => {
-    expect(() =>
-      validateEnv({ ...baseEnv, IMPORT_MEMORY_LIMIT_MB: "0" }),
-    ).toThrow(/Invalid environment configuration/);
-  });
-
-  it("rejects an IMPORT_CRAWL_RESTART_MEMORY_PCT above 100", () => {
-    expect(() =>
-      validateEnv({ ...baseEnv, IMPORT_CRAWL_RESTART_MEMORY_PCT: "101" }),
-    ).toThrow(/Invalid environment configuration/);
-  });
-});
-```
-
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 1: Confirm the merged code's own tests still pass on this branch**
 
 ```bash
-pnpm --filter @folio/api exec jest src/config/env.validation.spec.ts
+pnpm --filter @folio/api exec jest src/modules/import/memory-threshold.spec.ts src/modules/import/import.pipeline.spec.ts src/modules/import/import.pipeline.memory.spec.ts
 ```
-Expected: FAIL — `env.IMPORT_MEMORY_LIMIT_MB` is `undefined`, not `2048` (the fields don't exist in the schema yet).
+Expected: PASS — these came in via the `origin/master` merge; this just confirms the merge didn't break anything on this branch.
 
-- [ ] **Step 3: Add the two fields to the schema**
-
-In `apps/api/src/config/env.validation.ts`, insert immediately after line 169 (`IMPORT_CRAWL_RESTART_PAGES: z.coerce.number().int().positive().default(25),`) and before line 171 (`// --- Affiliate click log (ST-24 / BRI-136) -------------------------------`):
-
-```ts
-
-  /**
-   * Reference ceiling (MB) used only to compute the memory-pressure
-   * segment-restart trigger below — NOT a claim about this deployment's real
-   * per-service memory limit. Railway's Hobby-tier ceiling is 48GB/service
-   * (usage-based billing, not a fixed allocation like Render's old 512MB),
-   * far too large to anchor a meaningful percentage-of-ceiling trigger
-   * against. This constant exists purely so
-   * `IMPORT_MEMORY_LIMIT_MB * IMPORT_CRAWL_RESTART_MEMORY_PCT` reproduces the
-   * real, evidence-backed absolute trip point below — override only if that
-   * evidence is revisited, not to reflect an actual platform ceiling.
-   */
-  IMPORT_MEMORY_LIMIT_MB: z.coerce.number().int().positive().default(2048),
-
-  /**
-   * Segment-worker restart trigger (BRI-182, ported from unmerged branch
-   * stewie/bri-182-memory-restart-f192fd with Railway-native defaults),
-   * checked every page alongside `IMPORT_CRAWL_RESTART_PAGES` above
-   * (whichever fires first stops the segment) — restart once this child
-   * process's own `process.memoryUsage().rss` crosses this percentage of
-   * `IMPORT_MEMORY_LIMIT_MB`. Exists because BRI-176's page-count trigger
-   * assumes memory grows roughly proportionally with page count, which
-   * BRI-181's cursor-resume broke: a resumed run can land directly on a
-   * heavy-content region from page 1 of its own counting, and a real live
-   * capture confirmed a single heavy page alone can push this process's own
-   * rss up ~97MB in one step — a spike page count alone cannot catch in time.
-   *
-   * The default (20% of the 2048MB reference above = 409.6MB) is chosen to
-   * land inside the same real evidence range the original Render-tied
-   * default was validated against: a decisive real-container test
-   * (`--memory=512m` cap, 20 ordinary pages/7,000 products) found this
-   * process's own normal-operation share is 125-156MB, and a light-page
-   * baseline plus one confirmed ~97MB heavy-page jump lands at ~200-250MB —
-   * both comfortably below this threshold, while the 394-402MB range the
-   * original test identified as the real danger zone sits just below it.
-   * On Railway, at a 48GB/service ceiling, this workload's real memory usage
-   * can never threaten the platform's actual OOM killer — this trigger's
-   * job here is an anomaly/leak tripwire (something crossing 400MB on this
-   * workload is unexpected, not imminent-crash), not crash avoidance. See
-   * BRI-182 in Linear for the full evidence trail behind the underlying
-   * numbers.
-   */
-  IMPORT_CRAWL_RESTART_MEMORY_PCT: z.coerce
-    .number()
-    .min(0)
-    .max(100)
-    .default(20),
-```
-
-- [ ] **Step 4: Run the test to verify it passes**
-
-```bash
-pnpm --filter @folio/api exec jest src/config/env.validation.spec.ts
-```
-Expected: PASS, all 5 tests.
-
-- [ ] **Step 5: Document the two vars in `.env.example`**
+- [ ] **Step 2: Document the vars in `.env.example`**
 
 In `apps/api/.env.example`, immediately after line 72 (`IMPORT_CRAWL_RESTART_PAGES=25`), insert:
 ```
 
-# Reference ceiling (MB) used only to compute the memory-restart trigger
-# below — not a claim about this deployment's real per-service memory limit
-# (Railway's Hobby-tier ceiling is 48GB/service, far larger than this
-# constant). Optional — defaults to 2048.
-IMPORT_MEMORY_LIMIT_MB=2048
+# Ceiling this deployment's whole container is allowed, in MB (BRI-182) —
+# paired with IMPORT_CRAWL_RESTART_MEMORY_PCT below to compute the
+# memory-pressure segment-restart trigger's absolute byte threshold.
+# Optional — defaults to 512 (Render's free-tier limit); every real
+# deployment overrides this per its actual platform ceiling (Railway prod
+# uses 8192 — see docs/superpowers/plans/2026-09-04-render-to-railway-migration.md Task 5).
+IMPORT_MEMORY_LIMIT_MB=512
 
 # Segment-worker restart trigger (BRI-182) — restart once the segment
 # worker's own process.memoryUsage().rss crosses this percentage of
-# IMPORT_MEMORY_LIMIT_MB. Optional — defaults to 20 (20% of 2048MB =
-# 409.6MB, chosen to match real evidence — see env.validation.ts docstring).
-IMPORT_CRAWL_RESTART_MEMORY_PCT=20
+# IMPORT_MEMORY_LIMIT_MB. Optional — defaults to 45 (see env.validation.ts
+# docstring for the real-evidence derivation; Railway prod uses 2.8125 to
+# reproduce the same evidence-backed absolute threshold against the real
+# ceiling above).
+IMPORT_CRAWL_RESTART_MEMORY_PCT=45
 ```
 
-- [ ] **Step 6: Run the full test suite and lint/typecheck for this workspace**
+- [ ] **Step 3: Commit the `.env.example` documentation**
 
 ```bash
-pnpm --filter @folio/api test
-pnpm --filter @folio/api lint
-pnpm --filter @folio/api typecheck
-```
-Expected: all pass, no new failures.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add apps/api/src/config/env.validation.ts apps/api/src/config/env.validation.spec.ts apps/api/.env.example
-git commit -m "feat(api): port BRI-182 memory-restart trigger with Railway-native defaults
+git add apps/api/.env.example
+git commit -m "docs(api): document BRI-182 memory-restart vars in .env.example (Railway migration follow-up)
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
+
+- [ ] **Step 4: Set the recalculated values in Doppler `prd` (Roy runs this — blocked from Claude by the auto-mode classifier, same as the domain-generation and redeploy actions earlier in this migration)**
+
+```bash
+doppler secrets set IMPORT_MEMORY_LIMIT_MB=8192 IMPORT_CRAWL_RESTART_MEMORY_PCT=2.8125 --project foliovoyage --config prd
+```
+
+- [ ] **Step 5: Verify the values reached Railway and the next deploy picks them up**
+
+After Step 4 and Doppler's native Railway sync (Task 3) propagates the change — confirm via `doppler secrets --project foliovoyage --config prd --only-names` (names only, no values) that both vars now appear, then via `mcp__railway__list-variables` on `@folio/api` (also redacted) that Railway received them. No redeploy is required for these two vars to be *set*, but the running process won't pick them up until its next restart/deploy — note this for Task 9's cutover rather than triggering a redeploy here.
 
 ---
 
