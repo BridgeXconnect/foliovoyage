@@ -10,6 +10,7 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   core-js: true
+  esbuild: true
 
 # Native post-install builds we trust and require:
 # - @tailwindcss/oxide: Tailwind v4 engine (CSS build)
