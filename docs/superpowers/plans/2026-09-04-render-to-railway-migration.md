@@ -343,12 +343,14 @@ update-service
   projectId: "10a94c58-638f-4597-836f-f00d663185fa"
   serviceId: <from Step 1>
   environmentId: "1a124cd9-4d95-4c33-af7d-2a261255fb3c"
-  rootDirectory: "apps/api"
+  rootDirectory: ""
   buildCommand: "pnpm --filter @folio/api build"
-  startCommand: "node dist/modules/import/trigger-import.cli.js"
+  startCommand: "pnpm --filter @folio/api exec node dist/modules/import/trigger-import.cli.js"
   cronSchedule: "0 3 * * *"
 ```
 `0 3 * * *` matches `IMPORT_CRON_SCHEDULE`'s existing default (`apps/api/src/config/env.validation.ts` — the field documented in `.env.example:53-55`), keeping the same effective nightly time as today.
+
+**Corrected 2026-09-05, after real deploy failures — do not set `rootDirectory: "apps/api"`.** This plan originally specified it (matching `@folio/api`'s own Root Directory), on the assumption the cron service should mirror the web service's config exactly. It doesn't: setting it hides the repo-root `pnpm-lock.yaml` from Railpack's build, which falls back to plain `npm` and can't resolve the `workspace:*` dependency on `@folio/shared` — five straight build failures before this was diagnosed. `@folio/api` itself works with `rootDirectory: "apps/api"` only because of a difference elsewhere in its config not reproduced here; don't extrapolate it. Leave Root Directory empty (repo root) and let `buildCommand`/`startCommand` scope everything via `pnpm --filter @folio/api`, exactly as `@folio/api`'s own working config actually does. Also don't assume Railway persisted the value just because `update-service` reports success — the Root Directory fix above silently failed to persist on its first attempt (config unchanged on a follow-up `get-service-config` read) before a later attempt actually took; always re-read `get-service-config` after any `update-service` call before trusting it.
 
 - [ ] **Step 4: Disable the in-process scheduler on this service specifically**
 
@@ -363,6 +365,17 @@ set-variables
 ```
 (`skipDeploys: true` — this service has no successful deployment yet to redeploy; the value takes effect on its first real deploy, triggered naturally by its first cron firing or a manual `redeploy` once Doppler sync (Task 3) has populated the rest of its inherited environment-shared variables.)
 
+**`DATABASE_URL`/`REDIS_URL` need explicit service-ID references, not by-name ones.** This service's `DATABASE_URL` and `REDIS_URL` must be set to mirror `@folio/api`'s own values (see the "Postgres + Redis provisioning" note above — `@folio/api` itself holds Doppler-synced custom values here, not raw Postgres/Redis plugin references, per `.railway/railway.ts`'s `preserve()` declarations). Set them as:
+```
+set-variables
+  ...
+  variables: {
+    "DATABASE_URL": "${{492996fa-5ddf-4a86-bec1-d1ff6e1641ac.DATABASE_URL}}",
+    "REDIS_URL": "${{492996fa-5ddf-4a86-bec1-d1ff6e1641ac.REDIS_URL}}"
+  }
+```
+`492996fa-5ddf-4a86-bec1-d1ff6e1641ac` is `@folio/api`'s real service ID — confirm it via `list-services` rather than trusting a stale copy of this ID. Use the explicit-ID form (`${{<service-id>.VAR}}`), not the by-name form (`${{@folio/api.VAR}}`): a by-name reference set during this session silently resolved to a stale, unrelated service ID left over from earlier service-naming churn, producing a `P2021` (`ImportRun` table not found) error at runtime that gave no indication the reference itself was wrong — it looked like a real schema/migration problem until traced back to `get-service-config` showing the reference pointed at the wrong ID entirely.
+
 - [ ] **Step 5: Verify the cron field is set correctly**
 
 ```
@@ -371,7 +384,7 @@ get-service-config
   serviceId: <from Step 1>
   environmentId: "1a124cd9-4d95-4c33-af7d-2a261255fb3c"
 ```
-Confirm the returned config shows `cronSchedule: "0 3 * * *"`, `rootDirectory: "apps/api"`, the expected build/start commands, and that `IMPORT_CRON_ENABLED` is listed among this service's variable names (value not needed for this check — see Task 3 Step 3's reasoning on not pulling real values unnecessarily).
+Confirm the returned config shows `cronSchedule: "0 3 * * *"`, `rootDirectory: ""` (not `"apps/api"` — see Step 3's correction above), the expected build/start commands, and that `IMPORT_CRON_ENABLED` is listed among this service's variable names (value not needed for this check — see Task 3 Step 3's reasoning on not pulling real values unnecessarily). Don't stop at a successful `update-service`/`set-variables` response — re-read `get-service-config` (or a real deployment's logs, for the variable references) to confirm the change actually persisted and resolved correctly, not just that the call returned success.
 
 ---
 
