@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it } from "@jest/globals";
 import type { ImportRun } from "@prisma/client";
 
 import {
@@ -550,7 +550,7 @@ describe("ImportRunService", () => {
     });
   });
 
-  describe("hasRunningRun (BRI-173)", () => {
+  describe("hasRunningRun", () => {
     it("returns false when no run exists", async () => {
       const service = new ImportRunService(
         store,
@@ -781,104 +781,6 @@ describe("ImportRunService", () => {
 
       expect(run.cursor).toBe("cursor-xyz");
       expect(run.cursorAtStart).toBe("cursor-abc");
-    });
-  });
-
-  describe("self-heartbeat lifecycle (BRI-173)", () => {
-    const realFetch = globalThis.fetch;
-
-    afterEach(() => {
-      jest.useRealTimers();
-      (globalThis as { fetch: typeof fetch }).fetch = realFetch;
-    });
-
-    it("pings the heartbeat URL while segments are still spawning, and stops once the run settles", async () => {
-      jest.useFakeTimers();
-      const fetchMock = jest
-        .fn<typeof fetch>()
-        .mockResolvedValue({ ok: true, status: 200 } as Response);
-      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
-
-      let releaseSegment: (() => void) | undefined;
-      const runner: SegmentRunner = {
-        runSegment: (runId: string) =>
-          new Promise<SegmentRunResult>((resolve) => {
-            releaseSegment = () => {
-              store.rows.set(runId, {
-                ...store.rows.get(runId)!,
-                status: "succeeded",
-                fetched: 1,
-                finishedAt: new Date(),
-              });
-              resolve({ exitCode: 0 });
-            };
-          }),
-      };
-
-      const service = new ImportRunService(store, runner, {
-        ...CONFIG,
-        heartbeatUrl: "https://atlas-api.onrender.com",
-      });
-
-      const runPromise = service.execute("scheduled-external");
-
-      // The heartbeat's own default interval is 10 minutes; advance well past
-      // two ticks while the (single, long) segment is still in flight.
-      await jest.advanceTimersByTimeAsync(21 * 60_000);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://atlas-api.onrender.com/health",
-        expect.objectContaining({ signal: expect.anything() }),
-      );
-
-      releaseSegment?.();
-      await runPromise;
-
-      // Stopped: further elapsed time must not produce more pings.
-      await jest.advanceTimersByTimeAsync(30 * 60_000);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-
-    it("stops the heartbeat even when a segment exits abnormally", async () => {
-      jest.useFakeTimers();
-      const fetchMock = jest
-        .fn<typeof fetch>()
-        .mockResolvedValue({ ok: true, status: 200 } as Response);
-      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
-
-      const runner = fakeSegmentRunner(store, [{ result: { exitCode: 1 } }]);
-      const service = new ImportRunService(store, runner, {
-        ...CONFIG,
-        heartbeatUrl: "https://atlas-api.onrender.com",
-      });
-
-      const run = await service.execute("manual");
-      expect(run.status).toBe("failed");
-
-      await jest.advanceTimersByTimeAsync(30 * 60_000);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it("never pings when no heartbeatUrl is configured", async () => {
-      jest.useFakeTimers();
-      const fetchMock = jest
-        .fn<typeof fetch>()
-        .mockResolvedValue({ ok: true, status: 200 } as Response);
-      (globalThis as { fetch: typeof fetch }).fetch = fetchMock;
-
-      const runner = fakeSegmentRunner(store, [
-        {
-          mutate: (rows, id) =>
-            rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
-          result: { exitCode: 0 },
-        },
-      ]);
-      const service = new ImportRunService(store, runner, CONFIG);
-
-      await service.execute("manual");
-      await jest.advanceTimersByTimeAsync(30 * 60_000);
-
-      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });
