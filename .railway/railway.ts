@@ -131,7 +131,49 @@ export default defineRailway(() => {
     },
   });
 
+  // Nightly import cron — same source/build as @folio/api, but a distinct
+  // service so the cron trigger runs as a scheduled one-off invocation
+  // instead of sharing the always-on HTTP process (see Task 4 in
+  // docs/superpowers/plans/2026-09-04-render-to-railway-migration.md).
+  // Originally provisioned entirely via the Railway MCP tools, outside this
+  // file — that Task 4 note said cron scheduling "is not expressible in
+  // .railway/railway.ts's DSL", which was wrong (or true of an older CLI):
+  // the installed railway@3.11.0 package's DeployConfig type does support
+  // `cronSchedule`/`restartPolicyType`. Left undeclared, `railway config
+  // plan` treats this service as unmanaged and proposes deleting it on
+  // every apply — declaring it here (matching the live config exactly, via
+  // `railway config plan`, 2026-09-05) is what stops that.
+  const cron = service("@folio/api-cron", {
+    source: github("BridgeXconnect/foliovoyage", {
+      branch: "master",
+    }),
+    build: "pnpm --filter @folio/api build",
+    start: "pnpm --filter @folio/api exec node dist/modules/import/trigger-import.cli.js",
+    deploy: {
+      cronSchedule: "0 3 * * *",
+      restartPolicyType: "NEVER",
+    },
+    networking: {
+      privateNetworkEndpoint: "folioapi-cron",
+    },
+    env: {
+      NODE_ENV: preserve(),
+      DATABASE_URL: preserve(),
+      REDIS_URL: preserve(),
+      VIATOR_API_KEY: preserve(),
+      VIATOR_API_BASE_URL: preserve(),
+      VIATOR_API_LANGUAGE: preserve(),
+      R2_ENDPOINT: preserve(),
+      R2_BUCKET: preserve(),
+      R2_ACCESS_KEY_ID: preserve(),
+      R2_SECRET_ACCESS_KEY: preserve(),
+      IMPORT_CRON_ENABLED: preserve(),
+      IMPORT_MEMORY_LIMIT_MB: preserve(),
+      IMPORT_CRAWL_RESTART_MEMORY_PCT: preserve(),
+    },
+  });
+
   return project("striking-smile", {
-    resources: [api, postgres, cache, postgresVolume],
+    resources: [api, cron, postgres, cache, postgresVolume],
   });
 });
