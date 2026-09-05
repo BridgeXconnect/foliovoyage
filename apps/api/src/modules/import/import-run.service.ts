@@ -1,7 +1,6 @@
 import { Logger } from "@nestjs/common";
 import type { ImportRun, PrismaClient } from "@prisma/client";
 
-import { ImportRunHeartbeat } from "./heartbeat";
 import type { SegmentRunner } from "./segment-runner";
 
 /**
@@ -85,17 +84,10 @@ import type { SegmentRunner } from "./segment-runner";
 
 /**
  * How a run was kicked off — persisted on the record for later triage.
- *
- * `"scheduled-external"` (BRI-173): Render's free-tier web service sleeps
- * after 15 minutes idle, so the in-process `ImportScheduler` cron cannot
- * fire while asleep. A GitHub Actions workflow calls `POST /v1/import/trigger`
- * on the same schedule to wake the instance and start the run instead — it's
- * still *the* nightly run in intent, just kicked off externally rather than
- * by the in-process timer, so it gets its own label distinct from both the
- * (currently unreachable) in-process `"scheduled"` path and an ad hoc
- * human-initiated `"manual"` run.
+ * `"scheduled"` is the in-process nightly cron (`ImportScheduler`); `"manual"`
+ * is an ad hoc human/CI-initiated run (`trigger-import.cli.ts`).
  */
-export type ImportRunTrigger = "scheduled" | "manual" | "scheduled-external";
+export type ImportRunTrigger = "scheduled" | "manual";
 
 /**
  * Just the surface this service needs (a `PrismaClient` satisfies it).
@@ -124,13 +116,6 @@ export interface ImportRunServiceConfig {
    * as `failed`, from `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`. Defaults to 120.
    */
   readonly stuckRunTimeoutMinutes?: number;
-  /**
-   * The service's own public URL (`RENDER_EXTERNAL_URL`), used to build the
-   * self-heartbeat ping target for the run's duration (BRI-173). Undefined
-   * off-Render (local dev, tests, CI), where {@link ImportRunHeartbeat}
-   * simply no-ops.
-   */
-  readonly heartbeatUrl?: string;
 }
 
 export class ImportRunService {
@@ -236,60 +221,46 @@ export class ImportRunService {
         : `Import run ${run.id} started (trigger: ${trigger}), full crawl (no prior cursor).`,
     );
 
-    // BRI-173: spans every segment of the run, not just one — started right
-    // before the first spawn, stopped in `finally` so it never outlives the
-    // run regardless of how many segments it takes or how it ends.
-    const heartbeat = new ImportRunHeartbeat({ url: this.config.heartbeatUrl });
-    heartbeat.start();
+    for (;;) {
+      const result = await this.segmentRunner.runSegment(
+        run.id,
+        options.modifiedSince,
+      );
 
-    try {
-      for (;;) {
-        const result = await this.segmentRunner.runSegment(
-          run.id,
-          options.modifiedSince,
-        );
-
-        if (result.exitCode !== 0) {
-          // The child died before it could reliably record its own outcome
-          // (crash, or an OS-delivered signal like an OOM kill — exitCode is
-          // `null` in that case). Whatever the last successfully completed
-          // segment committed (cursor, counts) is untouched; finalize here
-          // instead of leaving the row `running` for reapStuckRuns to
-          // eventually clean up.
-          const message =
-            `segment-worker exited abnormally (code ${result.exitCode ?? "null"}) ` +
-            `before it could record its own outcome`;
-          this.logger.error(`Import run ${run.id} failed: ${message}`);
-          return this.finalize(run, message);
-        }
-
-        const current = await this.prisma.importRun.findUniqueOrThrow({
-          where: { id: run.id },
-        });
-        if (current.status !== "running") {
-          this.logger.log(
-            `Import run ${run.id} ${current.status} — ` +
-              `fetched ${current.fetched}, normalized ${current.normalized}, ` +
-              `quarantined ${current.quarantined}, upserted ${current.upserted}, ` +
-              `soft-deleted ${current.softDeleted}.`,
-          );
-          return current;
-        }
-        // Still running: the segment that just finished left more pages for
-        // the next one (its cursor is already on the row) — loop.
+      if (result.exitCode !== 0) {
+        // The child died before it could reliably record its own outcome
+        // (crash, or an OS-delivered signal like an OOM kill — exitCode is
+        // `null` in that case). Whatever the last successfully completed
+        // segment committed (cursor, counts) is untouched; finalize here
+        // instead of leaving the row `running` for reapStuckRuns to
+        // eventually clean up.
+        const message =
+          `segment-worker exited abnormally (code ${result.exitCode ?? "null"}) ` +
+          `before it could record its own outcome`;
+        this.logger.error(`Import run ${run.id} failed: ${message}`);
+        return this.finalize(run, message);
       }
-    } finally {
-      heartbeat.stop();
+
+      const current = await this.prisma.importRun.findUniqueOrThrow({
+        where: { id: run.id },
+      });
+      if (current.status !== "running") {
+        this.logger.log(
+          `Import run ${run.id} ${current.status} — ` +
+            `fetched ${current.fetched}, normalized ${current.normalized}, ` +
+            `quarantined ${current.quarantined}, upserted ${current.upserted}, ` +
+            `soft-deleted ${current.softDeleted}.`,
+        );
+        return current;
+      }
+      // Still running: the segment that just finished left more pages for
+      // the next one (its cursor is already on the row) — loop.
     }
   }
 
   /**
-   * Whether a run is currently `running` for this provider. Used by
-   * {@link import("./import-trigger.controller").ImportTriggerController} to
-   * reject a trigger while one is already in flight (BRI-173) — a naive
-   * double-fire (a retried GitHub Actions step, or a manual trigger racing the
-   * nightly schedule) must not start two concurrent crawls against the same
-   * OTA and catalogue.
+   * Whether a run is currently `running` for this provider — a guard against
+   * starting two concurrent crawls against the same OTA and catalogue.
    */
   async hasRunningRun(): Promise<boolean> {
     const existing = await this.prisma.importRun.findFirst({

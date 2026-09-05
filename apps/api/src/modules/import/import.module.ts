@@ -6,7 +6,6 @@ import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ImportCoreModule } from "./import-core.module";
 import { ImportRunService } from "./import-run.service";
-import { ImportTriggerController } from "./import-trigger.controller";
 import { ExperiencePromoter } from "./promote-experience.service";
 import { NodeSegmentRunner } from "./segment-runner";
 import { ImportScheduler } from "./scheduler";
@@ -16,9 +15,8 @@ import { ImportScheduler } from "./scheduler";
  *
  * The full module for the main API process: {@link ImportCoreModule}'s crawl
  * DI (re-exported unchanged) plus the pieces only the long-lived process
- * needs — the nightly cron ({@link ImportScheduler}), the external wake/
- * trigger endpoint ({@link ImportTriggerController}, BRI-173), and the
- * orchestrator ({@link ImportRunService}, restructured by BRI-176 to spawn a
+ * needs — the nightly cron ({@link ImportScheduler}) and the orchestrator
+ * ({@link ImportRunService}, restructured by BRI-176 to spawn a
  * `segment-worker.cli.ts` child per crawl segment rather than run the whole
  * crawl in-process — see that class's docstring).
  */
@@ -26,10 +24,6 @@ import { ImportScheduler } from "./scheduler";
   // ScheduleModule.forRoot() sets up the SchedulerRegistry the ImportScheduler
   // registers the nightly cron job on. It is idempotent to include once here.
   imports: [ImportCoreModule, ScheduleModule.forRoot()],
-  // BRI-173: the external wake/trigger endpoint a GitHub Actions workflow
-  // calls on Render's free tier, where the in-process cron above can't fire
-  // while the service is asleep.
-  controllers: [ImportTriggerController],
   providers: [
     {
       // ST-11: the manual draft→published promoter (stand-in for Admin review).
@@ -64,10 +58,6 @@ import { ImportScheduler } from "./scheduler";
             "IMPORT_STUCK_RUN_TIMEOUT_MINUTES",
             { infer: true },
           ),
-          // BRI-173: Render-injected public URL, used only to self-heartbeat
-          // during a run so the free tier's idle timer never trips mid-crawl.
-          // Undefined off-Render, where the heartbeat no-ops.
-          heartbeatUrl: config.get("RENDER_EXTERNAL_URL", { infer: true }),
         }),
     },
     // ST-10: registers the nightly cron trigger at boot (env-gated).

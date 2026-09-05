@@ -77,6 +77,31 @@ splitting configs would mean keeping shared values in sync by hand across two
 places, and running two separate `doppler run` invocations to start one `pnpm
 dev`.
 
+## Deployment — Railway
+
+`apps/api` runs on Railway (project `striking-smile`), not Render — migrated
+2026-09 (see `docs/superpowers/plans/2026-09-04-render-to-railway-migration.md`
+for the full migration plan and rationale). Two services in one environment:
+
+- `@folio/api` — the HTTP server, config-as-code via `.railway/railway.ts`.
+  Deliberately no scoped `rootDirectory`: the build context stays at the
+  monorepo root, or Railway's builder can't see the root `pnpm-lock.yaml` /
+  `packageManager` field and falls back to plain `npm install` (see the
+  file's own comment). Health-gated on `/ready` (real DB+Redis dependency
+  check, not the bare `/health` liveness probe).
+- `@folio/api-cron` — runs the compiled import CLI
+  (`dist/modules/import/trigger-import.cli.js`) on Railway's native cron
+  schedule (`0 3 * * *` UTC), configured directly via the Railway MCP/CLI
+  since cron scheduling is not yet expressible in `.railway/railway.ts`.
+
+Both services share one set of environment variables synced from Doppler's
+native Railway integration (project `foliovoyage`, config `prd`) at the
+environment level — set up from the Doppler dashboard, not committed
+anywhere in this repo.
+
+`apps/web`'s `API_BASE_URL` points at `@folio/api`'s Railway domain — see
+that env var in Vercel's project settings, not this repo, for the current value.
+
 ## Commands
 
 Run from the repo root unless noted. Node 22 (`.nvmrc`), pnpm 11 via corepack.
@@ -183,11 +208,18 @@ this skill. If a new planning/execution skill gets installed, commit
     orchestrated by `ImportRunService`. A run is split across short-lived OS
     processes (`segment-worker.cli.ts`, spawned by `ImportRunService`) so
     `undici`'s response-decoding memory is fully released between segments
-    (BRI-176) — this keeps the nightly crawl inside Render's 512MiB free-tier
-    limit. `ImportScheduler` (`scheduler.ts`, ST-10/BRI-107) registers the
-    nightly cron (`IMPORT_CRON_SCHEDULE` / `IMPORT_CRON_ENABLED`); BRI-173 adds
-    an external wake trigger + self-heartbeat for the free tier, and runs can
-    also be fired manually via `POST /v1/import/trigger` or `trigger-import.cli.ts`.
+    (BRI-176) — this keeps the nightly crawl's memory profile bounded
+    regardless of host (originally sized against Render's 512MiB free-tier
+    limit; migrated to Railway — see BRI-182's `IMPORT_MEMORY_LIMIT_MB` /
+    `IMPORT_CRAWL_RESTART_MEMORY_PCT` for the current evidence-based
+    thresholds). `ImportScheduler` (`scheduler.ts`, ST-10/BRI-107) registers the
+    nightly cron (`IMPORT_CRON_SCHEDULE` / `IMPORT_CRON_ENABLED`), fired on
+    Railway by the dedicated `@folio/api-cron` service (see "Deployment —
+    Railway" above); runs can also be fired manually via `trigger-import.cli.ts`.
+    BRI-173's external wake trigger + self-heartbeat (a Render free-tier
+    workaround) was retired with the Railway migration — Railway services
+    don't idle-spindown the way Render's free tier did, so nothing needed to
+    wake them.
   - Everything here is DI-token-based (`VIATOR_HTTP`, `RAW_ARCHIVE_STORE`,
     `LOCATION_CACHE`) so tests can substitute fakes.
 - **Modules present today**: `health`, `database`, `redis`, `prisma`,
