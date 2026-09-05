@@ -312,6 +312,20 @@ model ImportRun {
   /// at creation. Null until the first segment of the run observes a page
   /// with a `nextCursor`.
   lastCursor  String?
+  /// Immutable snapshot of `cursor`'s value at this run's creation (BRI-184)
+  /// -- unlike `cursor` (overwritten by every segment as pagination advances)
+  /// and `lastCursor` (updated whenever any segment sees a new cursor, to
+  /// seed the *next* run), this field is written once by
+  /// ImportRunService.execute() and never touched again. Null means this run
+  /// started as an attempted full crawl (no prior resume point was found, or
+  /// an explicit modifiedSince override forced one); non-null means this run
+  /// resumed a delta crawl from that cursor. segment-worker.cli.ts reads this
+  /// -- not the mutable `cursor` field, which is null again on any clean
+  /// finish regardless of how the run started -- to decide whether it's safe
+  /// to attempt the guarded soft-delete reconciliation at all: a delta run
+  /// only ever sees a slice of the catalogue by design, so it must never
+  /// attempt that step, guard threshold or not.
+  cursorAtStart String?
   /// Human-readable failure/abort message, when status is `failed` or `aborted`.
   error       String?
   /// When the run started (row created).
