@@ -60,6 +60,7 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         upserted: 0,
         softDeleted: 0,
         cursor: (data.cursor as string | null | undefined) ?? null,
+        cursorAtStart: (data.cursorAtStart as string | null | undefined) ?? null,
         lastPage: null,
         lastCursor: null,
         error: null,
@@ -156,6 +157,7 @@ class InMemoryImportRunStore implements ImportRunPrisma {
       upserted: 0,
       softDeleted: 0,
       cursor: null,
+      cursorAtStart: null,
       lastPage: null,
       lastCursor: null,
       error: null,
@@ -735,6 +737,50 @@ describe("ImportRunService", () => {
 
       expect(runner.seenCursor).toBeNull();
       expect(runner.seenModifiedSince).toBe("2026-08-01T00:00:00Z");
+    });
+  });
+
+  describe("cursorAtStart -- an immutable snapshot, unlike the mutable cursor field (BRI-184)", () => {
+    it("is null for a full crawl (no prior cursor found)", async () => {
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) =>
+            rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
+          result: { exitCode: 0 },
+        },
+      ]);
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.cursorAtStart).toBeNull();
+    });
+
+    it("captures the resumed cursor for a delta run, and keeps it even after a segment mutates the live cursor field", async () => {
+      store.seed({
+        id: "prior-run",
+        status: "succeeded",
+        lastCursor: "cursor-abc",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner: SegmentRunner = {
+        async runSegment(runId: string) {
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, {
+            ...row,
+            cursor: "cursor-xyz",
+            status: "succeeded",
+            finishedAt: new Date(),
+          });
+          return { exitCode: 0 };
+        },
+      };
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      const run = await service.execute("manual");
+
+      expect(run.cursor).toBe("cursor-xyz");
+      expect(run.cursorAtStart).toBe("cursor-abc");
     });
   });
 

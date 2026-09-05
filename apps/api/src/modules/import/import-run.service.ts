@@ -227,6 +227,7 @@ export class ImportRunService {
         trigger,
         status: "running",
         cursor: resumeCursor,
+        cursorAtStart: resumeCursor,
       },
     });
     this.logger.log(
