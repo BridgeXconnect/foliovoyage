@@ -112,55 +112,75 @@ async function main(): Promise<void> {
     }
 
     // This segment reached the crawl's true end — finalize the whole run,
-    // exactly once, reconstructing every id any segment upserted from the
-    // DB (see TourUpsertService.findUpsertedIds's docstring for why).
-    const incomingIds = await upsert.findUpsertedIds(
-      run.provider,
-      run.startedAt,
-    );
-    try {
-      const deletion = await upsert.finalizeGuardedSoftDelete(
-        incomingIds,
+    // exactly once.
+    if (run.cursorAtStart === null) {
+      // Full crawl — this run saw (or attempted to see) the complete active
+      // catalogue, so it's safe to reconcile deletions against it.
+      // Reconstruct every id any segment upserted from the DB (see
+      // TourUpsertService.findUpsertedIds's docstring for why).
+      const incomingIds = await upsert.findUpsertedIds(
         run.provider,
-        {
-          deleteGuardThresholdPct: config.get("DELETE_GUARD_THRESHOLD_PCT", {
-            infer: true,
-          }),
-        },
+        run.startedAt,
       );
-      const link = await linker.linkRun(run.provider);
-      await prisma.importRun.update({
-        where: { id: runId },
-        data: {
-          status: "succeeded",
-          softDeleted: deletion.softDeleted,
-          finishedAt: new Date(),
-        },
-      });
-      logger.log(
-        `Import run ${runId} succeeded — experiences created ${link.created}, ` +
-          `linked ${link.linked}.`,
-      );
-    } catch (error) {
-      if (error instanceof MassDeletionAbortError) {
-        await prisma.importRun.update({
-          where: { id: runId },
-          data: { status: "aborted", error: error.message, finishedAt: new Date() },
-        });
-        logger.warn(
-          `Import run ${runId} aborted by mass-deletion guard: ${error.message}`,
+      try {
+        const deletion = await upsert.finalizeGuardedSoftDelete(
+          incomingIds,
+          run.provider,
+          {
+            deleteGuardThresholdPct: config.get("DELETE_GUARD_THRESHOLD_PCT", {
+              infer: true,
+            }),
+          },
         );
-      } else {
+        const link = await linker.linkRun(run.provider);
         await prisma.importRun.update({
           where: { id: runId },
           data: {
-            status: "failed",
-            error: messageOf(error),
+            status: "succeeded",
+            softDeleted: deletion.softDeleted,
             finishedAt: new Date(),
           },
         });
-        logger.error(`Import run ${runId} failed: ${messageOf(error)}`);
+        logger.log(
+          `Import run ${runId} succeeded — experiences created ${link.created}, ` +
+            `linked ${link.linked}.`,
+        );
+      } catch (error) {
+        if (error instanceof MassDeletionAbortError) {
+          await prisma.importRun.update({
+            where: { id: runId },
+            data: { status: "aborted", error: error.message, finishedAt: new Date() },
+          });
+          logger.warn(
+            `Import run ${runId} aborted by mass-deletion guard: ${error.message}`,
+          );
+        } else {
+          await prisma.importRun.update({
+            where: { id: runId },
+            data: {
+              status: "failed",
+              error: messageOf(error),
+              finishedAt: new Date(),
+            },
+          });
+          logger.error(`Import run ${runId} failed: ${messageOf(error)}`);
+        }
       }
+    } else {
+      // Delta run (BRI-184) — this run only ever saw a slice of the
+      // catalogue by design (BRI-181 cursor resume), so it structurally
+      // cannot tell an unseen tour was removed from one it simply never
+      // re-fetched. Never attempt soft-delete reconciliation; the run still
+      // succeeded, its upserts already committed per-page.
+      const link = await linker.linkRun(run.provider);
+      await prisma.importRun.update({
+        where: { id: runId },
+        data: { status: "succeeded", softDeleted: 0, finishedAt: new Date() },
+      });
+      logger.log(
+        `Import run ${runId} succeeded (delta run — soft-delete reconciliation ` +
+          `skipped) — experiences created ${link.created}, linked ${link.linked}.`,
+      );
     }
   } finally {
     await app.close();

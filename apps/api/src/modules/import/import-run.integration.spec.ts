@@ -121,6 +121,7 @@ async function runOnce(
   deleteGuardThresholdPct: number,
   products: ViatorProduct[],
   priceFor?: (code: string) => number | null,
+  isFullCrawl = true,
 ): Promise<{
   counts: ImportRunCounts;
   status: "succeeded" | "aborted";
@@ -149,6 +150,14 @@ async function runOnce(
     restartEveryNPages: 1000,
   });
   expect(result.done).toBe(true); // every fixture here is one page
+
+  // Mirrors segment-worker.cli.ts's own conditional (BRI-184): a delta run
+  // (isFullCrawl === false) never even reconstructs incomingIds or calls
+  // finalizeGuardedSoftDelete — it just links and succeeds.
+  if (!isFullCrawl) {
+    await linker.linkRun(PROVIDER);
+    return { counts, status: "succeeded", error: null, softDeleted: 0 };
+  }
 
   const incomingIds = await upsert.findUpsertedIds(PROVIDER, fetchedAt);
   try {
@@ -274,5 +283,48 @@ describe("ImportPipeline data path end-to-end", () => {
 
     const ids = await upsert.findUpsertedIds(PROVIDER, FETCHED_AT);
     expect(ids.sort()).toEqual(["X", "Y"]);
+  });
+});
+
+describe("delta runs never attempt the guarded soft-delete (BRI-184)", () => {
+  it("succeeds with real upserts even when the diff would have tripped the guard on a full crawl", async () => {
+    // Seed a 10-tour catalogue via a full-crawl segment.
+    const seed = Array.from({ length: 10 }, (_, i) => rawProduct(`t${i}`));
+    await runOnce(10, seed);
+    expect(await activeCount()).toBe(10);
+
+    // A second, near-empty segment (1 new tour) would soft-delete ~90% of
+    // the catalogue on a full crawl -- guaranteed to trip a 10% threshold.
+    // As a delta run, it must skip the guard entirely: real upsert commits,
+    // status succeeded, softDeleted stays 0, and the existing 10 tours are
+    // completely untouched (not even diffed).
+    const { status, error, softDeleted, counts } = await runOnce(
+      10,
+      [rawProduct("new-tour")],
+      undefined,
+      false,
+    );
+
+    expect(status).toBe("succeeded");
+    expect(error).toBeNull();
+    expect(counts.upserted).toBe(1);
+    expect(softDeleted).toBe(0);
+    expect(await activeCount()).toBe(11); // 10 untouched + 1 new, nothing soft-deleted
+  });
+
+  it("still guards a full crawl exactly as before, including a genuine mass-deletion abort", async () => {
+    const seed = Array.from({ length: 10 }, (_, i) => rawProduct(`t${i}`));
+    await runOnce(10, seed);
+    expect(await activeCount()).toBe(10);
+
+    // Same guard-tripping scenario as the pre-existing full-crawl test
+    // above, run again here to pin the "full crawl still guards" half of
+    // BRI-184's acceptance criteria in the same describe block.
+    const { status, error, softDeleted } = await runOnce(10, [], undefined, true);
+
+    expect(status).toBe("aborted");
+    expect(error).toContain("Mass-deletion guard tripped");
+    expect(softDeleted).toBe(0);
+    expect(await activeCount()).toBe(10);
   });
 });
