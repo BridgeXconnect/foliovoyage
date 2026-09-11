@@ -364,6 +364,34 @@ model ProviderLocation {
   resolvedAt DateTime @default(now()) @updatedAt
 }
 
+/// Cached Viator FX rate (category/currency promotion plan, Task 2).
+/// `/availability/schedules` returns `fromPrice` in the *supplier's* currency,
+/// which varies per product and cannot be pinned, so Atlas converts to a single
+/// reference currency (`PRICE_REFERENCE_CURRENCY`, USD today) via Viator's
+/// `/exchange-rates` endpoint. Rates carry an `expiry` (Viator updates daily
+/// today, "may change"): a row is refreshed only once `now > expiresAt`, never
+/// on a fixed interval. Keyed on the currency pair.
+model ProviderExchangeRate {
+  /// Source OTA. Always "viator" today; kept explicit for future providers.
+  provider       String   @default("viator")
+  /// ISO-4217 source currency (the supplier's), e.g. "THB".
+  sourceCurrency String
+  /// ISO-4217 target currency; always the reference currency ("USD") today.
+  targetCurrency String
+  /// Multiply a source-currency major amount by this to get a target-currency
+  /// major amount.
+  rate           Float
+  /// Viator's `lastUpdated` for this rate (UTC).
+  lastUpdatedAt  DateTime
+  /// Viator's `expiry` (UTC): the rate is valid until this instant. The refresh
+  /// trigger — a row with `expiresAt <= now` is re-fetched before use.
+  expiresAt      DateTime
+  /// When Atlas last wrote this row.
+  fetchedAt      DateTime @default(now()) @updatedAt
+
+  @@id([provider, sourceCurrency, targetCurrency])
+}
+
 /// First-party affiliate click log (ST-24 / BRI-136). Append-only: one row is
 /// written by `GET /go/:tourId` **before** it 302s to the provider deep link, so
 /// no click is lost even though Viator attributes commission via the `productUrl`
