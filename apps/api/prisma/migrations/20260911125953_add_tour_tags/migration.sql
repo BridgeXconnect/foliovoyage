@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Tour" ADD COLUMN     "tags" INTEGER[] DEFAULT ARRAY[]::INTEGER[];

@@ -76,6 +76,9 @@ describe("normalizeViatorProduct — golden file", () => {
     const keys = Object.keys(tour);
 
     // Editorial/enrichment + dedup + DB-assigned columns are not ours to set.
+    // Note: raw provider `tags` (opaque numeric IDs) is provenance, not an
+    // Atlas-owned field, so it's deliberately absent from this list (category
+    // Stage A) — the *resolved* Atlas category remains forbidden below.
     for (const forbidden of [
       "id",
       "experience_id",
@@ -83,7 +86,6 @@ describe("normalizeViatorProduct — golden file", () => {
       "geom",
       "editor_rating",
       "categories",
-      "tags",
       "category",
       "status",
       "curation_status",
@@ -311,6 +313,42 @@ describe("normalizeViatorProduct — cover image (ST-11 / BRI-164)", () => {
       { fetchedAt: FETCHED_AT },
     );
     expect(changed.source_hash).not.toBe(base.source_hash);
+  });
+});
+
+describe("normalizeViatorProduct — tags (category Stage A)", () => {
+  it("captures the top-level numeric tags array", () => {
+    const dto = normalizeViatorProduct(
+      { productCode: "P1", title: "T", tags: [12075, 11929, 367654] },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(dto.tags).toEqual([12075, 11929, 367654]);
+  });
+
+  it("defaults tags to an empty array when absent or malformed", () => {
+    const base = { productCode: "P1", title: "T" };
+    expect(
+      normalizeViatorProduct(base, { fetchedAt: FETCHED_AT }).tags,
+    ).toEqual([]);
+    expect(
+      normalizeViatorProduct(
+        { ...base, tags: ["x", 5, null, 7.9] },
+        { fetchedAt: FETCHED_AT },
+      ).tags,
+    ).toEqual([5, 7]); // non-integers dropped, floats truncated
+  });
+
+  it("includes tags in the source hash (a tag change is a content change)", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const a = normalizeViatorProduct(
+      { productCode: "P1", title: "T", tags: [1] },
+      ctx,
+    );
+    const b = normalizeViatorProduct(
+      { productCode: "P1", title: "T", tags: [2] },
+      ctx,
+    );
+    expect(a.source_hash).not.toBe(b.source_hash);
   });
 });
 

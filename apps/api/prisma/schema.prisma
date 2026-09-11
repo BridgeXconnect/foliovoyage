@@ -187,6 +187,10 @@ model Tour {
   /// import linker matches these against curated `City.viatorDestRef` to decide
   /// which City an imported Experience belongs to (BRI-164). Empty when absent.
   destinationRefs String[]    @default([])
+  /// Provider category tag IDs, verbatim from the product payload's top-level
+  /// `tags` array (category Stage A). Opaque numeric IDs; name/category
+  /// resolution via `/products/tags` is a deferred follow-up. Empty when absent.
+  tags            Int[]       @default([])
   /// FK to the Atlas Experience this Tour was linked to (BRI-164), or null until
   /// the import linker creates/links one. `SetNull` on delete: a Tour outlives
   /// the unlinking of its Experience rather than being cascaded away.

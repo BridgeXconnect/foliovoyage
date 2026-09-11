@@ -98,6 +98,15 @@ export interface TourDTO {
    */
   destination_refs: string[];
   /**
+   * Provider category tag IDs, verbatim from the payload's top-level `tags`
+   * array, e.g. `[12075, 11929, 367654]`. Opaque numeric IDs — resolving them
+   * to names/categories via `/products/tags` is a deferred follow-up (Stage B).
+   * Captured here (Stage A) so future data isn't silently discarded. Empty when
+   * absent. Part of {@link source_hash}: a change in a product's tags is a
+   * content change.
+   */
+  tags: number[];
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -177,6 +186,7 @@ export function normalizeViatorProduct(
     image_url: extractCoverImageUrl(raw),
     image_alt: extractCoverImageAlt(raw),
     destination_refs: extractDestinationRefs(raw),
+    tags: extractTags(raw),
   };
 
   return {
@@ -214,6 +224,7 @@ function hashContent(content: TourContent): string {
     content.image_url,
     content.image_alt,
     content.destination_refs,
+    content.tags,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -343,6 +354,18 @@ export function extractDestinationRefs(raw: ViatorProduct): string[] {
     }
   }
   return refs;
+}
+
+/** The product's top-level `tags` array (opaque numeric IDs). Non-integers are
+ * dropped and floats truncated; empty array when absent. */
+function extractTags(raw: ViatorProduct): number[] {
+  const tags = raw["tags"];
+  if (!Array.isArray(tags)) return [];
+  const out: number[] = [];
+  for (const t of tags) {
+    if (typeof t === "number" && Number.isFinite(t)) out.push(Math.trunc(t));
+  }
+  return out;
 }
 
 // ---- small, total helpers (no throwing except the two required fields) ----
