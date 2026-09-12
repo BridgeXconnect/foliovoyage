@@ -160,7 +160,14 @@ beforeAll(async () => {
     // Non-null by construction here (every filler Experience got a matching
     // Tour row above) — the map lookup can't miss.
     experienceId: experienceIdByFillerKey.get(f.sourceProviderTourId) as string,
+    // Filler rows are already-USD (currency + priceReferenceMinor mirror
+    // priceMinor) so the pre-existing band/filter assertions below stay
+    // meaningful post-currency-fix; the dedicated currency-correctness test
+    // is the one row where priceMinor/priceReferenceMinor deliberately diverge.
+    currency: "USD",
     priceMinor: FILLER_PRICE_MINOR_CYCLE[i % FILLER_PRICE_MINOR_CYCLE.length],
+    priceReferenceMinor: FILLER_PRICE_MINOR_CYCLE[i % FILLER_PRICE_MINOR_CYCLE.length],
+    priceReferenceCurrency: "USD",
     ratingAvg:
       i % FILLER_UNRATED_EVERY === 0
         ? null
@@ -607,6 +614,74 @@ describe("SearchService filters (ST-16 / BRI-128)", () => {
     expect(filtered.results.every((r) => r.type !== "destination")).toBe(true);
   });
 
+  it("bands and filters on the USD reference price, not the currency-blind raw priceMinor", async () => {
+    // Real thresholds (major USD): low=40, mid=120, high=300
+    // (PRICE_BAND_MAJOR_THRESHOLDS in destination.service.ts).
+    //
+    // Raw priceMinor: 500000 (THB) -> major 5000 -> would band "$$$$" if the
+    // search bands on the currency-blind supplier value.
+    // priceReferenceMinor: 3000 (USD) -> major 30 -> correctly bands "$".
+    // These two values provably land in different bands under the real
+    // thresholds, so a passing test proves the fix, not an accident.
+    const exp = await prisma.experience.create({
+      data: {
+        title: "Currency Correctness Probe Excursion",
+        description: "Fixture proving price bands use the USD reference value, not raw priceMinor.",
+        status: "published",
+        latitude: CURATED_CITIES.find((c) => c.slug === "bangkok")!.centroidLat,
+        longitude: CURATED_CITIES.find((c) => c.slug === "bangkok")!.centroidLng,
+        cityId: cityIdBySlug["bangkok"],
+        sourceProvider: PROVIDER,
+        sourceProviderTourId: "currency-probe",
+      },
+    });
+    await prisma.tour.create({
+      data: {
+        provider: PROVIDER,
+        providerTourId: "currency-probe-tour",
+        title: exp.title,
+        experienceId: exp.id,
+        currency: "THB",
+        priceMinor: 500000,
+        priceReferenceMinor: 3000,
+        priceReferenceCurrency: "USD",
+        fetchedAt: new Date(),
+        sourceHash: "currency-probe-hash",
+      },
+    });
+
+    const bySearch = await service().search("Currency Correctness Probe Excursion");
+    const match = bySearch.results.find(
+      (r) => r.type === "experience" && r.id === exp.id,
+    );
+    expect(match).toBeDefined();
+    if (match?.type === "experience") {
+      expect(match.priceBand).toBe("$"); // reference band, not "$$$$" from raw priceMinor
+    }
+
+    // The price-band filter matches on the reference band...
+    const correctBandFiltered = await service().search(
+      "Currency Correctness Probe Excursion",
+      1,
+      25,
+      { priceBands: ["$"] },
+    );
+    expect(
+      correctBandFiltered.results.some((r) => r.type === "experience" && r.id === exp.id),
+    ).toBe(true);
+
+    // ...not the raw band the un-normalized priceMinor would fall into.
+    const rawBandFiltered = await service().search(
+      "Currency Correctness Probe Excursion",
+      1,
+      25,
+      { priceBands: ["$$$$"] },
+    );
+    expect(
+      rawBandFiltered.results.some((r) => r.type === "experience" && r.id === exp.id),
+    ).toBe(false);
+  });
+
   it("EXPLAIN ANALYZE: a filtered text query never falls back to a full table scan", async () => {
     const rows = await prisma.$queryRaw<{ "QUERY PLAN": string }[]>`
       EXPLAIN (ANALYZE, FORMAT TEXT)
@@ -614,14 +689,14 @@ describe("SearchService filters (ST-16 / BRI-128)", () => {
       FROM "Experience" e
       CROSS JOIN plainto_tsquery('english', 'museum') AS query
       LEFT JOIN LATERAL (
-        SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+        SELECT t."priceReferenceMinor", t."ratingAvg", t."durationMin"
         FROM "Tour" t
         WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
         ORDER BY t."updatedAt" DESC
         LIMIT 1
       ) tour ON true
       WHERE e.status = 'published' AND e."searchVector" @@ query
-        AND tour."priceMinor" <= 4000
+        AND tour."priceReferenceMinor" <= 4000
       ORDER BY "textRank" DESC, e.id ASC
       LIMIT 12
     `;
