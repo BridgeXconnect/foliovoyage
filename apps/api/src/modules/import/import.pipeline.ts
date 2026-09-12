@@ -4,6 +4,7 @@ import type { ViatorClient } from "./clients/viator.client";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
+import type { ReferencePriceResolver } from "./reference-price";
 import { decideIngestScope } from "./scope-filter";
 import type { TourUpsertService } from "./upsert";
 import { ImportRunStats, type TourValidator } from "./validator";
@@ -21,6 +22,8 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *     → ST-7 {@link normalizeViatorProduct} (normalize)
  *     → ST-7b {@link LocationResolver} (resolve start coordinates)
  *     → ST-7c {@link PriceResolver} (resolve "from" price from schedules)
+ *     → {@link ReferencePriceResolver} (convert to a USD reference price,
+ *       category/currency promotion plan Task 4)
  *     → ST-8 {@link TourValidator} (validate / quarantine)
  *     → ST-9 {@link TourUpsertService.upsertBatch} (idempotent upsert, this page)
  *
@@ -243,6 +246,7 @@ export class ImportPipeline {
     private readonly client: ViatorClient,
     private readonly resolver: LocationResolver,
     private readonly priceResolver: PriceResolver,
+    private readonly referencePriceResolver: ReferencePriceResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
     /**
@@ -358,11 +362,16 @@ export class ImportPipeline {
         //     crawl before firing.
         const priced = await this.priceResolver.attachPrices(located);
 
+        // 3c. Convert each tour's supplier-currency "from" price to a USD
+        //     reference price (category/currency promotion plan Task 4), one
+        //     batched FX-rate resolve per page, never per tour.
+        const referenced = await this.referencePriceResolver.attachReferencePrices(priced);
+
         // 4. Validate this page. Passing tours proceed to this page's
         //    upsert; quarantined ones are persisted + counted by the
         //    validator via the shared stats tally, which spans this segment.
         const passing: TourDTO[] = [];
-        for (const dto of priced) {
+        for (const dto of referenced) {
           const result = await this.validator.process(dto, stats);
           if (result.ok) passing.push(dto);
         }

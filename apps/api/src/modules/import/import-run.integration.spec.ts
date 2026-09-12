@@ -8,6 +8,7 @@ import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { LocationResolver } from "./location-resolver";
 import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
+import type { ReferencePriceResolver } from "./reference-price";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
 import type { PrismaService } from "../../prisma/prisma.service";
 import { MassDeletionAbortError, TourUpsertService } from "./upsert";
@@ -106,6 +107,12 @@ function priceResolverFor(
   } as unknown as PriceResolver;
 }
 
+/** A reference-price resolver that passes tours through unchanged. */
+const passthroughReferencePriceResolver = {
+  attachReferencePrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as ReferencePriceResolver;
+
 const upsert = new TourUpsertService(prisma);
 const linker = new ExperienceLinker(prisma);
 
@@ -135,6 +142,7 @@ async function runOnce(
     client(products),
     resolver,
     priceResolverFor(priceFor),
+    passthroughReferencePriceResolver,
     validator,
     upsert,
   );
