@@ -25,6 +25,8 @@ function makeTour(overrides: Partial<TourDTO> = {}): TourDTO {
     rating_count: 5129,
     price_minor: 2800,
     currency: "USD",
+    price_reference_minor: null,
+    price_reference_currency: null,
     affiliate_url: "https://www.viator.com/tours/…",
     location_ref: "LOC-abc123",
     latitude: 21.036959,

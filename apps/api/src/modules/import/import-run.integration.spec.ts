@@ -267,6 +267,8 @@ describe("ImportPipeline data path end-to-end", () => {
       rating_count: null,
       price_minor: 2500,
       currency: "USD",
+      price_reference_minor: null,
+      price_reference_currency: null,
       affiliate_url: null,
       location_ref: null,
       latitude: null,

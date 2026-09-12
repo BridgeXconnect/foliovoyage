@@ -67,6 +67,21 @@ export interface TourDTO {
    * {@link source_hash} for the same reason.
    */
   currency: string | null;
+  /**
+   * "From" price converted to the reference currency (USD) in minor units, or
+   * null when unpriced or no FX rate was available. NOT set by the pure
+   * normalizer — attached after price resolution by the reference-price step,
+   * exactly like {@link price_minor}/{@link currency}. Excluded from
+   * {@link source_hash}: it is a resolved, volatile projection, not independent
+   * content.
+   */
+  price_reference_minor: number | null;
+  /**
+   * Reference currency for {@link price_reference_minor} ("USD" today), or
+   * null. Set alongside it by the reference-price step; excluded from
+   * {@link source_hash} for the same reason.
+   */
+  price_reference_currency: string | null;
   /** Provider deep link (Viator `productUrl`, affiliate params intact). */
   affiliate_url: string | null;
   /**
@@ -148,6 +163,8 @@ export interface NormalizeContext {
  * - `price_minor`/`currency` — resolved from `/availability/schedules` after
  *   normalization *and* volatile, so hashing them would churn the content hash of
  *   an unchanged tour every time its "from" price moved.
+ * - `price_reference_minor`/`price_reference_currency` — resolved from
+ *   `price_minor` by the reference-price step, for the same reason.
  */
 type TourContent = Omit<
   TourDTO,
@@ -157,6 +174,8 @@ type TourContent = Omit<
   | "longitude"
   | "price_minor"
   | "currency"
+  | "price_reference_minor"
+  | "price_reference_currency"
 >;
 
 /**
@@ -198,6 +217,8 @@ export function normalizeViatorProduct(
     // (`/availability/schedules/{code}`; the product payload has no price).
     price_minor: null,
     currency: null,
+    price_reference_minor: null,
+    price_reference_currency: null,
     latitude: null,
     longitude: null,
     fetched_at: ctx.fetchedAt,
