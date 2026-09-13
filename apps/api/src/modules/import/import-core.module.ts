@@ -5,6 +5,7 @@ import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ViatorClient } from "./clients/viator.client";
 import { ExchangeRateResolver, PrismaExchangeRateCache } from "./exchange-rate-resolver";
+import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { AllowlistFetch } from "./http/allowlist-fetch";
 import { ImportPipeline } from "./import.pipeline";
@@ -207,6 +208,14 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         new ExperienceLinker(prisma),
     },
     {
+      // Category/currency promotion plan Task 8: promotes eligible draft
+      // Experiences to published after every successful import run.
+      provide: ExperienceAutoPromoter,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): ExperienceAutoPromoter =>
+        new ExperienceAutoPromoter(prisma),
+    },
+    {
       // ST-10: threads the stages above into one bounded segment (BRI-176).
       provide: ImportPipeline,
       inject: [
@@ -246,6 +255,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     TourValidator,
     TourUpsertService,
     ExperienceLinker,
+    ExperienceAutoPromoter,
     ImportPipeline,
   ],
 })

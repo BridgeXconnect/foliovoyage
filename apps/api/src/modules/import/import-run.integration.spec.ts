@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
+import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { LocationResolver } from "./location-resolver";
@@ -115,6 +116,7 @@ const passthroughReferencePriceResolver = {
 
 const upsert = new TourUpsertService(prisma);
 const linker = new ExperienceLinker(prisma);
+const autoPromoter = new ExperienceAutoPromoter(prisma);
 
 /**
  * Runs one full (single-segment) crawl through `ImportPipeline.runSegment`
@@ -129,11 +131,13 @@ async function runOnce(
   products: ViatorProduct[],
   priceFor?: (code: string) => number | null,
   isFullCrawl = true,
+  referencePriceResolver: ReferencePriceResolver = passthroughReferencePriceResolver,
 ): Promise<{
   counts: ImportRunCounts;
   status: "succeeded" | "aborted";
   error: string | null;
   softDeleted: number;
+  promoted: number;
 }> {
   const validator = new TourValidator(
     new PrismaQuarantineStore(prisma as unknown as PrismaService),
@@ -142,7 +146,7 @@ async function runOnce(
     client(products),
     resolver,
     priceResolverFor(priceFor),
-    passthroughReferencePriceResolver,
+    referencePriceResolver,
     validator,
     upsert,
   );
@@ -161,10 +165,18 @@ async function runOnce(
 
   // Mirrors segment-worker.cli.ts's own conditional (BRI-184): a delta run
   // (isFullCrawl === false) never even reconstructs incomingIds or calls
-  // finalizeGuardedSoftDelete — it just links and succeeds.
+  // finalizeGuardedSoftDelete — it just links, auto-promotes (Task 8), and
+  // succeeds.
   if (!isFullCrawl) {
     await linker.linkRun(PROVIDER);
-    return { counts, status: "succeeded", error: null, softDeleted: 0 };
+    const promotion = await autoPromoter.promoteEligible(PROVIDER);
+    return {
+      counts,
+      status: "succeeded",
+      error: null,
+      softDeleted: 0,
+      promoted: promotion.promoted,
+    };
   }
 
   const incomingIds = await upsert.findUpsertedIds(PROVIDER, fetchedAt);
@@ -173,10 +185,20 @@ async function runOnce(
       deleteGuardThresholdPct,
     });
     await linker.linkRun(PROVIDER);
-    return { counts, status: "succeeded", error: null, softDeleted: deletion.softDeleted };
+    // Task 8: auto-promote eligible drafts on every successful run, after
+    // linking — never on the aborted path (the catch block below returns
+    // without ever reaching this call).
+    const promotion = await autoPromoter.promoteEligible(PROVIDER);
+    return {
+      counts,
+      status: "succeeded",
+      error: null,
+      softDeleted: deletion.softDeleted,
+      promoted: promotion.promoted,
+    };
   } catch (error) {
     if (error instanceof MassDeletionAbortError) {
-      return { counts, status: "aborted", error: error.message, softDeleted: 0 };
+      return { counts, status: "aborted", error: error.message, softDeleted: 0, promoted: 0 };
     }
     throw error;
   }
@@ -190,12 +212,19 @@ beforeEach(async () => {
   await prisma.tour.deleteMany({ where: { provider: PROVIDER } });
   await prisma.quarantinedTour.deleteMany({ where: { provider: PROVIDER } });
   await prisma.importRun.deleteMany({ where: { provider: PROVIDER } });
+  // Task 8: the auto-promotion tests below create/promote Experience rows
+  // (unlike the pre-existing tests, which never assert on Experience state)
+  // -- clean these up too, or a leftover published/draft row from a prior
+  // run collides (unique sourceProvider+sourceProviderTourId) or skews a
+  // later promoteEligible() scan count.
+  await prisma.experience.deleteMany({ where: { sourceProvider: PROVIDER } });
 });
 
 afterAll(async () => {
   await prisma.tour.deleteMany({ where: { provider: PROVIDER } });
   await prisma.quarantinedTour.deleteMany({ where: { provider: PROVIDER } });
   await prisma.importRun.deleteMany({ where: { provider: PROVIDER } });
+  await prisma.experience.deleteMany({ where: { sourceProvider: PROVIDER } });
   await prisma.$disconnect();
 });
 
@@ -337,5 +366,109 @@ describe("delta runs never attempt the guarded soft-delete (BRI-184)", () => {
     expect(error).toContain("Mass-deletion guard tripped");
     expect(softDeleted).toBe(0);
     expect(await activeCount()).toBe(10);
+  });
+});
+
+describe("auto-promotion after a successful run (Task 8)", () => {
+  /**
+   * A raw product with a cover image, so once linked (affiliate_url comes
+   * free from productUrl) it's missing only a reference price to qualify
+   * under `isPromotable` -- supplied by `pricedReferencePriceResolver` below.
+   */
+  function promotableRawProduct(code: string): ViatorProduct {
+    return rawProduct(code, {
+      images: [
+        {
+          isCover: true,
+          caption: "cover",
+          variants: [{ width: 540, height: 360, url: `https://img/${code}.jpg` }],
+        },
+      ],
+    });
+  }
+
+  /**
+   * Unlike the module-level passthrough, attaches a fixed positive USD
+   * reference price to every tour -- the one field a promotable fixture
+   * needs that the real (network-stubbed) FX leg would otherwise supply.
+   */
+  const pricedReferencePriceResolver = {
+    attachReferencePrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+      tours.map((t) => ({
+        ...t,
+        price_reference_minor: 3000,
+        price_reference_currency: "USD",
+      })),
+  } as unknown as ReferencePriceResolver;
+
+  it("promotes the one eligible draft Experience once, after linkRun, on a successful run", async () => {
+    const result = await runOnce(
+      10,
+      [promotableRawProduct("AP1")],
+      undefined,
+      true,
+      pricedReferencePriceResolver,
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.promoted).toBe(1);
+
+    const experience = await prisma.experience.findFirstOrThrow({
+      where: { sourceProvider: PROVIDER, sourceProviderTourId: "AP1" },
+    });
+    expect(experience.status).toBe("published");
+  });
+
+  it("does not promote anything when the run aborts (mass-deletion guard)", async () => {
+    // Seed a full catalogue via a plain successful segment (not promotable --
+    // irrelevant here, just needs to exist so the next segment's diff trips
+    // the guard).
+    const seed = Array.from({ length: 10 }, (_, i) => rawProduct(`g${i}`));
+    await runOnce(10, seed);
+
+    // A separate, directly-seeded draft Experience that WOULD be promoted if
+    // promoteEligible ran -- bypasses the crawl pipeline entirely so its
+    // presence either way is unambiguous evidence.
+    const city = await prisma.city.findFirstOrThrow({
+      where: { viatorDestRef: "343" },
+    });
+    const experience = await prisma.experience.create({
+      data: {
+        title: "Abort Test Tour",
+        description: "Description",
+        status: "draft",
+        latitude: 13.75,
+        longitude: 100.5,
+        cityId: city.id,
+        sourceProvider: PROVIDER,
+        sourceProviderTourId: "AP-ABORT",
+      },
+    });
+    await prisma.tour.create({
+      data: {
+        provider: PROVIDER,
+        providerTourId: "AP-ABORT",
+        title: "Abort Test Tour",
+        experienceId: experience.id,
+        imageUrl: "https://img/abort.jpg",
+        affiliateUrl: "https://go/abort",
+        priceReferenceMinor: 3000,
+        priceMinor: 3000,
+        currency: "USD",
+        fetchedAt: new Date(),
+        sourceHash: "hash-AP-ABORT",
+      },
+    });
+
+    // An empty segment now soft-deletes the whole (11-tour) catalogue -> guard trips.
+    const result = await runOnce(10, [], undefined, true, pricedReferencePriceResolver);
+
+    expect(result.status).toBe("aborted");
+    expect(result.promoted).toBe(0);
+
+    const reloaded = await prisma.experience.findUniqueOrThrow({
+      where: { id: experience.id },
+    });
+    expect(reloaded.status).toBe("draft");
   });
 });
