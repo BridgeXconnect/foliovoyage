@@ -59,6 +59,9 @@ export interface PromoteEligibleResult {
   readonly promoted: number;
 }
 
+/** Rows fetched per page of the keyset-paginated scan. */
+const PAGE_SIZE = 1000;
+
 export class ExperienceAutoPromoter {
   private readonly logger = new Logger(ExperienceAutoPromoter.name);
 
@@ -68,51 +71,77 @@ export class ExperienceAutoPromoter {
    * Scan every draft Experience linked to a non-deleted Tour of `provider`,
    * and publish the ones {@link isPromotable} accepts.
    *
-   * Each write is guarded by `status: "draft"` in its own `updateMany` — the
-   * same idempotent, race-safe shape `ExperienceLinker`'s back-link uses — so
-   * a concurrent run (or a re-run) can never double-publish or clobber a
-   * status an editor already changed by hand in between.
+   * Keyset-paginates the scan on `id` (same shape as
+   * `backfill-reference-price.cli.ts`) rather than loading the whole backlog
+   * into memory at once, and issues one bulk `updateMany` per page for that
+   * page's eligible ids rather than one write per row — a large backlog's
+   * sequential per-row writes previously ran long enough to outlive Neon's
+   * connection lifetime and drop mid-run. The `status: "draft"` guard stays
+   * on every write — the same idempotent, race-safe shape `ExperienceLinker`'s
+   * back-link uses — so a concurrent run (or a re-run) can never
+   * double-publish or clobber a status an editor already changed by hand.
    */
-  async promoteEligible(provider: string): Promise<PromoteEligibleResult> {
-    const candidates = await this.prisma.experience.findMany({
-      where: {
-        status: "draft",
-        tours: { some: { provider, deletedAt: null } },
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        tours: {
-          where: { provider, deletedAt: null },
-          take: 1,
-          select: { imageUrl: true, affiliateUrl: true, priceReferenceMinor: true },
-        },
-      },
-    });
-
+  async promoteEligible(provider: string, dryRun = false): Promise<PromoteEligibleResult> {
+    let scanned = 0;
     let promoted = 0;
-    for (const candidate of candidates) {
-      const eligible = isPromotable({
-        title: candidate.title,
-        description: candidate.description,
-        status: candidate.status,
-        tour: candidate.tours[0] ?? null,
-      });
-      if (!eligible) continue;
+    let cursor: string | undefined;
 
-      const updated = await this.prisma.experience.updateMany({
-        where: { id: candidate.id, status: "draft" },
-        data: { status: "published" },
+    for (;;) {
+      const candidates = await this.prisma.experience.findMany({
+        where: {
+          status: "draft",
+          tours: { some: { provider, deletedAt: null } },
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          tours: {
+            where: { provider, deletedAt: null },
+            take: 1,
+            select: { imageUrl: true, affiliateUrl: true, priceReferenceMinor: true },
+          },
+        },
+        orderBy: { id: "asc" },
+        take: PAGE_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       });
-      if (updated.count > 0) promoted += 1;
+
+      if (candidates.length === 0) break;
+      scanned += candidates.length;
+
+      const eligibleIds: string[] = [];
+      for (const candidate of candidates) {
+        const eligible = isPromotable({
+          title: candidate.title,
+          description: candidate.description,
+          status: candidate.status,
+          tour: candidate.tours[0] ?? null,
+        });
+        if (eligible) eligibleIds.push(candidate.id);
+      }
+
+      if (eligibleIds.length > 0) {
+        if (dryRun) {
+          promoted += eligibleIds.length;
+        } else {
+          const updated = await this.prisma.experience.updateMany({
+            where: { id: { in: eligibleIds }, status: "draft" },
+            data: { status: "published" },
+          });
+          promoted += updated.count;
+        }
+      }
+
+      cursor = candidates[candidates.length - 1]!.id;
+      if (candidates.length < PAGE_SIZE) break;
     }
 
     this.logger.log(
-      `Auto-promotion for provider "${provider}": scanned ${candidates.length}, ` +
-        `promoted ${promoted}.`,
+      `${dryRun ? "[dry-run] " : ""}Auto-promotion for provider "${provider}": ` +
+        `scanned ${scanned}, promoted ${promoted}.`,
     );
-    return { scanned: candidates.length, promoted };
+    return { scanned, promoted };
   }
 }
