@@ -167,6 +167,13 @@ model Tour {
   priceMinor      BigInt?
   /// ISO-4217 currency code, or null when unpriced.
   currency        String?
+  /// "From" price converted to the reference currency (USD) in minor units, or
+  /// null when unpriced / no FX rate (BRI-XXX). This — not the supplier-currency
+  /// `priceMinor` — is what price bands are computed from, so a band is currency-
+  /// correct across a multi-currency catalogue. Computed at ingest, never per-request.
+  priceReferenceMinor    BigInt?
+  /// Reference currency of {@link priceReferenceMinor}; "USD" today.
+  priceReferenceCurrency String?  @default("USD")
   /// Provider deep link (affiliate params intact), or null when absent.
   affiliateUrl    String?
   /// Provider's opaque start-location reference, or null.
@@ -187,6 +194,10 @@ model Tour {
   /// import linker matches these against curated `City.viatorDestRef` to decide
   /// which City an imported Experience belongs to (BRI-164). Empty when absent.
   destinationRefs String[]    @default([])
+  /// Provider category tag IDs, verbatim from the product payload's top-level
+  /// `tags` array (category Stage A). Opaque numeric IDs; name/category
+  /// resolution via `/products/tags` is a deferred follow-up. Empty when absent.
+  tags            Int[]       @default([])
   /// FK to the Atlas Experience this Tour was linked to (BRI-164), or null until
   /// the import linker creates/links one. `SetNull` on delete: a Tour outlives
   /// the unlinking of its Experience rather than being cascaded away.
@@ -358,6 +369,34 @@ model ProviderLocation {
   name       String?
   /// When this reference was last resolved (refreshed on re-resolve).
   resolvedAt DateTime @default(now()) @updatedAt
+}
+
+/// Cached Viator FX rate (category/currency promotion plan, Task 2).
+/// `/availability/schedules` returns `fromPrice` in the *supplier's* currency,
+/// which varies per product and cannot be pinned, so Atlas converts to a single
+/// reference currency (`PRICE_REFERENCE_CURRENCY`, USD today) via Viator's
+/// `/exchange-rates` endpoint. Rates carry an `expiry` (Viator updates daily
+/// today, "may change"): a row is refreshed only once `now > expiresAt`, never
+/// on a fixed interval. Keyed on the currency pair.
+model ProviderExchangeRate {
+  /// Source OTA. Always "viator" today; kept explicit for future providers.
+  provider       String   @default("viator")
+  /// ISO-4217 source currency (the supplier's), e.g. "THB".
+  sourceCurrency String
+  /// ISO-4217 target currency; always the reference currency ("USD") today.
+  targetCurrency String
+  /// Multiply a source-currency major amount by this to get a target-currency
+  /// major amount.
+  rate           Float
+  /// Viator's `lastUpdated` for this rate (UTC).
+  lastUpdatedAt  DateTime
+  /// Viator's `expiry` (UTC): the rate is valid until this instant. The refresh
+  /// trigger — a row with `expiresAt <= now` is re-fetched before use.
+  expiresAt      DateTime
+  /// When Atlas last wrote this row.
+  fetchedAt      DateTime @default(now()) @updatedAt
+
+  @@id([provider, sourceCurrency, targetCurrency])
 }
 
 /// First-party affiliate click log (ST-24 / BRI-136). Append-only: one row is

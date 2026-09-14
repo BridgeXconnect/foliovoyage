@@ -86,7 +86,12 @@ export class DestinationService {
         tours: {
           where: { deletedAt: null },
           take: 1,
-          select: { imageUrl: true, imageAlt: true, priceMinor: true },
+          select: {
+            imageUrl: true,
+            imageAlt: true,
+            priceMinor: true,
+            priceReferenceMinor: true,
+          },
         },
       },
     });
@@ -107,7 +112,7 @@ export class DestinationService {
           imageUrl: tour?.imageUrl ?? null,
           imageAlt: tour?.imageAlt ?? null,
           editorRating: e.editorRating,
-          priceBand: priceBandFromMinor(tour?.priceMinor ?? null),
+          priceBand: priceBandFromMinor(tour?.priceReferenceMinor ?? null),
           // Curated tags are Atlas-owned and not set on auto-created imports yet.
           tags: [],
           // affiliateUrl intentionally omitted → card shows a "coming soon"
@@ -138,9 +143,12 @@ function clamp(n: number, min: number, max: number): number {
 export const PRICE_BAND_MAJOR_THRESHOLDS = { low: 40, mid: 120, high: 300 } as const;
 
 /**
- * Map a price in minor units to a rough band. Deliberately currency-naive — a
- * band is a rough signal, not an exact price (matching `@folio/shared`'s
- * `PriceBand` intent). Null in, null out.
+ * Map a price in minor units to a rough band. `priceMinor` here must already
+ * be a **reference-currency (USD) minor value** (`Tour.priceReferenceMinor`)
+ * — the thresholds below are USD amounts, so a raw supplier-currency
+ * `priceMinor` would mis-band anything not already in USD. A band is a rough
+ * signal, not an exact price (matching `@folio/shared`'s `PriceBand` intent).
+ * Null in, null out.
  */
 export function priceBandFromMinor(priceMinor: number | bigint | null): PriceBand | null {
   if (priceMinor === null) return null;

@@ -22,7 +22,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-folio}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-folio}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # First-init scripts run once, as the superuser (POSTGRES_USER), against

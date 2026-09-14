@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
+import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { ImportSegmentWorkerModule } from "./import-segment-worker.module";
 import { incrementData } from "./increment-data";
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
     const pipeline = app.get(ImportPipeline);
     const upsert = app.get(TourUpsertService);
     const linker = app.get(ExperienceLinker);
+    const autoPromoter = app.get(ExperienceAutoPromoter);
     const config = app.get(ConfigService<Env, true>);
 
     const run = await prisma.importRun.findUniqueOrThrow({
@@ -133,6 +135,9 @@ async function main(): Promise<void> {
           },
         );
         const link = await linker.linkRun(run.provider);
+        // Task 8: auto-promote eligible drafts after every successful run,
+        // right after linking — never on the aborted/failed branches below.
+        const promotion = await autoPromoter.promoteEligible(run.provider);
         await prisma.importRun.update({
           where: { id: runId },
           data: {
@@ -143,7 +148,7 @@ async function main(): Promise<void> {
         });
         logger.log(
           `Import run ${runId} succeeded — experiences created ${link.created}, ` +
-            `linked ${link.linked}.`,
+            `linked ${link.linked}, auto-promoted ${promotion.promoted}.`,
         );
       } catch (error) {
         if (error instanceof MassDeletionAbortError) {
@@ -173,13 +178,16 @@ async function main(): Promise<void> {
       // re-fetched. Never attempt soft-delete reconciliation; the run still
       // succeeded, its upserts already committed per-page.
       const link = await linker.linkRun(run.provider);
+      // Task 8: same auto-promotion as the full-crawl branch above.
+      const promotion = await autoPromoter.promoteEligible(run.provider);
       await prisma.importRun.update({
         where: { id: runId },
         data: { status: "succeeded", softDeleted: 0, finishedAt: new Date() },
       });
       logger.log(
         `Import run ${runId} succeeded (delta run — soft-delete reconciliation ` +
-          `skipped) — experiences created ${link.created}, linked ${link.linked}.`,
+          `skipped) — experiences created ${link.created}, linked ${link.linked}, ` +
+          `auto-promoted ${promotion.promoted}.`,
       );
     }
   } finally {

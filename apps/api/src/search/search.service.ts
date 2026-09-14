@@ -137,18 +137,20 @@ export function hasExperienceFilters(filters: SearchFilters): boolean {
 }
 
 /** One price band's minor-unit range as a parameterized SQL condition on the
- * LATERAL-joined `tour` alias. */
+ * LATERAL-joined `tour` alias. Bands on `priceReferenceMinor` (a USD-normalized
+ * value) rather than the currency-blind `priceMinor`, so the thresholds
+ * (USD amounts) are correct across a multi-currency catalogue. */
 function priceBandSqlCondition(band: PriceBand): Prisma.Sql {
   const t = PRICE_BAND_MINOR_THRESHOLDS;
   switch (band) {
     case "$":
-      return Prisma.sql`tour."priceMinor" <= ${t.low}`;
+      return Prisma.sql`tour."priceReferenceMinor" <= ${t.low}`;
     case "$$":
-      return Prisma.sql`tour."priceMinor" > ${t.low} AND tour."priceMinor" <= ${t.mid}`;
+      return Prisma.sql`tour."priceReferenceMinor" > ${t.low} AND tour."priceReferenceMinor" <= ${t.mid}`;
     case "$$$":
-      return Prisma.sql`tour."priceMinor" > ${t.mid} AND tour."priceMinor" <= ${t.high}`;
+      return Prisma.sql`tour."priceReferenceMinor" > ${t.mid} AND tour."priceReferenceMinor" <= ${t.high}`;
     case "$$$$":
-      return Prisma.sql`tour."priceMinor" > ${t.high}`;
+      return Prisma.sql`tour."priceReferenceMinor" > ${t.high}`;
   }
 }
 
@@ -195,7 +197,10 @@ export interface ExperienceSearchRow {
   country: string;
   imageUrl: string | null;
   imageAlt: string | null;
-  priceMinor: number | bigint | null;
+  /** USD-normalized reference price (`Tour.priceReferenceMinor`), not the
+   * currency-blind supplier `priceMinor` — this is what {@link priceBandFromMinor}
+   * bands on. */
+  priceReferenceMinor: number | bigint | null;
   /** `ts_rank_cd(...)` (0 in the featured/empty-query fallback — no query to rank). */
   textRank: number;
   clickCount: number;
@@ -252,7 +257,7 @@ function toExperienceResult(row: ExperienceSearchRow): SearchExperienceResult {
     imageUrl: row.imageUrl,
     imageAlt: row.imageAlt,
     editorRating: row.editorRating,
-    priceBand: priceBandFromMinor(row.priceMinor),
+    priceBand: priceBandFromMinor(row.priceReferenceMinor),
     city: row.cityName,
     citySlug: row.citySlug,
     countrySlug: row.countrySlug,
@@ -386,14 +391,14 @@ export class SearchService {
           c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
           c.name AS "cityName", c.country AS "country",
           tour."imageUrl" AS "imageUrl", tour."imageAlt" AS "imageAlt",
-          tour."priceMinor" AS "priceMinor",
+          tour."priceReferenceMinor" AS "priceReferenceMinor",
           ts_rank_cd(e."searchVector", query, 32) AS "textRank",
           COALESCE(clicks.n, 0)::int AS "clickCount"
         FROM "Experience" e
         JOIN "City" c ON c.id = e."cityId"
         CROSS JOIN plainto_tsquery('english', ${q}) AS query
         LEFT JOIN LATERAL (
-          SELECT t."imageUrl", t."imageAlt", t."priceMinor", t."ratingAvg", t."durationMin"
+          SELECT t."imageUrl", t."imageAlt", t."priceReferenceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC
@@ -415,7 +420,7 @@ export class SearchService {
         FROM "Experience" e
         CROSS JOIN plainto_tsquery('english', ${q}) AS query
         LEFT JOIN LATERAL (
-          SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+          SELECT t."priceReferenceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC
@@ -478,13 +483,13 @@ export class SearchService {
           c.slug AS "citySlug", c."countrySlug" AS "countrySlug",
           c.name AS "cityName", c.country AS "country",
           tour."imageUrl" AS "imageUrl", tour."imageAlt" AS "imageAlt",
-          tour."priceMinor" AS "priceMinor",
+          tour."priceReferenceMinor" AS "priceReferenceMinor",
           0::float AS "textRank",
           COALESCE(clicks.n, 0)::int AS "clickCount"
         FROM "Experience" e
         JOIN "City" c ON c.id = e."cityId"
         LEFT JOIN LATERAL (
-          SELECT t."imageUrl", t."imageAlt", t."priceMinor", t."ratingAvg", t."durationMin"
+          SELECT t."imageUrl", t."imageAlt", t."priceReferenceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC
@@ -505,7 +510,7 @@ export class SearchService {
         SELECT count(*)::int AS n
         FROM "Experience" e
         LEFT JOIN LATERAL (
-          SELECT t."priceMinor", t."ratingAvg", t."durationMin"
+          SELECT t."priceReferenceMinor", t."ratingAvg", t."durationMin"
           FROM "Tour" t
           WHERE t."experienceId" = e.id AND t."deletedAt" IS NULL
           ORDER BY t."updatedAt" DESC

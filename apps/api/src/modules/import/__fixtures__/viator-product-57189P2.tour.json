@@ -13,10 +13,31 @@
   "destination_refs": [
     "351"
   ],
+  "tags": [
+    12075,
+    11929,
+    367654,
+    20245,
+    11938,
+    367662,
+    367655,
+    367652,
+    367653,
+    21860,
+    367667,
+    21911,
+    367659,
+    21972,
+    367661,
+    367648,
+    12046
+  ],
   "price_minor": null,
   "currency": null,
+  "price_reference_minor": null,
+  "price_reference_currency": null,
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "a87d625043f10f9e8c5569ab841929259a6c9756570984e74e3ed458b7c8f400"
+  "source_hash": "97f85db9079b2f1afddab82dd33ac79185db087c65675b7249292787084d4c1b"
 }

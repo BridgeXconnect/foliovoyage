@@ -40,7 +40,12 @@ describe("DestinationService", () => {
         description: "Temples.",
         editorRating: 4.7,
         tours: [
-          { imageUrl: "https://img/1.jpg", imageAlt: "Wat Pho", priceMinor: 3500 },
+          {
+            imageUrl: "https://img/1.jpg",
+            imageAlt: "Wat Pho",
+            priceMinor: 3500,
+            priceReferenceMinor: 3500,
+          },
         ],
       },
       {

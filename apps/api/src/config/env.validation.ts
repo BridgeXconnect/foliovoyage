@@ -74,6 +74,14 @@ export const envSchema = z.object({
    */
   VIATOR_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
 
+  /**
+   * Reference currency every price band is computed in — the target currency
+   * of the FX cache (`ProviderExchangeRate`) and `ExchangeRateResolver`.
+   * Prices from providers quoted in another currency are converted to this
+   * one before being stored/compared. Defaults to USD.
+   */
+  PRICE_REFERENCE_CURRENCY: z.string().length(3).default("USD"),
+
   // --- Raw-payload object storage: Cloudflare R2 (S3-compatible) -----------
 
   /**

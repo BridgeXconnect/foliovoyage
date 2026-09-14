@@ -8,6 +8,7 @@ import type { LocationResolver } from "./location-resolver";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
+import type { ReferencePriceResolver } from "./reference-price";
 import { type TourUpsertService, type UpsertBatchResult } from "./upsert";
 import {
   TourValidator,
@@ -95,6 +96,12 @@ const pricingResolver = {
     tours.map((t) => ({ ...t, price_minor: 2500, currency: "USD" })),
 } as unknown as PriceResolver;
 
+/** A reference-price resolver that passes tours through unchanged. */
+const passthroughReferencePriceResolver = {
+  attachReferencePrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as ReferencePriceResolver;
+
 /** In-memory quarantine store so the real validator runs without a DB. */
 class InMemoryQuarantineStore implements QuarantineStore {
   readonly saved: QuarantineRecord[] = [];
@@ -173,6 +180,7 @@ describe("ImportPipeline — BRI-182 memory trigger (real process.memoryUsage())
         client,
         passthroughResolver,
         pricingResolver,
+        passthroughReferencePriceResolver,
         validator,
         fakeUpsert(),
       );

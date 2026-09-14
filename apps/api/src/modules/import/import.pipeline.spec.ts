@@ -6,6 +6,7 @@ import type { LocationResolver } from "./location-resolver";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
+import type { ReferencePriceResolver } from "./reference-price";
 import { type TourUpsertService, type UpsertBatchResult } from "./upsert";
 import {
   TourValidator,
@@ -135,6 +136,19 @@ function fakePriceResolver(
 /** The default price resolver: every tour gets a valid positive price. */
 const pricingResolver = fakePriceResolver();
 
+/**
+ * A reference-price resolver that passes tours through unchanged (leaves
+ * `price_reference_minor`/`price_reference_currency` at whatever the
+ * normalizer/price resolver already set — null in every fixture here). These
+ * orchestration tests don't exercise FX conversion itself (see
+ * reference-price.spec.ts for that); they only need the pipeline to call this
+ * stage and thread its output onward.
+ */
+const passthroughReferencePriceResolver = {
+  attachReferencePrices: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as ReferencePriceResolver;
+
 /** In-memory quarantine store so the real validator runs without a DB. */
 class InMemoryQuarantineStore implements QuarantineStore {
   readonly saved: QuarantineRecord[] = [];
@@ -171,7 +185,7 @@ describe("ImportPipeline", () => {
     ]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     const result = await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -201,7 +215,7 @@ describe("ImportPipeline", () => {
     // Price "A" normally, leave "B" unpriced.
     const priceResolver = fakePriceResolver((code) => (code === "B" ? null : 2500));
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, priceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, priceResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -224,7 +238,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), unnormalizable]]);
     const { service: upsert } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -240,7 +254,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), outOfScope]]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -260,7 +274,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), inactive, manual]]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -288,7 +302,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient(pages);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -326,7 +340,7 @@ describe("ImportPipeline", () => {
       },
     } as unknown as TourUpsertService;
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
     const counts = new ImportRunCounts();
 
     await expect(
@@ -348,7 +362,7 @@ describe("ImportPipeline", () => {
       const { client, calls } = fakeResumableClient(pages);
       const { service: upsert, batchCalls } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
 
       // Segment 1: pages 1-2.
       const counts1 = new ImportRunCounts();
@@ -411,7 +425,7 @@ describe("ImportPipeline", () => {
       const { client, calls } = fakeResumableClient(pages);
       const { service: upsert } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
       const counts = new ImportRunCounts();
       const result = await pipeline.runSegment(counts, {
         fetchedAt: FETCHED_AT,
@@ -433,7 +447,7 @@ describe("ImportPipeline", () => {
       const { client } = fakeResumableClient(pages);
       const { service: upsert } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
       const counts = new ImportRunCounts();
       const result = await pipeline.runSegment(counts, {
         fetchedAt: FETCHED_AT,
@@ -470,6 +484,7 @@ describe("ImportPipeline", () => {
         client,
         passthroughResolver,
         pricingResolver,
+        passthroughReferencePriceResolver,
         validator,
         upsert,
         memoryUsage,
@@ -499,6 +514,7 @@ describe("ImportPipeline", () => {
         client,
         passthroughResolver,
         pricingResolver,
+        passthroughReferencePriceResolver,
         validator,
         upsert,
         memoryUsage,
@@ -524,6 +540,7 @@ describe("ImportPipeline", () => {
         client,
         passthroughResolver,
         pricingResolver,
+        passthroughReferencePriceResolver,
         validator,
         upsert,
         memoryUsage,

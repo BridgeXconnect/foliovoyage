@@ -347,6 +347,8 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
     ratingCount: tour.rating_count,
     priceMinor: tour.price_minor,
     currency: tour.currency,
+    priceReferenceMinor: tour.price_reference_minor,
+    priceReferenceCurrency: tour.price_reference_currency,
     affiliateUrl: tour.affiliate_url,
     locationRef: tour.location_ref,
     latitude: tour.latitude,
@@ -354,6 +356,7 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
     imageUrl: tour.image_url,
     imageAlt: tour.image_alt,
     destinationRefs: tour.destination_refs,
+    tags: tour.tags,
     fetchedAt: new Date(tour.fetched_at),
     sourceHash: tour.source_hash,
   };

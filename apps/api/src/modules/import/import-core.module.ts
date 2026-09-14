@@ -4,6 +4,8 @@ import { ConfigService } from "@nestjs/config";
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ViatorClient } from "./clients/viator.client";
+import { ExchangeRateResolver, PrismaExchangeRateCache } from "./exchange-rate-resolver";
+import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { AllowlistFetch } from "./http/allowlist-fetch";
 import { ImportPipeline } from "./import.pipeline";
@@ -14,6 +16,7 @@ import {
 } from "./location-resolver";
 import { PriceResolver } from "./price-resolver";
 import { PrismaQuarantineStore } from "./quarantine-store.prisma";
+import { ReferencePriceResolver } from "./reference-price";
 import {
   R2RawArchiveStore,
   type RawArchiveStore,
@@ -135,6 +138,48 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         ),
     },
     {
+      // Category/currency promotion plan Task 2: caches Viator /exchange-rates
+      // in ProviderExchangeRate, honoring each rate's own expiry. Reuses
+      // VIATOR_HTTP — same host-allowlisted fetcher as the crawl/location/price
+      // resolvers.
+      provide: ExchangeRateResolver,
+      inject: [ConfigService, VIATOR_HTTP, PrismaService],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        http: AllowlistFetch,
+        prisma: PrismaService,
+      ): ExchangeRateResolver => {
+        const targetCurrency = config.get("PRICE_REFERENCE_CURRENCY", {
+          infer: true,
+        });
+        return new ExchangeRateResolver(
+          {
+            baseUrl: config.get("VIATOR_API_BASE_URL", { infer: true }),
+            apiKey: config.get("VIATOR_API_KEY", { infer: true }),
+            language: config.get("VIATOR_API_LANGUAGE", { infer: true }),
+            targetCurrency,
+          },
+          http,
+          new PrismaExchangeRateCache(prisma, targetCurrency),
+        );
+      },
+    },
+    {
+      // Task 4: converts each tour's supplier-currency "from" price to a
+      // PRICE_REFERENCE_CURRENCY (USD) reference price at ingest time, one
+      // batched FX-rate resolve per page.
+      provide: ReferencePriceResolver,
+      inject: [ExchangeRateResolver, ConfigService],
+      useFactory: (
+        rates: ExchangeRateResolver,
+        config: ConfigService<Env, true>,
+      ): ReferencePriceResolver =>
+        new ReferencePriceResolver(
+          rates,
+          config.get("PRICE_REFERENCE_CURRENCY", { infer: true }),
+        ),
+    },
+    {
       provide: QUARANTINE_STORE,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService): QuarantineStore =>
@@ -163,12 +208,21 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         new ExperienceLinker(prisma),
     },
     {
+      // Category/currency promotion plan Task 8: promotes eligible draft
+      // Experiences to published after every successful import run.
+      provide: ExperienceAutoPromoter,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService): ExperienceAutoPromoter =>
+        new ExperienceAutoPromoter(prisma),
+    },
+    {
       // ST-10: threads the stages above into one bounded segment (BRI-176).
       provide: ImportPipeline,
       inject: [
         ViatorClient,
         LocationResolver,
         PriceResolver,
+        ReferencePriceResolver,
         TourValidator,
         TourUpsertService,
       ],
@@ -176,10 +230,18 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         client: ViatorClient,
         resolver: LocationResolver,
         priceResolver: PriceResolver,
+        referencePriceResolver: ReferencePriceResolver,
         validator: TourValidator,
         upsert: TourUpsertService,
       ): ImportPipeline =>
-        new ImportPipeline(client, resolver, priceResolver, validator, upsert),
+        new ImportPipeline(
+          client,
+          resolver,
+          priceResolver,
+          referencePriceResolver,
+          validator,
+          upsert,
+        ),
     },
   ],
   exports: [
@@ -193,6 +255,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     TourValidator,
     TourUpsertService,
     ExperienceLinker,
+    ExperienceAutoPromoter,
     ImportPipeline,
   ],
 })

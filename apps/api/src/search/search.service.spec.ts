@@ -26,7 +26,7 @@ function experienceRow(overrides: Partial<ExperienceSearchRow> = {}): Experience
     country: "Thailand",
     imageUrl: null,
     imageAlt: null,
-    priceMinor: null,
+    priceReferenceMinor: null,
     textRank: 0.5,
     clickCount: 0,
     ...overrides,
@@ -135,9 +135,14 @@ describe("mergeRankAndPaginate", () => {
     expect(page3.results.map((r) => (r.type === "experience" ? r.id : ""))).toEqual(["e4"]);
   });
 
-  it("maps priceMinor to a priceBand and passes through editorRating/city context", () => {
+  it("maps priceReferenceMinor to a priceBand and passes through editorRating/city context", () => {
     const experiences = [
-      experienceRow({ priceMinor: 8000, editorRating: 4.5, cityName: "Kyoto", citySlug: "kyoto" }),
+      experienceRow({
+        priceReferenceMinor: 8000,
+        editorRating: 4.5,
+        cityName: "Kyoto",
+        citySlug: "kyoto",
+      }),
     ];
 
     const { results } = mergeRankAndPaginate(experiences, [], 1, 1, 10);
