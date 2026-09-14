@@ -54,6 +54,7 @@ function makeTour(id: string, overrides: Partial<TourDTO> = {}): TourDTO {
     image_alt: null,
     destination_refs: ["351"],
     tags: [],
+    images: [],
     fetched_at: "2026-07-24T00:00:00.000Z",
     source_hash: `hash-${id}`,
     ...overrides,

@@ -189,6 +189,13 @@ model Tour {
   imageUrl        String?
   /// Alt text for {@link imageUrl} (the image caption), or null.
   imageAlt        String?
+  /// The product's full image gallery — every image the payload lists, with
+  /// captions and every resolution variant, versus the single-cover-image
+  /// projection ({@link imageUrl}/{@link imageAlt}) above. Provider-owned
+  /// content; `[]` when the payload carries no imagery. Task 1 of the
+  /// provider-content-capture series (image gallery / inclusions-exclusions /
+  /// cancellation policy / reviews-by-source).
+  images          Json        @default("[]")
   /// Provider destination refs this product is filed under, e.g. `["343"]`
   /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
   /// import linker matches these against curated `City.viatorDestRef` to decide

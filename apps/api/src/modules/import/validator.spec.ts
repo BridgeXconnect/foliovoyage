@@ -35,6 +35,7 @@ function makeTour(overrides: Partial<TourDTO> = {}): TourDTO {
     image_alt: "Hanoi street food",
     destination_refs: ["351"],
     tags: [],
+    images: [],
     fetched_at: "2026-07-18T00:00:00.000Z",
     source_hash: "abc",
     ...overrides,

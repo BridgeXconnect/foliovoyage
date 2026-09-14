@@ -397,3 +397,123 @@ describe("normalizeViatorProduct — destination refs (ST-11 / BRI-164)", () => 
     expect(moved.source_hash).not.toBe(base.source_hash);
   });
 });
+
+describe("normalizeViatorProduct — image gallery (Task 1)", () => {
+  const IMAGES = [
+    {
+      isCover: true,
+      caption: "Cover shot",
+      variants: [
+        { width: 100, height: 100, url: "https://img/a-100.jpg" },
+        { width: 540, height: 360, url: "https://img/a-540.jpg" },
+      ],
+    },
+    {
+      isCover: false,
+      caption: "Second shot",
+      variants: [{ width: 480, height: 320, url: "https://img/b-480.jpg" }],
+    },
+  ];
+
+  it("captures all images with caption/isCover/variants from a synthetic payload", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "GAL1", title: "T", images: IMAGES },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.images).toEqual([
+      {
+        caption: "Cover shot",
+        isCover: true,
+        variants: [
+          { width: 100, height: 100, url: "https://img/a-100.jpg" },
+          { width: 540, height: 360, url: "https://img/a-540.jpg" },
+        ],
+      },
+      {
+        caption: "Second shot",
+        isCover: false,
+        variants: [{ width: 480, height: 320, url: "https://img/b-480.jpg" }],
+      },
+    ]);
+  });
+
+  it("defaults to [] when images is absent or not an array", () => {
+    expect(
+      normalizeViatorProduct(
+        { productCode: "GAL2", title: "T" },
+        { fetchedAt: FETCHED_AT },
+      ).images,
+    ).toEqual([]);
+    expect(
+      normalizeViatorProduct(
+        { productCode: "GAL3", title: "T", images: "not-an-array" },
+        { fetchedAt: FETCHED_AT },
+      ).images,
+    ).toEqual([]);
+  });
+
+  it("coerces missing numeric variant fields to 0 and drops variants with no usable url", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "GAL4",
+        title: "T",
+        images: [
+          {
+            caption: null,
+            isCover: "yes", // not strictly === true
+            variants: [
+              { width: 200, url: "https://img/no-height.jpg" }, // missing height -> 0
+              { height: 300, url: "https://img/no-width.jpg" }, // missing width -> 0
+              { width: 100, height: 100 }, // no url -> dropped
+              { width: 50, height: 50, url: "" }, // empty url -> dropped
+            ],
+          },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.images).toEqual([
+      {
+        caption: null,
+        isCover: false,
+        variants: [
+          { width: 200, height: 0, url: "https://img/no-height.jpg" },
+          { width: 0, height: 300, url: "https://img/no-width.jpg" },
+        ],
+      },
+    ]);
+  });
+
+  it("includes images in the source hash", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const a = normalizeViatorProduct(
+      {
+        productCode: "GAL5",
+        title: "T",
+        images: [
+          {
+            isCover: true,
+            caption: "a",
+            variants: [{ width: 540, height: 360, url: "https://img/a.jpg" }],
+          },
+        ],
+      },
+      ctx,
+    );
+    const b = normalizeViatorProduct(
+      {
+        productCode: "GAL5",
+        title: "T",
+        images: [
+          {
+            isCover: true,
+            caption: "b",
+            variants: [{ width: 540, height: 360, url: "https://img/a.jpg" }],
+          },
+        ],
+      },
+      ctx,
+    );
+    expect(a.source_hash).not.toBe(b.source_hash);
+  });
+});

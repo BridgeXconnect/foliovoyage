@@ -122,6 +122,14 @@ export interface TourDTO {
    */
   tags: number[];
   /**
+   * The product's full image gallery — every entry in the payload's `images`
+   * array, captions and all resolution variants included (not just the
+   * single cover projection {@link image_url}/{@link image_alt} pick out).
+   * Empty array when the payload carries no imagery. Part of
+   * {@link source_hash}: a change to the gallery is a content change.
+   */
+  images: TourImageDTO[];
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -146,6 +154,20 @@ export interface TourDTO {
    * time differs.
    */
   source_hash: string;
+}
+
+/**
+ * One image in a tour's full gallery — every provider-supplied resolution
+ * variant, not just the single cover projection {@link TourDTO.image_url}
+ * picks out. Provider-owned content; part of {@link TourDTO.source_hash}.
+ */
+export interface TourImageDTO {
+  /** The image's caption, or `null` when the payload omits it. */
+  caption: string | null;
+  /** Whether Viator marks this as the product's cover image. */
+  isCover: boolean;
+  /** Every resolution variant the payload lists for this image. */
+  variants: { width: number; height: number; url: string }[];
 }
 
 /** Context the caller must supply — provenance that isn't in the payload. */
@@ -206,6 +228,7 @@ export function normalizeViatorProduct(
     image_alt: extractCoverImageAlt(raw),
     destination_refs: extractDestinationRefs(raw),
     tags: extractTags(raw),
+    images: extractImages(raw),
   };
 
   return {
@@ -246,6 +269,7 @@ function hashContent(content: TourContent): string {
     content.image_alt,
     content.destination_refs,
     content.tags,
+    content.images,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -350,6 +374,47 @@ function pickCoverImage(
     .map(asRecord)
     .filter((v): v is Record<string, unknown> => v !== undefined);
   return records.find((im) => im["isCover"] === true) ?? records[0];
+}
+
+/**
+ * The product's full image gallery, from `images: [{ isCover, caption,
+ * variants }]` — every entry, not just the cover. `[]` when `images` is
+ * absent or not an array. Per entry: `caption` (nullable string), `isCover`
+ * (strictly `=== true`, so a malformed non-boolean value normalizes to
+ * `false`), and `variants` — missing numeric width/height coerce to `0`, and
+ * a variant with no usable `url` is dropped entirely.
+ */
+function extractImages(raw: ViatorProduct): TourImageDTO[] {
+  const images = raw["images"];
+  if (!Array.isArray(images)) return [];
+
+  const out: TourImageDTO[] = [];
+  for (const entry of images) {
+    const record = asRecord(entry);
+    if (!record) continue;
+
+    const rawVariants = Array.isArray(record["variants"])
+      ? record["variants"]
+      : [];
+    const variants: TourImageDTO["variants"] = [];
+    for (const v of rawVariants) {
+      const variant = asRecord(v);
+      const url = optionalString(variant?.["url"]);
+      if (!url) continue;
+      variants.push({
+        width: optionalInteger(variant?.["width"]) ?? 0,
+        height: optionalInteger(variant?.["height"]) ?? 0,
+        url,
+      });
+    }
+
+    out.push({
+      caption: optionalString(record["caption"]),
+      isCover: record["isCover"] === true,
+      variants,
+    });
+  }
+  return out;
 }
 
 /**
