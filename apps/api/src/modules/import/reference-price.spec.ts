@@ -42,6 +42,7 @@ function dto(overrides: Partial<TourDTO> = {}): TourDTO {
     image_alt: null,
     destination_refs: [],
     tags: [],
+    images: [],
     fetched_at: "2026-07-18T00:00:00.000Z",
     source_hash: "abc",
     ...overrides,
