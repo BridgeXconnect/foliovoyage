@@ -142,6 +142,17 @@ export interface TourDTO {
    */
   exclusions: TourIncludedItemDTO[];
   /**
+   * The product's cancellation policy, verbatim from the payload's
+   * `cancellationPolicy` object (raw `refundEligibility` renamed to
+   * {@link TourCancellationPolicyDTO.refundTiers} — cosmetic only, no data
+   * loss). `null` when the payload carries no usable policy — genuinely
+   * distinct from a policy that exists and happens to be maximally strict, so
+   * this is a nullable scalar, not an array defaulting to `[]` like
+   * {@link inclusions}/{@link exclusions}. Part of {@link source_hash}: a
+   * changed policy is a content change.
+   */
+  cancellation_policy: TourCancellationPolicyDTO | null;
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -196,6 +207,24 @@ export interface TourIncludedItemDTO {
   typeDescription: string;
   /** Unified from `description`/`otherDescription`; `null` when neither is set. */
   description: string | null;
+}
+
+/**
+ * A tour's cancellation policy — type, refund-by-cutoff tiers, and
+ * weather/traveler-count flags. See {@link TourDTO.cancellation_policy}.
+ */
+export interface TourCancellationPolicyDTO {
+  type: string;
+  /** `null` when the payload omits it. */
+  description: string | null;
+  cancelIfBadWeather: boolean;
+  cancelIfInsufficientTravelers: boolean;
+  /** Renamed from the payload's `refundEligibility` (cosmetic only). */
+  refundTiers: {
+    dayRangeMin: number;
+    dayRangeMax: number | null;
+    percentageRefundable: number;
+  }[];
 }
 
 /** Context the caller must supply — provenance that isn't in the payload. */
@@ -259,6 +288,7 @@ export function normalizeViatorProduct(
     images: extractImages(raw),
     inclusions: extractIncludedItems(raw["inclusions"]),
     exclusions: extractIncludedItems(raw["exclusions"]),
+    cancellation_policy: extractCancellationPolicy(raw),
   };
 
   return {
@@ -302,6 +332,7 @@ function hashContent(content: TourContent): string {
     content.images,
     content.inclusions,
     content.exclusions,
+    content.cancellation_policy,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -484,6 +515,40 @@ function extractIncludedItems(raw: unknown): TourIncludedItemDTO[] {
     });
   }
   return out;
+}
+
+/**
+ * The product's cancellation policy, from `cancellationPolicy: { type,
+ * description, cancelIfBadWeather, cancelIfInsufficientTravelers,
+ * refundEligibility }`. `null` when `raw["cancellationPolicy"]` is absent or
+ * malformed — not an object, or missing/non-string `type` — since a policy
+ * with no `type` is unusable rather than worth emitting half-populated.
+ */
+function extractCancellationPolicy(
+  raw: ViatorProduct,
+): TourCancellationPolicyDTO | null {
+  const policy = asRecord(raw["cancellationPolicy"]);
+  if (!policy) return null;
+  const type = optionalString(policy["type"]);
+  if (!type) return null;
+  const tiers = Array.isArray(policy["refundEligibility"])
+    ? policy["refundEligibility"]
+    : [];
+  return {
+    type,
+    description: optionalString(policy["description"]),
+    cancelIfBadWeather: policy["cancelIfBadWeather"] === true,
+    cancelIfInsufficientTravelers:
+      policy["cancelIfInsufficientTravelers"] === true,
+    refundTiers: tiers
+      .map(asRecord)
+      .filter((t): t is Record<string, unknown> => t !== undefined)
+      .map((t) => ({
+        dayRangeMin: optionalInteger(t["dayRangeMin"]) ?? 0,
+        dayRangeMax: optionalInteger(t["dayRangeMax"]),
+        percentageRefundable: optionalInteger(t["percentageRefundable"]) ?? 0,
+      })),
+  };
 }
 
 /**

@@ -651,3 +651,73 @@ describe("normalizeViatorProduct — inclusions/exclusions (Task 2)", () => {
     expect(withExclusions.source_hash).not.toBe(base.source_hash);
   });
 });
+
+describe("cancellation policy (Task 3)", () => {
+  const raw = loadJson<ViatorProduct>("viator-product-57189P2.json");
+
+  it("captures type/description/flags/refundTiers from the real fixture's 2-tier policy", () => {
+    const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    expect(tour.cancellation_policy).toEqual({
+      type: "STANDARD",
+      description:
+        "For a full refund, cancel at least 24 hours before the scheduled departure time.",
+      cancelIfBadWeather: false,
+      cancelIfInsufficientTravelers: false,
+      refundTiers: [
+        { dayRangeMin: 1, dayRangeMax: null, percentageRefundable: 100 },
+        { dayRangeMin: 0, dayRangeMax: 1, percentageRefundable: 0 },
+      ],
+    });
+  });
+
+  it("is null when cancellationPolicy is absent from the raw payload", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "CXL1", title: "T" },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.cancellation_policy).toBeNull();
+  });
+
+  it("is null when cancellationPolicy is present but malformed", () => {
+    // Not an object.
+    expect(
+      normalizeViatorProduct(
+        { productCode: "CXL2", title: "T", cancellationPolicy: "STANDARD" },
+        { fetchedAt: FETCHED_AT },
+      ).cancellation_policy,
+    ).toBeNull();
+
+    // Object but missing/non-string `type` — treated as unusable rather than
+    // emitting a half-populated object.
+    expect(
+      normalizeViatorProduct(
+        {
+          productCode: "CXL3",
+          title: "T",
+          cancellationPolicy: {
+            description: "no type here",
+            refundEligibility: [],
+          },
+        },
+        { fetchedAt: FETCHED_AT },
+      ).cancellation_policy,
+    ).toBeNull();
+  });
+
+  it("includes cancellation_policy in the source hash", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const base = normalizeViatorProduct(
+      { productCode: "CXL4", title: "T" },
+      ctx,
+    );
+    const withPolicy = normalizeViatorProduct(
+      {
+        productCode: "CXL4",
+        title: "T",
+        cancellationPolicy: { type: "STANDARD", refundEligibility: [] },
+      },
+      ctx,
+    );
+    expect(withPolicy.source_hash).not.toBe(base.source_hash);
+  });
+});

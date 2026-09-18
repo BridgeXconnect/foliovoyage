@@ -212,6 +212,11 @@ model Tour {
   /// Empty array when absent. Task 2 of the provider-content-capture series.
   inclusions      Json        @default("[]")
   exclusions      Json        @default("[]")
+  /// Cancellation policy (type, refund-by-cutoff tiers, weather/traveler-
+  /// count flags), verbatim from the payload's `cancellationPolicy`
+  /// object. `null` when the product carries none — distinct from an
+  /// empty tier list.
+  cancellationPolicy Json?
   /// Provider destination refs this product is filed under, e.g. `["343"]`
   /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
   /// import linker matches these against curated `City.viatorDestRef` to decide
