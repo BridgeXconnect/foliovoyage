@@ -356,6 +356,8 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
     imageUrl: tour.image_url,
     imageAlt: tour.image_alt,
     images: tour.images as unknown as Prisma.InputJsonValue,
+    inclusions: tour.inclusions as unknown as Prisma.InputJsonValue,
+    exclusions: tour.exclusions as unknown as Prisma.InputJsonValue,
     destinationRefs: tour.destination_refs,
     tags: tour.tags,
     fetchedAt: new Date(tour.fetched_at),

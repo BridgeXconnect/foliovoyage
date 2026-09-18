@@ -517,3 +517,137 @@ describe("normalizeViatorProduct — image gallery (Task 1)", () => {
     expect(a.source_hash).not.toBe(b.source_hash);
   });
 });
+
+describe("normalizeViatorProduct — inclusions/exclusions (Task 2)", () => {
+  it("captures entries using the description key", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "INC1",
+        title: "T",
+        inclusions: [
+          {
+            category: "FOOD_AND_DRINK",
+            categoryDescription: "Food and drink",
+            type: "SNACKS",
+            typeDescription: "Snacks",
+            description: "Snacks",
+          },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.inclusions).toEqual([
+      {
+        category: "FOOD_AND_DRINK",
+        categoryDescription: "Food and drink",
+        type: "SNACKS",
+        typeDescription: "Snacks",
+        description: "Snacks",
+      },
+    ]);
+  });
+
+  it("captures entries using the otherDescription key into the same unified description field", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "INC2",
+        title: "T",
+        exclusions: [
+          {
+            category: "OTHER",
+            categoryDescription: "Other",
+            type: "OTHER",
+            typeDescription: "Other",
+            otherDescription: "Food and drinks, unless specified",
+          },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.exclusions).toEqual([
+      {
+        category: "OTHER",
+        categoryDescription: "Other",
+        type: "OTHER",
+        typeDescription: "Other",
+        description: "Food and drinks, unless specified",
+      },
+    ]);
+  });
+
+  it("concatenates description and otherDescription when both are present on one entry", () => {
+    // The real fixture never exercises this path (only one key is ever set in
+    // the 6 available examples) — synthetic, so a future payload with both set
+    // doesn't silently drop one.
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "INC3",
+        title: "T",
+        inclusions: [
+          {
+            category: "OTHER",
+            categoryDescription: "Other",
+            type: "OTHER",
+            typeDescription: "Other",
+            description: "A",
+            otherDescription: "B",
+          },
+        ],
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.inclusions[0]?.description).toBe("A; B");
+  });
+
+  it("defaults inclusions/exclusions to [] when absent", () => {
+    const tour = normalizeViatorProduct(
+      { productCode: "INC4", title: "T" },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.inclusions).toEqual([]);
+    expect(tour.exclusions).toEqual([]);
+  });
+
+  it("includes inclusions and exclusions in the source hash", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const base = normalizeViatorProduct(
+      { productCode: "INC5", title: "T" },
+      ctx,
+    );
+    const withInclusions = normalizeViatorProduct(
+      {
+        productCode: "INC5",
+        title: "T",
+        inclusions: [
+          {
+            category: "OTHER",
+            categoryDescription: "Other",
+            type: "OTHER",
+            typeDescription: "Other",
+            otherDescription: "Local guide",
+          },
+        ],
+      },
+      ctx,
+    );
+    expect(withInclusions.source_hash).not.toBe(base.source_hash);
+
+    const withExclusions = normalizeViatorProduct(
+      {
+        productCode: "INC5",
+        title: "T",
+        exclusions: [
+          {
+            category: "OTHER",
+            categoryDescription: "Other",
+            type: "OTHER",
+            typeDescription: "Other",
+            otherDescription: "Gratuities",
+          },
+        ],
+      },
+      ctx,
+    );
+    expect(withExclusions.source_hash).not.toBe(base.source_hash);
+  });
+});
