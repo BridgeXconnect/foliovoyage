@@ -1,5 +1,6 @@
 import { Logger } from "@nestjs/common";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
 import type { TourDTO } from "./normalizer";
 
@@ -358,6 +359,10 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
     images: tour.images as unknown as Prisma.InputJsonValue,
     inclusions: tour.inclusions as unknown as Prisma.InputJsonValue,
     exclusions: tour.exclusions as unknown as Prisma.InputJsonValue,
+    cancellationPolicy:
+      tour.cancellation_policy === null
+        ? Prisma.DbNull
+        : (tour.cancellation_policy as unknown as Prisma.InputJsonValue),
     destinationRefs: tour.destination_refs,
     tags: tour.tags,
     fetchedAt: new Date(tour.fetched_at),

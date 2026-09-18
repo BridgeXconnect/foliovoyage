@@ -317,6 +317,7 @@ describe("ImportPipeline data path end-to-end", () => {
       images: [],
       inclusions: [],
       exclusions: [],
+      cancellation_policy: null,
       fetched_at: FETCHED_AT.toISOString(),
       source_hash: "hash",
     });

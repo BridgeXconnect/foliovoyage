@@ -1088,6 +1088,24 @@
       "description": "Gratuities"
     }
   ],
+  "cancellation_policy": {
+    "type": "STANDARD",
+    "description": "For a full refund, cancel at least 24 hours before the scheduled departure time.",
+    "cancelIfBadWeather": false,
+    "cancelIfInsufficientTravelers": false,
+    "refundTiers": [
+      {
+        "dayRangeMin": 1,
+        "dayRangeMax": null,
+        "percentageRefundable": 100
+      },
+      {
+        "dayRangeMin": 0,
+        "dayRangeMax": 1,
+        "percentageRefundable": 0
+      }
+    ]
+  },
   "price_minor": null,
   "currency": null,
   "price_reference_minor": null,
@@ -1095,5 +1113,5 @@
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "350406141f5a66ff5e4abce9564a3e6c4d0ed6aca8b5d508fb58ffb48fb0ac15"
+  "source_hash": "e4fc97205e77b74a4c25b4b30927555834a9b5f659f39dba6144afcc279a1227"
 }
