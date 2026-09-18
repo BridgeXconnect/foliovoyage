@@ -1042,6 +1042,52 @@
       ]
     }
   ],
+  "inclusions": [
+    {
+      "category": "OTHER",
+      "categoryDescription": "Other",
+      "type": "OTHER",
+      "typeDescription": "Other",
+      "description": "Local guide"
+    },
+    {
+      "category": "FOOD_AND_DRINK",
+      "categoryDescription": "Food and drink",
+      "type": "SNACKS",
+      "typeDescription": "Snacks",
+      "description": "Snacks"
+    },
+    {
+      "category": "OTHER",
+      "categoryDescription": "Other",
+      "type": "OTHER",
+      "typeDescription": "Other",
+      "description": "A bottle of water, coffee, or beer"
+    },
+    {
+      "category": "OTHER",
+      "categoryDescription": "Other",
+      "type": "OTHER",
+      "typeDescription": "Other",
+      "description": "Food tasting"
+    }
+  ],
+  "exclusions": [
+    {
+      "category": "OTHER",
+      "categoryDescription": "Other",
+      "type": "OTHER",
+      "typeDescription": "Other",
+      "description": "Food and drinks, unless specified"
+    },
+    {
+      "category": "FEES_AND_TAXES",
+      "categoryDescription": "Fees",
+      "type": "GRATUITIES",
+      "typeDescription": "Gratuities",
+      "description": "Gratuities"
+    }
+  ],
   "price_minor": null,
   "currency": null,
   "price_reference_minor": null,
@@ -1049,5 +1095,5 @@
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "0413749ccbf0cab0eb20be4be98e3f11160c4ad7c9c12f26bf6a27efdcc8902f"
+  "source_hash": "350406141f5a66ff5e4abce9564a3e6c4d0ed6aca8b5d508fb58ffb48fb0ac15"
 }

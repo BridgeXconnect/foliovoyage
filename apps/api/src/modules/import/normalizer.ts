@@ -130,6 +130,18 @@ export interface TourDTO {
    */
   images: TourImageDTO[];
   /**
+   * The product's inclusions checklist, verbatim from the payload's
+   * `inclusions` array — every entry, collapsed to Atlas's own shape (see
+   * {@link TourIncludedItemDTO}). Empty array when the payload carries none.
+   * Part of {@link source_hash}: a change to what's included is a content change.
+   */
+  inclusions: TourIncludedItemDTO[];
+  /**
+   * The product's exclusions checklist, from the payload's `exclusions`
+   * array. Same shape and hashing treatment as {@link inclusions}.
+   */
+  exclusions: TourIncludedItemDTO[];
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -168,6 +180,22 @@ export interface TourImageDTO {
   isCover: boolean;
   /** Every resolution variant the payload lists for this image. */
   variants: { width: number; height: number; url: string }[];
+}
+
+/**
+ * One entry in a tour's inclusions or exclusions checklist. The raw payload
+ * puts the human-readable text under `description` or `otherDescription`
+ * depending on `type` (never, in the fixtures seen, both at once) — Atlas
+ * collapses that into a single {@link description} field rather than
+ * carrying two near-duplicate optional keys.
+ */
+export interface TourIncludedItemDTO {
+  category: string;
+  categoryDescription: string;
+  type: string;
+  typeDescription: string;
+  /** Unified from `description`/`otherDescription`; `null` when neither is set. */
+  description: string | null;
 }
 
 /** Context the caller must supply — provenance that isn't in the payload. */
@@ -229,6 +257,8 @@ export function normalizeViatorProduct(
     destination_refs: extractDestinationRefs(raw),
     tags: extractTags(raw),
     images: extractImages(raw),
+    inclusions: extractIncludedItems(raw["inclusions"]),
+    exclusions: extractIncludedItems(raw["exclusions"]),
   };
 
   return {
@@ -270,6 +300,8 @@ function hashContent(content: TourContent): string {
     content.destination_refs,
     content.tags,
     content.images,
+    content.inclusions,
+    content.exclusions,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -412,6 +444,43 @@ function extractImages(raw: ViatorProduct): TourImageDTO[] {
       caption: optionalString(record["caption"]),
       isCover: record["isCover"] === true,
       variants,
+    });
+  }
+  return out;
+}
+
+/**
+ * Unifies the payload's two mutually-exclusive text keys (`description` /
+ * `otherDescription`, chosen per `type`) into one field. Both present is not
+ * observed in the fixtures but is handled defensively: concatenated rather
+ * than one silently dropped.
+ */
+function joinDescriptions(a: string | null, b: string | null): string | null {
+  if (a && b) return `${a}; ${b}`;
+  return a ?? b;
+}
+
+/**
+ * One inclusions/exclusions checklist, from either `raw["inclusions"]` or
+ * `raw["exclusions"]` — an array of `{ category, categoryDescription, type,
+ * typeDescription, description? | otherDescription? }`. `[]` when `raw` is
+ * absent or not an array.
+ */
+function extractIncludedItems(raw: unknown): TourIncludedItemDTO[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TourIncludedItemDTO[] = [];
+  for (const entry of raw) {
+    const item = asRecord(entry);
+    if (!item) continue;
+    out.push({
+      category: optionalString(item["category"]) ?? "",
+      categoryDescription: optionalString(item["categoryDescription"]) ?? "",
+      type: optionalString(item["type"]) ?? "",
+      typeDescription: optionalString(item["typeDescription"]) ?? "",
+      description: joinDescriptions(
+        optionalString(item["description"]),
+        optionalString(item["otherDescription"]),
+      ),
     });
   }
   return out;

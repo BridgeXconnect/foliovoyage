@@ -57,7 +57,17 @@ model City {
   /// `Unsupported` because Prisma has no native tsvector type; the generated
   /// expression and GIN index are hand-written in the migration SQL, and the
   /// column is only ever read via raw SQL, never written through Prisma Client.
-  searchVector  Unsupported("tsvector")?
+  /// `@default(dbgenerated(...))` here is a representation fix, not a real
+  /// default: Postgres stores a `GENERATED ALWAYS AS ... STORED` expression in
+  /// the same catalog (`pg_attrdef`) as an ordinary column default, and without
+  /// this annotation Prisma's migrate diff reads that catalog entry as "the
+  /// schema declares no default, drop the DB's one" and emits an invalid
+  /// `ALTER COLUMN ... DROP DEFAULT` (Postgres wants `DROP EXPRESSION` for a
+  /// generated column instead). Declaring the exact expression text here makes
+  /// Prisma see schema and DB as already in sync, so it proposes no statement
+  /// for this column at all — matches the generation expression in
+  /// `20260818184829_add_search_vectors/migration.sql` verbatim.
+  searchVector  Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('english'::regconfig, COALESCE(name, ''::text)), 'A'::\"char\") || setweight(to_tsvector('english'::regconfig, COALESCE(country, ''::text)), 'B'::\"char\"))"))
 
   /// A country+city slug pair uniquely identifies a destination.
   @@unique([countrySlug, slug])
@@ -196,6 +206,12 @@ model Tour {
   /// provider-content-capture series (image gallery / inclusions-exclusions /
   /// cancellation policy / reviews-by-source).
   images          Json        @default("[]")
+  /// Inclusions/exclusions checklist items, verbatim from the payload's
+  /// `inclusions`/`exclusions` arrays. Raw `description`/`otherDescription`
+  /// (used inconsistently per `type`) are collapsed into one `description`.
+  /// Empty array when absent. Task 2 of the provider-content-capture series.
+  inclusions      Json        @default("[]")
+  exclusions      Json        @default("[]")
   /// Provider destination refs this product is filed under, e.g. `["343"]`
   /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
   /// import linker matches these against curated `City.viatorDestRef` to decide
