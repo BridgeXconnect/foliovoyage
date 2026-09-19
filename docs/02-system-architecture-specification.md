@@ -62,7 +62,7 @@ The domain model is the moat — deliberately **richer than the OTA source**.
 | **AffiliateClick** | Append-only click event | references Tour |
 
 ## 1.2 Lifecycles
-- **Tour:** `imported → normalized → deduped(→ linked Experience) → pending_review → approved/rejected → published → refreshed → soft-deleted`.
+- **Tour:** `imported → normalized → deduped(→ linked Experience) → published → refreshed → soft-deleted` (no approval step — BRI-150 canceled; see §12).
 - **Experience:** `draft → enriched → published → featured? → archived`.
 - **Guide:** `draft → in_review → scheduled → published → updated → archived`.
 - **AffiliateClick:** append-only, never mutated.
@@ -121,7 +121,7 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 - **FR-IMPORT-5 (Should):** Deduplicate near-identical tours into a canonical Experience.
 
 ## 2.6 CMS, Admin, Auth
-- **FR-CMS-1 (Must):** Editors approve/reject imported tours and edit enrichment before publishing.
+- **FR-CMS-1 (Must):** Editors can edit Experience enrichment. There is **no per-tour approval step**: imported tours and AI-generated tour copy publish automatically behind an eligibility gate and are quality-checked by a sampled eval harness, not item by item (§12). _(Approve/reject half superseded 2026-09-19 — BRI-120/BRI-154; BRI-150 canceled.)_
 - **FR-CMS-2 (Must):** Editors create/publish/schedule Guides and Collections with SEO metadata.
 - **FR-ADMIN-1 (Must):** Admins view import logs, failed jobs, click/revenue analytics, and re-run imports.
 - **FR-ADMIN-2 (Must):** Admin access is role-gated ([§14.3](#143-authorization-model-rbac)).
@@ -201,7 +201,7 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 |--------|------|---------|
 | POST | `/auth/login` · `/auth/refresh` | JWT issue / rotate |
 | POST | `/imports/run` · GET `/imports[/:id]` · POST `/imports/:id/retry` | Import control |
-| GET | `/admin/tours` · PATCH `/tours/:id` · DELETE `/tours/:id` | Moderation |
+| GET | `/admin/tours` · PATCH `/tours/:id` · DELETE `/tours/:id` | Tour admin (edit/remove; no approval queue) |
 | POST/PATCH | `/experiences[/:id]` | Curate/dedupe |
 | POST/PATCH | `/collections[/:id]` · `/guides[/:id]` | CMS |
 | GET | `/admin/analytics/*` | Clicks, revenue, funnels |
@@ -250,7 +250,7 @@ OTA APIs → Import Workers (queue) → Normalizer → Validator → Enrichment
 1. **Fetch** — paged, rate-limited, ETag/If-Modified-Since; raw payloads to object storage (`raw/{provider}/{date}/{page}.json`) for replay.
 2. **Normalize** — provider → Atlas fields; record `provider`, `provider_tour_id`, `fetched_at`, `source_hash`.
 3. **Validate** — reject/quarantine missing title/price, non-positive price; quarantine surfaced in Admin. **Missing geo is *not* a reject trigger** (corrected per BRI-105/BRI-163): a tour whose start location can't be resolved to coordinates is still published — its linked Experience falls back to the parent City's centroid for its required point (§7.2). Only a *present-but-invalid* coordinate (out of range) is quarantined.
-4. **Enrich** — categories/tags (rules + optional LLM), walking distance from center, best-season, AI summary (queued, human-approved before publish).
+4. **Enrich** — categories/tags (rules + optional LLM), walking distance from center, best-season, AI summary (queued; auto-published behind the eligibility gate + sampled eval harness, §12).
 5. **Deduplicate** — cluster by geo proximity + title similarity + provider → assign canonical Experience (deterministic + reviewable).
 6. **Upsert** — idempotent by `(provider, provider_tour_id)`; update snapshots; soft-delete absent tours.
 7. **Index** — push changed docs to search engine; remove deleted.
@@ -400,21 +400,26 @@ Primary acquisition channel (BG-1). Two products: interactive map (users) + thou
 
 # 12. AI Content Generation
 
-Human-in-the-loop by design.
+Automated, eligibility-gated, and eval-checked — **no per-item human approval**. Quality is controlled at the engine level (eligibility criteria, brand voice, fact-grounding, sampled QA), not the item level. _(Reframed 2026-09-19 — BRI-120/BRI-154; the earlier human-in-the-loop design is superseded.)_
 
 - **Uses:** destination/experience summaries, seasonal notes, tag/category suggestions, dedup similarity assist, quality scoring.
-- **Guardrails:** **human approval before publish** (FR-CMS-1); AI content stored as drafts (`ai_summary`, `status='enriched'`) until promoted; provenance recorded (model, prompt version, generated_at); batched/queued/rate-limited with cost alerts; prompts constrained to provided structured data (never fabricate prices/availability).
+- **Publish path:** an eligibility gate runs **before** generation (BRI-200: rules-first on rating/review count; completeness rules wait on a recrawl decision; emits eligible/ineligible + reason codes, which the page-indexability gate, ST-30 / BRI-142, reads). Eligible tours get AI copy (`ai_summary`) that publishes automatically (`status='published'`) — no draft/approval step and no moderation queue (BRI-150, canceled). Ineligible tours get no AI copy.
+- **Grounding guardrails:** prompts constrained to the provided structured tour data (provider description, duration, inclusions/exclusions, cancellation policy) — never fabricate prices, availability, or cancellation terms.
+- **Provenance + regeneration:** record model, prompt version, `generated_at`, and a **grounding hash** — a hash of only the fields the copy is allowed to state. Regenerate when the grounding hash changes. Do **not** use the full `Tour.source_hash` as the key: it also covers `rating_avg`/`rating_count`, so every new review would trigger regeneration (and a fresh chance to hallucinate) while a price change would not.
+- **Quality backstop:** the sampled eval/QA harness (BRI-201), run **after** generation, replaces per-item editor approval. Deterministic checks run on every generation and are blocking — every number, amount, duration, and cancellation claim in the copy must exist in the source fields, and a failing generation falls back to provider text and retries rather than publishing. A sampled second-model claim check and a golden set run before any prompt/model change catch systematic failures (bad prompt version, tone drift) before they spread across the catalogue.
+- **Ops:** batched/queued/rate-limited with cost alerts.
 - **Model choice:** provider-agnostic `LLMProvider` interface; latest capable model for user-facing content, cheaper/faster model for high-volume assistive tasks; prompt versions tracked for reproducibility.
+- **Scope:** this section covers machine-generated content. Human-authored content (guides, collections) keeps the editorial workflow in §13.1.
 
 ---
 
 # 13. CMS & Admin
 
 ## 13.1 CMS (Editor P-10)
-Tour moderation (approve/reject/edit) · experience enrichment + merge/dedupe + canonical · guides (markdown + embedded cards/map anchors + SEO fields) · collections (build/order/feature) · media (upload/attribute/hero) · scheduling · featured content. Workflow `draft → in_review → scheduled → published → updated → archived`, fully audited; publish triggers cache invalidation + sitemap regen.
+Experience enrichment + merge/dedupe + canonical · guides (markdown + embedded cards/map anchors + SEO fields) · collections (build/order/feature) · media (upload/attribute/hero) · scheduling · featured content. **No tour moderation/approval queue** — AI-generated tour copy publishes automatically behind an eligibility gate and is checked by a sampled eval harness instead (§12; BRI-150 canceled). Workflow `draft → in_review → scheduled → published → updated → archived` applies to **human-authored content only** (guides, collections — FR-CMS-2), fully audited; publish triggers cache invalidation + sitemap regen.
 
 ## 13.2 Admin dashboard (`admin.<domain>`, noindex, auth-gated)
-Overview KPIs · Imports (runs, logs, failed jobs, **re-run**, quarantine) · Tours moderation · Experiences dedupe · Analytics (clicks, top items, search terms incl. zero-result, funnels, CTR) · Affiliates (config, link health, est vs confirmed commission) · Content · Users/roles · Settings (API keys write-only, feature flags). Destructive actions confirm + audit-log.
+Overview KPIs · Imports (runs, logs, failed jobs, **re-run**, quarantine) · Tours (edit/remove; no approval queue) · Experiences dedupe · Analytics (clicks, top items, search terms incl. zero-result, funnels, CTR) · Affiliates (config, link health, est vs confirmed commission) · Content · Users/roles · Settings (API keys write-only, feature flags). Destructive actions confirm + audit-log.
 
 ---
 
@@ -430,7 +435,7 @@ Access in memory/httpOnly cookie; refresh always httpOnly; CSRF protection on co
 | Role | Can |
 |------|-----|
 | `admin` | Everything incl. users, settings, API keys |
-| `editor` | Content: approve tours, enrich, publish; no users/settings |
+| `editor` | Content: enrich, author/publish guides + collections; no users/settings |
 | `viewer` | Read-only admin/analytics |
 Enforced at API layer via guards/decorators; never trust the client; object-level checks where needed.
 
