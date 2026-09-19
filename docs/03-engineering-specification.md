@@ -52,8 +52,8 @@
 | M4 | Affiliate | EP-8 | CTA → `/go/:tourId` logs click → deep-link redirect to OTA |
 | M5 | SEO | EP-9 | Programmatic destination pages with schema + sitemap, indexable |
 | M6 | Scale-out | EP-10, EP-11 | Imports on queue/workers; Redis cache; dedicated search engine |
-| M7 | CMS / Admin | EP-12, EP-13, EP-14 | Editor logs in, moderates imports, enriches, publishes; analytics visible |
-| M8 | Intelligence | EP-15, EP-16, EP-17 | AI summaries (approved), recommendations, trip planner |
+| M7 | CMS / Admin | EP-12, EP-13, EP-14 | Editor logs in, enriches, publishes guides + collections; analytics visible |
+| M8 | Intelligence | EP-15, EP-16, EP-17 | AI summaries (auto-published, eval-checked), recommendations, trip planner |
 | M9 | Hardening | EP-18, EP-19 | Observability, load-tested to budgets, security review passed |
 
 **Blocking dependency:** EP-3 (OTA integration) is blocked by [Open Question #1](02-system-architecture-specification.md#e-open-technical-questions) — pick + get affiliate-program/API approval for the launch OTA before M1.
@@ -265,9 +265,9 @@ _Goal: operate at scale. New concept: auth/RBAC + dashboards._
   - AC: Email+password (Argon2id), JWT access (15 min) + rotating refresh (httpOnly); `admin/editor/viewer` roles enforced by API guards; login throttling + lockout.
 
 ### EP-13 — CMS
-- **ST-38 (5)** — _As an editor, I want a moderation queue, so that I approve/reject/edit imported tours before they're public._
-  - Traces: FR-CMS-1.
-  - AC: Queue lists pending tours; approve publishes; reject hides; edits to enrichment fields persist + audit-log who/when.
+- **ST-38 (5)** — ~~_As an editor, I want a moderation queue, so that I approve/reject/edit imported tours before they're public._~~ **Canceled 2026-09-19 (BRI-150):** there is no per-tour approval step. AI tour copy publishes automatically behind an eligibility gate and is quality-checked by a sampled eval harness instead (see EP-15, [Architecture §12](02-system-architecture-specification.md#12-ai-content-generation)). Number kept for traceability.
+  - Traces: FR-CMS-1 (approve/reject half superseded).
+  - ~~AC: Queue lists pending tours; approve publishes; reject hides; edits to enrichment fields persist + audit-log who/when.~~
 - **ST-39 (5)** — _As an editor, I want experience enrichment + merge/dedupe, so that the moat data stays high-quality._
   - Traces: FR-CMS-1, FR-IMPORT-5.
   - AC: Editor can edit rating/tags/categories/summaries/flags, merge duplicate experiences, and set the canonical; changes invalidate cache + sitemap.
@@ -280,17 +280,18 @@ _Goal: operate at scale. New concept: auth/RBAC + dashboards._
   - Traces: FR-ADMIN-1, FR-ANALYTICS-1.
   - AC: Dashboard shows import runs/failures with **re-run**, click volume over time, top experiences/cities, search terms incl. **zero-result**, CTR, and estimated vs confirmed commission.
 
-**M7 exit:** editor logs in, moderates, enriches, publishes; analytics visible.
+**M7 exit:** editor logs in, enriches, publishes guides + collections; analytics visible.
 
 ---
 
 ## M8 — Intelligence
 _Goal: AI + planning. New concept: LLM integration + routing._
 
-### EP-15 — AI content (human-in-the-loop)
-- **ST-42 (5)** — _As an editor, I want AI-generated summaries as drafts, so that I enrich faster without losing control._
+### EP-15 — AI content engine (automated, eligibility-gated, eval-checked)
+- **ST-42 (5)** — _As the business, I want AI-generated tour copy published automatically once a tour clears an eligibility gate, so that the catalogue scales without a human reviewing every item._
   - Traces: FR-CMS-1 (AI), Architecture §12.
-  - AC: Enrichment generates `ai_summary` as `status='enriched'` draft with provenance (model, prompt version, ts); **nothing publishes without editor approval**; prompts constrained to provided data (no fabricated prices/availability); cost alerts wired.
+  - AC: Enrichment generates `ai_summary` with provenance (model, prompt version, ts, **grounding hash**) and publishes automatically (`status='published'`) once the eligibility gate passes — **no draft/approval step**; prompts constrained to provided structured data (no fabricated prices/availability/cancellation terms); regenerates when the grounding hash changes (not the full `source_hash`, which includes ratings); deterministic fact-checks run on 100% of generations and block publish on failure (fall back to provider text, retry); a sampled share of published copy is checked by the eval harness; cost alerts wired.
+  - Requires two sibling stories, tracked in Linear without ST numbers yet: BRI-200 (eligibility gate, runs before generation) and BRI-201 (sampled eval/QA harness, runs after).
 
 ### EP-16 — Recommendations
 - **ST-43 (3)** — _As a traveler, I want "similar experiences", so that I keep discovering._
@@ -308,7 +309,7 @@ _Goal: AI + planning. New concept: LLM integration + routing._
   - Traces: FR-DEST-5, FR-MAP-4, TD-12.
   - AC: The agent draws curated stops on the 3D map and orders them; suggestions for **uncovered** cities render behind the **provenance wall** (distinct marker, "not vetted" label, **no affiliate CTA**); prompts constrained to provided data (no fabricated prices/availability, per §12/EP-15); uncovered cities logged as curation demand signals.
 
-**M8 exit:** approved AI summaries, recommendations, working trip planner.
+**M8 exit:** auto-published, eval-checked AI summaries, recommendations, working trip planner.
 
 ---
 
@@ -343,7 +344,7 @@ Every `FR-*` maps to at least one story (upward: story → FR → `BG-*`). Cover
 | FR-DEST-3 | ST-11, ST-17 | FR-IMPORT-3 | ST-9 |
 | FR-DEST-4 | ST-18 | FR-IMPORT-4 | ST-41 |
 | FR-DEST-5 | ST-45 | FR-IMPORT-5 | ST-12, ST-34, ST-39 |
-| FR-SRCH-1 | ST-13, ST-36 | FR-CMS-1 | ST-38, ST-39, ST-42 |
+| FR-SRCH-1 | ST-13, ST-36 | FR-CMS-1 | ST-39, ST-42 _(ST-38 canceled)_ |
 | FR-SRCH-2 | ST-16 | FR-CMS-2 | ST-40 |
 | FR-SRCH-3 | ST-14 | FR-ADMIN-1 | ST-41 |
 | FR-SRCH-4 | ST-15 | FR-ADMIN-2 | ST-37 |

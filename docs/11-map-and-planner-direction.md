@@ -140,8 +140,8 @@ those suggestions must be **visually and legally distinct** from curated content
 | Editorial guarantee | yes | none (draft-to-research only) |
 
 This mirrors the `08` voice rule (don't overclaim) one layer up, and reuses the `02 §12` /
-`EP-15` AI guardrails (human-in-the-loop, provenance recorded, prompts constrained to provided
-data, never fabricate prices/availability).
+`EP-15` AI guardrails (provenance recorded, prompts constrained to provided data, never fabricate
+prices/availability; no per-item human review, per the 2026-09-19 reframe).
 
 **Upside:** every uncovered city the agent is asked about is a **curation demand signal** —
 telling us what to curate next (feeds `BG-3`, the dataset moat).
