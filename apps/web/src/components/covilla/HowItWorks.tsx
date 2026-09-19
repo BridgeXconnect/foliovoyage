@@ -10,7 +10,7 @@ import { IMG } from "@/data/media";
 const steps = [
   {
     title: "Pick a destination",
-    body: "Start with a Folio Voyage city guide. Each one is written by hand around the experiences genuinely worth your time — landmarks, neighbourhoods, meals, and day trips.",
+    body: "Start with a Folio Voyage city guide. Each one is built around the experiences genuinely worth your time — landmarks, neighbourhoods, meals, and day trips.",
   },
   {
     title: "Shortlist the experiences",
@@ -18,7 +18,7 @@ const steps = [
   },
   {
     title: "Book with confidence",
-    body: "As partner programs go live, book vetted operators directly through disclosed links — at no extra cost to you. Until then, every recommendation stands on its own.",
+    body: "As partner programs go live, book operators directly through disclosed links — at no extra cost to you. Until then, every recommendation stands on its own.",
   },
   {
     title: "Travel, then tell us",

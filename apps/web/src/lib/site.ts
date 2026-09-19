@@ -46,7 +46,7 @@ export const site = {
   name: "Folio Voyage",
   tagline: "A curated travel folio",
   description:
-    "Folio Voyage is a hand-picked travel folio — original city guides and vetted tours and experiences across the world's most rewarding destinations.",
+    "Folio Voyage is a hand-picked travel folio — original city guides and tours and experiences across the world's most rewarding destinations.",
   url: resolveSiteUrl(),
   email: "hello@foliovoyage.com",
   partnersEmail: "partners@foliovoyage.com",

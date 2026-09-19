@@ -37,8 +37,8 @@ export function SiteFooter() {
         <div className="max-w-xs">
           <Wordmark />
           <p className="mt-4 text-[14px] leading-6 text-muted">
-            A hand-picked travel folio — original city guides and vetted tours
-            and experiences worth taking.
+            A hand-picked travel folio — original city guides and tours and
+            experiences worth taking.
           </p>
           <p className="mt-4 text-[13px] text-muted">
             Reader-supported. We may earn a commission from partner links —{" "}

@@ -8,12 +8,12 @@ const features = [
   {
     icon: Compass,
     title: "Hands-on curation",
-    body: "Every guide is researched and written by hand — considered picks, not an endless list to wade through.",
+    body: "Considered picks, not an endless list to wade through.",
   },
   {
     icon: Sparkles,
     title: "Only what's worth it",
-    body: "We vet operators and cut the filler, so each experience we feature earns its place on the page.",
+    body: "We cut the filler, so each experience we feature earns its place on the page.",
   },
   {
     icon: Wallet,
@@ -39,9 +39,8 @@ export function BenefitsSection() {
           </h2>
           <p className="mt-5 max-w-lg text-[17px] leading-8 text-ink-soft">
             Folio Voyage is a hand-picked collection of the world&apos;s most
-            rewarding tours and experiences. We do the research, vet every
-            operator, and bring you only the trips worth taking — so you can
-            plan less and travel more.
+            rewarding tours and experiences. We do the research and bring you
+            only the trips worth taking — so you can plan less and travel more.
           </p>
           <Link
             href="/destinations"

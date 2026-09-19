@@ -44,7 +44,7 @@ Add a new `Destination` object to the `destinations` array in `src/data/destinat
 
 Write to `docs/08`. In particular:
 
-- Claim **curation and judgment**, not manual keystrokes. "Researched and vetted", "checked", "hand-picked" — never "written by hand".
+- Claim **curation and judgment**, not manual keystrokes. "hand-picked" — never "written by hand".
 - **One em dash per paragraph, maximum.** Use a comma or full stop otherwise.
 - No banned constructions: "it's not just X — it's Y", "whether you're X or Y", "come for X, stay for Y", stacked intensifiers ("truly", "genuinely", "unforgettable"), or generic travel clichés ("hidden gem", "bustling", "must-see").
 - Prefer specific, checkable detail (a price, a street, an opening time, a dish) over abstract praise. Blunt opinions are welcome.

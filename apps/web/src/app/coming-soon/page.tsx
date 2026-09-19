@@ -41,8 +41,7 @@ export default async function ComingSoonPage({
 
         <p className="mt-6 max-w-md text-[1.05rem] leading-relaxed text-muted">
           {site.name} is a hand-picked travel folio — original city guides and
-          vetted experiences across the world&apos;s most rewarding
-          destinations. We&apos;re putting the finishing touches on it.
+          experiences across the world&apos;s most rewarding destinations. We&apos;re putting the finishing touches on it.
         </p>
 
         <p className="mt-8 text-sm text-muted">
