@@ -19,6 +19,13 @@ import { ImportRunService } from "./import-run.service";
  *
  *   pnpm --filter @folio/api import:run
  *
+ * `import:run` builds first and runs the compiled `dist/` output rather than
+ * using `ts-node`, on purpose: {@link import("./segment-runner").NodeSegmentRunner} spawns each segment as
+ * a plain `node` child pointed at the sibling `segment-worker.cli.js`, which
+ * only exists once compiled (and a plain `node` child has no `ts-node`
+ * loader). Run under `ts-node`, the child dies with MODULE_NOT_FOUND and the
+ * run is recorded as failed with nothing fetched.
+ *
  * Set `IMPORT_CRON_ENABLED=false` for the invocation if you don't also want the
  * nightly job registered in the short-lived context.
  */

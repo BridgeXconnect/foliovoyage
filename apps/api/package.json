@@ -16,7 +16,7 @@
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "import:run": "ts-node src/modules/import/trigger-import.cli.ts",
+    "import:run": "pnpm build && node dist/modules/import/trigger-import.cli.js",
     "experience:promote": "ts-node src/modules/import/promote-experience.cli.ts",
     "research:hub": "ts-node src/modules/research/research.cli.ts",
     "tour-copy:run": "ts-node src/modules/content/tour-copy.cli.ts",

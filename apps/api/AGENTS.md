@@ -30,7 +30,7 @@ pnpm --filter @folio/api exec prisma generate        # regenerate client (also r
 pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 
 # Import CLIs
-pnpm --filter @folio/api import:run                  # manually trigger an import run
+pnpm --filter @folio/api import:run                  # manually trigger an import run (builds first: the segment worker is spawned from dist/, not ts-node)
 pnpm --filter @folio/api experience:promote <id>      # promote one draft Experience to published by id (manual; the automatic path is ExperienceAutoPromoter, below)
 
 # One off sweeps over the real DB (not in package.json; always via Doppler, both take --dry-run)
