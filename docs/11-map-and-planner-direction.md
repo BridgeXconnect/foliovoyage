@@ -136,7 +136,6 @@ those suggestions must be **visually and legally distinct** from curated content
 | Marker style | branded / primary | clearly different |
 | Label | — | "Suggested by AI — not yet vetted by Folio" |
 | Affiliate CTA | yes | **no** |
-| Editorial guarantee | yes | none (draft-to-research only) |
 
 This mirrors the `08` voice rule (don't overclaim) one layer up, and reuses the `02 §12` /
 `EP-15` AI guardrails (provenance recorded, prompts constrained to provided data, never fabricate
