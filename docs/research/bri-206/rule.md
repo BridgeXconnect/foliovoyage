@@ -63,7 +63,22 @@ The classifier reads this block. Keep it valid JSON.
       "kkday.com",
       "trip.com",
       "airbnb.com",
-      "musement.com"
+      "musement.com",
+      "withlocals.com",
+      "takemetour.com",
+      "guruwalk.com",
+      "expresstickets.shop",
+      "activities.marriott.com",
+      "audleytravel.com",
+      "intrepidtravel.com",
+      "urbanadventures.com",
+      "city-sightseeing.com",
+      "thomascook.in",
+      "bangkok-floating-market-tour.com",
+      "neweuropetours.eu",
+      "thethaitourism.com",
+      "thailandhighlights.com",
+      "enchantingtravels.com"
     ],
     "exceptPaths": {
       "tripadvisor.com": ["/ShowTopic", "/Trip"]
@@ -100,7 +115,9 @@ The classifier reads this block. Keep it valid JSON.
       "forbes.com",
       "wikipedia.org",
       "wikivoyage.org",
-      "britannica.com"
+      "britannica.com",
+      "royalgrandpalace.th",
+      "travel.usnews.com"
     ],
     "suffixes": [".gov"],
     "firstLabelPrefixes": ["visit", "tourism"]
@@ -113,3 +130,47 @@ The classifier reads this block. Keep it valid JSON.
 | Date | Change | Domains moved | By |
 | --- | --- | --- | --- |
 | 2026-09-20 | Rule fixed before any results page was fetched. | none | Written by Claude Code from spec 0002, which Roy's instructions of 2026-09-20 name as the signed off rule |
+| 2026-09-20 | First use of "Allowed change after data arrives", after the Bangkok pull. All 33 domains in `unlisted-domains.csv` were reviewed. 17 moved out of small site, 16 stayed. Each is listed below. | 15 to class 1, 2 to class 3 | Roy asked for the full review. Claude Code judged each domain from the site's own about or footer page. Roy has not reviewed the individual calls. |
+
+### Review of 2026-09-20 (Bangkok unlisted domains)
+
+The test applied to each domain: does it clearly belong to class 1, 2 or 3? A site that sells or lists bookable experiences, and is run as a brand across many destinations or by many guides, is class 1. A single local business is not moved, because class 4 names "local operators" and a lone hotel or a lone local tour firm can be beaten by another small site. A domain that fits no class clearly is not moved. Nothing was moved into small site.
+
+Moved to class 1 (marketplace), 15 domains:
+
+| Domain | Why |
+| --- | --- |
+| `withlocals.com` | Platform that books tours from many local guides |
+| `takemetour.com` | Platform that books tours from many local guides across Thailand and Southeast Asia |
+| `guruwalk.com` | Platform that books tours from local guides in hundreds of destinations |
+| `expresstickets.shop` | Ticket reseller that lists attraction tickets and sends buyers to booking partners |
+| `activities.marriott.com` | Hotel brand booking engine for activities |
+| `audleytravel.com` | Established multi country tour operator |
+| `intrepidtravel.com` | Established multi country tour operator |
+| `urbanadventures.com` | Established multi city day tour brand |
+| `city-sightseeing.com` | Established multi city sightseeing tour brand |
+| `thomascook.in` | Established travel company that sells tours |
+| `bangkok-floating-market-tour.com` | Footer says it is crafted by Headout, which is already listed as a marketplace |
+| `neweuropetours.eu` | SANDEMANs Tours, an established multi city tour company |
+| `thethaitourism.com` | Booking aggregator for attractions, hotels, flights and transfers across Thai destinations |
+| `thailandhighlights.com` | Tour company that is part of a larger travel group, in business since 1998 |
+| `enchantingtravels.com` | Established multi country tour operator |
+
+Moved to class 3 (big publisher), 2 domains:
+
+| Domain | Why |
+| --- | --- |
+| `royalgrandpalace.th` | Official site of the Grand Palace, run by the Bureau of the Royal Household |
+| `travel.usnews.com` | Travel section of U.S. News, an established media brand |
+
+Reviewed and left as small site, 16 domains:
+
+| Domain | Why |
+| --- | --- |
+| `dancarndt.wordpress.com`, `goingthewholehogg.com`, `thescribsandnibs.com`, `littlegreybox.net`, `loveandroad.com`, `northabroad.com`, `onestep4ward.com`, `worldtravelfamily.com`, `tripwis.com`, `wheretogoin.net` | Personal or independent travel blogs |
+| `bangkokbeyond.com` | Local tour operator based in Bangkok |
+| `riverkwairesotel.net`, `solitairebangkok.com`, `viehotelbangkok.com` | Single hotel sites, not booking engines for a chain |
+| `citiesonfoot.com` | Platform for user made walking routes. Does not sell bookable tours and fits no class clearly |
+| `gpsmycity.com` | Self guided walking tour app. Does not sell bookable tours and fits no class clearly |
+
+Domains are listed exactly as seen in the results, so `activities.marriott.com` and `travel.usnews.com` do not move their parent domains.
