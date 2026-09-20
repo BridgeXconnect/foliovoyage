@@ -27,6 +27,7 @@ import { SpendGuard, toMicros } from "./spend-guard";
 
 export const DATAFORSEO_HOST = "api.dataforseo.com";
 const DATAFORSEO_BASE_URL = `https://${DATAFORSEO_HOST}/v3`;
+const BODY_SNIPPET_CHARS = 200;
 const DATAFORSEO_OK = 20000;
 
 export class MissingCredentialsError extends Error {
@@ -253,11 +254,24 @@ export class SearchProviderClient {
 
     if (!res.ok) {
       throw new ProviderError(
-        `${input.endpoint} failed with HTTP ${res.status}. Not retried.`,
+        this.#redact(
+          `${input.endpoint} failed with HTTP ${res.status}${await this.#bodySnippet(res)}. Not retried.`,
+          auth,
+        ),
         input.endpoint,
       );
     }
     return res.text();
+  }
+
+  /** The first bit of an error reply, so a bare status code still says why. Empty if there is nothing to show. */
+  async #bodySnippet(res: Response): Promise<string> {
+    try {
+      const text = (await res.text()).replace(/\s+/g, " ").trim();
+      return text === "" ? "" : ` (reply: ${text.slice(0, BODY_SNIPPET_CHARS)})`;
+    } catch {
+      return "";
+    }
   }
 
   #parse(text: string, endpoint: string): ProviderResponse {
@@ -288,12 +302,12 @@ export class SearchProviderClient {
     return undefined;
   }
 
-  #redact(message: string): string {
-    return message
-      .split(this.#login)
-      .join("[redacted]")
-      .split(this.#password)
-      .join("[redacted]");
+  #redact(message: string, ...also: string[]): string {
+    // Longest values first, so a short login inside the encoded value can't leave fragments of it behind.
+    return [...also, this.#login, this.#password].reduce(
+      (text, secret) => text.split(secret).join("[redacted]"),
+      message,
+    );
   }
 
   #cacheFile(cacheKey: string): string {

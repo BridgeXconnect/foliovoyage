@@ -325,6 +325,36 @@ describe("SearchProviderClient", () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 
+    it("includes the start of an error reply so a bare status code says why", async () => {
+      const fetchImpl = jest.fn<FetchLike>().mockResolvedValue(reply("Access  denied\nby edge", 403));
+      const { client } = build({ execute: true, fetchImpl });
+      await expect(client.request(serp())).rejects.toThrow(/HTTP 403 \(reply: Access denied by edge\)/);
+      expect(ledgerText()).toBe("");
+      expect(cacheFiles()).toEqual([]);
+    });
+
+    it("cuts a long error reply to 200 characters", async () => {
+      const fetchImpl = jest.fn<FetchLike>().mockResolvedValue(reply("x".repeat(500), 403));
+      const { client } = build({ execute: true, fetchImpl });
+      const error = await client.request(serp()).catch((e: unknown) => e as Error);
+      expect((error as Error).message).toContain(`(reply: ${"x".repeat(200)})`);
+      expect((error as Error).message).not.toContain("x".repeat(201));
+    });
+
+    it("redacts credentials and the encoded Authorization value if an error reply echoes them", async () => {
+      const encoded = Buffer.from(`${LOGIN}:${PASSWORD}`).toString("base64");
+      const fetchImpl = jest
+        .fn<FetchLike>()
+        .mockResolvedValue(reply(`bad ${LOGIN} ${PASSWORD} Basic ${encoded}`, 403));
+      const { client } = build({ execute: true, fetchImpl });
+      const error = await client.request(serp()).catch((e: unknown) => e as Error);
+      const message = (error as Error).message;
+      expect(message).toContain("[redacted]");
+      expect(message).not.toContain(LOGIN);
+      expect(message).not.toContain(PASSWORD);
+      expect(message).not.toContain(encoded);
+    });
+
     it("stops on a corrupt cache entry instead of paying to replace it", async () => {
       const fetchImpl = jest.fn<FetchLike>();
       const { client } = build({ execute: true, fetchImpl });
