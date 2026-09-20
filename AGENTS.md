@@ -95,6 +95,7 @@ doppler run -- pnpm dev            # web (:3000) + api (:3001) via Turbo, watch 
 pnpm build                         # build every workspace
 pnpm lint                          # lint every workspace
 pnpm typecheck                     # typecheck every workspace
+pnpm turbo run test                # run every workspace's jest tests (CI runs this too)
 
 doppler run -- pnpm --filter @folio/web dev   # run a single app, see apps/web/AGENTS.md
 doppler run -- pnpm --filter @folio/api dev   # see apps/api/AGENTS.md
