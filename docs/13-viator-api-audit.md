@@ -10,6 +10,10 @@
 > `/products/bulk` vs `/products/modified-since` policy contradiction, the
 > `/availability/schedules/bulk` price-fetch win, and the missing request
 > timeouts. See `docs/06` for the current pipeline shape.
+>
+> **Addendum, 2026-09-20:** the last section of this file, "Addendum: the
+> attractions no index note", records what Viator's docs say about indexing pages
+> built from `/attractions/*` data. It is separate from the ingestion audit above.
 
 **Date:** 2026-08-18
 **Scope:** Every file in `apps/api/src/modules/import/` × the real, live Viator Partner API docs (fetched directly from `docs.viator.com/partner-api/technical/` this session — a JS-rendered Redoc page; `WebFetch` returns only the SPA shell, so this was done via a live browser render, not training-data recall).
@@ -139,3 +143,74 @@ This note lives in the general "Conventions" section (worded as "calls to this A
 - **`import.pipeline.ts` and `viator.client.ts` were not rewritten.** The `/products/bulk` fetch-model question is genuinely unresolved by Viator's own documentation (see headline finding) — implementing either interpretation without resolving the contradiction would repeat the exact failure mode (building against assumption) that this audit exists to correct.
 - **No `confirmationType` filter, `status` gate, or timeout was added.** Each is flagged above as its own scoped, independently-decidable item, per the instruction not to bundle a real rewrite into this pass.
 - **Linear was not touched**, per instruction — this doc is the handoff; Roy will translate into issues.
+
+---
+
+## Addendum: the attractions no index note
+
+**Date:** 2026-09-20
+**Trigger:** BRI-206 (hub page validation) pulls Viator attractions and tags per curated city. Before any page type built on `/attractions/*` data is designed under BRI-205, this records exactly what Viator's docs say about indexing such pages.
+**Source:** the current published v2 docs at `docs.viator.com/partner-api/technical/`, read on 2026-09-20 from the raw page (the page is JS rendered, so the embedded endpoint text was parsed directly, as with the audit above). The older affiliate docs at `docs.viator.com/partner-api/affiliate/technical/` were read for the legacy endpoints.
+
+This section records what the docs say and what they leave open. It does not settle the open part. Viator has to answer that.
+
+### The note, quoted exactly
+
+Both `POST /attractions/search` and `GET /attractions/{attraction-id}` carry the same note:
+
+> "Pages generated using data from this endpoint are subject to a strict no-index policy. You must ensure that your site is configured such that **no Viator Unique Content is indexed by any search engine**. This is a requirement for site certification. For more information, see Key concepts – Protecting unique content. If you are unsure about whether you are correctly following this rule or if you would like to take advantage of our unique content, please reach out to our support team."
+
+`/attractions/search` also says: "Attractions should be cached and refreshed weekly."
+
+### What "Protecting unique content" actually names
+
+The cross reference points at one section. It says the content that must be protected "comprises" two things, and only two:
+
+1. **Product reviews**: "all review text (from any provider) as obtained via the `/reviews/product` endpoint; and, that in the `reviews` element in the product content response."
+2. **Viator unique content**: "all data in all elements within the `viatorUniqueContent` element in the product content response."
+
+Attractions are not in that list. Both items are defined by fields of the product content response, not the attractions response.
+
+The section also says how to protect the content. A `noindex` tag is not what it asks for. The protected content must "never" appear in the page source, HTML or JavaScript. It has to be loaded by an external script that `robots.txt` blocks, and the section gives a View Source check for it.
+
+### What the attraction response contains
+
+From the endpoint schema and from our saved Bangkok response, an attraction has these fields:
+
+- Ordinary fields: `attractionId`, `name`, `destinations`, `productCount`, `productCodes`, `images`, `openingHours`, `center`, `address`, `attractionUrl`, `freeAttraction`, `translationInfo`.
+- `reviews`: a summary only (`combinedAverageRating`, `totalReviews`, `reviewCountTotals`, `sources`). No review text. The schema gives it no no index note of its own.
+- `viatorUniqueContent`: a separate object holding an `introduction` and an `overview`. It is opt in and carries its own "no Viator Unique Content is indexed" wording.
+
+### What our account receives
+
+The saved Bangkok response (destination 343, `apps/api/research-data/viator/attractions-343.json`, gitignored) holds **86 attractions across 3 pages. None carries `viatorUniqueContent`.** This account does not receive Viator's unique attraction text. Every field we hold is one of the ordinary fields or the `reviews` summary above.
+
+### A historical hint (not a confirmed reading)
+
+The changelogs of the two doc sets each have an entry dated 11 Feb 2022:
+
+- Affiliate (legacy) docs: "Added note about no-index policy to /attraction, /attraction/photos, /attraction/reviews and /search/attractions endpoints." Those notes tell partners to ask their account manager if unsure.
+- Current technical docs: "Removed note about no-index policy from /v1/attraction/products endpoint."
+
+Read together, this could suggest that Viator meant the restriction for attraction level data, and chose to lift it from the product listing under an attraction. This is only a hint. The entries are in different doc sets, they give no reason, and nothing in the current text states it. It should not be relied on.
+
+### The two open readings
+
+The note's wording supports two readings, and the docs do not choose between them:
+
+- **Strict, whole page.** The first sentence is about "Pages generated using data from this endpoint". Read plainly, any page built from `/attractions/*` data is subject to the no index policy, including its names, `productCount`, product mappings and anything ranked or counted from them. A hub page built this way could exist but could not be indexed.
+- **Narrow, unique content only.** The second sentence and the cross reference narrow the requirement to "no Viator Unique Content". By the referenced section that means product review text and `viatorUniqueContent`. A page that leaves those out, and protects the `reviews` element as the section describes, could be indexed.
+
+A third point is also not stated. Whether the `reviews` summary on an attraction (average and counts) counts as the protected `reviews` element is not answered, because the protected definition is written against the product content response.
+
+**This is tracked in BRI-204 as two pending questions to Viator partner support** (questions 4 and 5 there). Question 4 asks whether the policy covers the whole page or only Viator Unique Content. Question 5 asks whether a page using attraction names and product mappings, with no unique content or review text, can be indexed. The `reviews` summary point above is not in BRI-204 yet.
+
+### Current working assumption (unconfirmed)
+
+A page built only from `/products/*` data, with no `/attractions/*` fields on it, is not caught by this note. That is because the note appears on the two attractions endpoints and not on the product endpoints. Product content has its own protected fields (`reviews`, `viatorUniqueContent`), and those still have to be kept out of the page source. **Viator has not confirmed this.** It is an inference from where the note is placed, so do not treat it as approval when designing a page.
+
+### Effect on BRI-206 and BRI-205
+
+- Nothing built so far is affected. The research stages only read `/attractions/search` and `/products/tags` for candidate queries and generate no pages.
+- The Attraction query family is Skip under the corrected Bangkok data (0 of 5 validated queries open), so this question does not block anything now. It matters again if an Attraction hub page is reconsidered, or if another page type uses `/attractions/*` fields.
+- Until Viator answers, a page type that needs `/attractions/*` data should be designed as if it might have to be no index.

@@ -34,6 +34,17 @@ describe("estimateRequest", () => {
     expect(() => estimateRequest("appendix/user_data", [{}])).toThrow(UnknownEndpointError);
   });
 
+  it("refuses more than one SERP task in a request, since Live SERP takes one", () => {
+    const two = [{ keyword: "rome food tour" }, { keyword: "rome day trips" }];
+    expect(() => estimateRequest(SERP_ORGANIC_ENDPOINT, two)).toThrow(InvalidRequestError);
+    expect(() => estimateRequest(SERP_ORGANIC_ENDPOINT, two)).toThrow(/one task per request/);
+  });
+
+  it("still accepts many Keyword Overview tasks in one request", () => {
+    const tasks = [{ keywords: ["a"] }, { keywords: ["b", "c"] }];
+    expect(estimateRequest(KEYWORD_OVERVIEW_ENDPOINT, tasks).keywords).toBe(3);
+  });
+
   it("refuses a request it cannot price instead of guessing", () => {
     expect(() => estimateRequest(SERP_ORGANIC_ENDPOINT, [])).toThrow(InvalidRequestError);
     expect(() => estimateRequest(SERP_ORGANIC_ENDPOINT, [{ keyword: "" }])).toThrow(InvalidRequestError);

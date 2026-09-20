@@ -123,6 +123,64 @@ describe("SpendGuard", () => {
     expect(() => g.check(0.006)).toThrow(SpendRefusedError);
   });
 
+  describe("total budget", () => {
+    const budgeted = (totalBudgetUsd: number | undefined, runCapUsd = 1) =>
+      new SpendGuard({
+        ledger,
+        runCapUsd,
+        ...(totalBudgetUsd === undefined ? {} : { totalBudgetUsd }),
+        now: () => NOW,
+      });
+
+    it("holds across separate runs, which each start their run total at zero", () => {
+      const first = budgeted(0.6);
+      first.record(line({ cost: 0.55 }));
+      // A second process: its run total is zero, but the ledger remembers the first.
+      const second = budgeted(0.6);
+      expect(second.runSpentUsd).toBe(0);
+      let error: unknown;
+      try {
+        second.check(0.06);
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(SpendRefusedError);
+      expect((error as SpendRefusedError).reason).toBe("total_budget");
+      expect((error as Error).message).toContain("Nothing was spent");
+      expect(() => second.check(0.05)).not.toThrow();
+    });
+
+    it("counts spend from earlier months, unlike the month ceiling", () => {
+      ledger.append(line({ cost: 0.5, ts: "2026-08-01T00:00:00.000Z" }));
+      const g = budgeted(0.6);
+      expect(g.monthSpentUsd()).toBe(0);
+      expect(() => g.check(0.11)).toThrow(SpendRefusedError);
+      expect(() => g.check(0.1)).not.toThrow();
+    });
+
+    it("includes dry run estimates already counted", () => {
+      const g = budgeted(0.1);
+      g.check(0.06);
+      g.plan(0.06);
+      expect(() => g.check(0.05)).toThrow(SpendRefusedError);
+    });
+
+    it("reports what is left of the budget from the whole ledger", () => {
+      ledger.append(line({ cost: 0.25 }));
+      expect(budgeted(0.6).totalBudgetLeftUsd()).toBeCloseTo(0.35, 9);
+      expect(budgeted(undefined).totalBudgetLeftUsd()).toBeUndefined();
+    });
+
+    it("enforces nothing when no budget is set", () => {
+      ledger.append(line({ cost: 10 }));
+      expect(() => budgeted(undefined, 5).check(1)).not.toThrow();
+    });
+
+    it.each([0, -1, Number.NaN])("rejects %p instead of loosening the budget", (bad) => {
+      expect(() => budgeted(bad)).toThrow(/HUB_RESEARCH_BUDGET_USD/);
+    });
+  });
+
   it("refuses a negative or non finite estimate", () => {
     expect(() => guard(1).check(-0.01)).toThrow(/non negative/);
     expect(() => guard(1).check(Number.NaN)).toThrow(/non negative/);

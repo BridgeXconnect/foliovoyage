@@ -271,6 +271,14 @@ export const envSchema = z.object({
    * past the hard maximum.
    */
   HUB_RESEARCH_MAX_USD: z.coerce.number().positive().optional(),
+
+  /**
+   * Total spend budget in USD for `research:hub`, summed from the whole local
+   * ledger across every run. The per run cap restarts at zero in each process,
+   * so this is the limit that holds across stages. Unset means no total budget.
+   * Set it under the provider account balance, which the ledger cannot see.
+   */
+  HUB_RESEARCH_BUDGET_USD: z.coerce.number().positive().optional(),
 });
 
 /** Fully-parsed, typed environment. */
