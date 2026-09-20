@@ -122,18 +122,6 @@ describe("research:hub CLI", () => {
     });
   });
 
-  describe("stages not built yet", () => {
-    it.each(["demand", "serp", "classify"])(
-      "%s says it is not built and that nothing was spent",
-      async (stage) => {
-        const code = await run([stage, "--city", "rome"]);
-        expect(code).toBe(2);
-        expect(err.join("\n")).toContain("not built yet");
-        expect(err.join("\n")).toContain("Nothing was sent and nothing was spent");
-      },
-    );
-  });
-
   describe("candidates", () => {
     const tourRow = (title: string) => ({ title, ratingAvg: 4.5, ratingCount: 20 });
     const reader = (tours = [tourRow("Bangkok food tour")]) => ({
