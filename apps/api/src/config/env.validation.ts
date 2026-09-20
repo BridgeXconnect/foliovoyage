@@ -251,6 +251,26 @@ export const envSchema = z.object({
    * leaked. Defaults to a dev-only value; **override in every real environment**.
    */
   IP_HASH_SALT: z.string().min(1).default("dev-ip-hash-salt"),
+
+  // --- Hub page research CLI (BRI-206) -------------------------------------
+  // Read only by `research:hub` (src/modules/research/). All optional so a
+  // deployment that never runs the CLI (Railway) boots without them.
+
+  /**
+   * DataForSEO API login (the API credentials page, not the account
+   * password). Secret — Doppler `dev` only, never `prd`.
+   */
+  DATAFORSEO_LOGIN: z.string().min(1).optional(),
+
+  /** DataForSEO API password. Secret — Doppler `dev` only, never `prd`. */
+  DATAFORSEO_PASSWORD: z.string().min(1).optional(),
+
+  /**
+   * Per run spend cap in USD for `research:hub`. Defaults to 1. The CLI clamps
+   * anything above 5 down to 5 in code, so a typo here cannot raise the cap
+   * past the hard maximum.
+   */
+  HUB_RESEARCH_MAX_USD: z.coerce.number().positive().optional(),
 });
 
 /** Fully-parsed, typed environment. */

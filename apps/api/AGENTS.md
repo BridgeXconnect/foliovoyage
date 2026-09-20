@@ -31,7 +31,11 @@ pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 
 # Import CLIs
 pnpm --filter @folio/api import:run                  # manually trigger an import run
-pnpm --filter @folio/api experience:promote <id>      # promote a draft Experience to published (manual stand-in for the M7 admin review surface)
+pnpm --filter @folio/api experience:promote <id>      # promote one draft Experience to published by id (manual; the automatic path is ExperienceAutoPromoter, below)
+
+# One off sweeps over the real DB (not in package.json; always via Doppler, both take --dry-run)
+doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/backfill-reference-price.cli.ts   # fill Tour.priceReferenceMinor for rows ingested before it existed
+doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/promote-eligible.cli.ts            # promote every draft Experience that is now eligible
 ```
 
 ## Deployment — Railway
@@ -89,8 +93,8 @@ that env var in Vercel's project settings, not this repo, for the current value.
     this drops everything that isn't (a) one of the curated cities
     (`curated-cities.ts`, exact destination-ref match, 6 cities), (b) `ACTIVE`,
     and (c) instant-confirmation. Applying it here (BRI-170/171) is what keeps
-    the expensive downstream stages running against ~90 curated products, not
-    the whole catalog.
+    the expensive downstream stages running against the curated cities' products
+    only, not the whole catalog.
   - `normalizer.ts` — **pure function**, no DB/network/clock access. Maps a raw
     `ViatorProduct` to `TourDTO`. Ownership boundary: only sets
     provider-sourced fields + provenance (title, rating, `affiliate_url`, etc.)
@@ -105,6 +109,18 @@ that env var in Vercel's project settings, not this repo, for the current value.
     price per product from `/availability/schedules/{code}`, since the detail
     payload the crawl ingests has no price field. Same attach-after-normalize
     shape as the location resolver.
+  - `ExchangeRateResolver` + `ReferencePriceResolver` (`exchange-rate-resolver.ts`,
+    `reference-price.ts`) — convert each product's supplier currency "from" price
+    to a USD reference price (`Tour.priceReferenceMinor`, currency from
+    `PRICE_REFERENCE_CURRENCY`), run per page right after `PriceResolver`. Rates
+    come from Viator's `/exchange-rates` (a **POST**, GET returns 405), cached in
+    `ProviderExchangeRate` until Viator's own `expiry`. Never fabricated: a
+    currency with no resolvable rate leaves the reference price null.
+  - `ExperienceAutoPromoter` (`experience-auto-promoter.ts`) — promotes draft
+    Experiences that are complete (title, description, a linked Tour with an
+    image, an affiliate link and a positive USD reference price) to published;
+    `segment-worker.cli.ts` calls it during each run. It checks completeness
+    only, not quality, so editorial review (M7) is still separate.
   - `TourValidator` (`validator.ts`) then `TourUpsertService` (`upsert.ts`) —
     validate/quarantine, then idempotent per-page upsert; a once-per-run
     `finalizeGuardedSoftDelete` handles soft-deletes behind a mass-deletion
