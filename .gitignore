@@ -38,3 +38,6 @@
 # Turborepo local cache / logs
 .turbo/
 **/.turbo/
+
+# BRI-206 research CLI: raw provider responses, ledger and stage outputs (per machine)
+apps/api/research-data/
