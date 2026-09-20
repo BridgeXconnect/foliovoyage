@@ -159,8 +159,8 @@ Notation: `→` = user-visible step. Each journey references requirements define
 /experiences                         Browse experiences
 /experiences/:slug                   Experience detail (aggregates tours)
 /tours/:slug                         Single OTA tour detail
-/collections  /collections/:slug     Curated collections
-/guides       /guides/:slug          Editorial guides (SEO)
+/collections  /collections/:slug     Curated collections (generated, rule-curated; BRI-152)
+/guides       /guides/:slug          Guides (SEO; generated, BRI-152)
 /trip-planner                        Interactive itinerary builder
 /search                              Results (list + map)
 /map                                 Full-screen map / globe
@@ -233,7 +233,7 @@ Milestones are **deployable at every stage**; each introduces one new backend co
 - **Moat** — durable competitive advantage; here, enriched dataset + map-first UX.
 - **Experience** — Atlas's curated concept for a thing-to-do; may aggregate multiple provider tours.
 - **Tour** — a single bookable OTA offering mapped to an Experience.
-- **Collection** — an editorially curated group of experiences.
+- **Collection** — a curated group of experiences, selected by a deterministic rule and generated, not hand-assembled (BRI-152).
 - **Programmatic SEO** — generating many pages at scale from structured data.
 - **E-E-A-T** — Experience, Expertise, Authoritativeness, Trust (Google quality signals).
 
