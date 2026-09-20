@@ -24,7 +24,7 @@ import { computeReferenceMinor } from "./reference-price";
  *
  * Usage (from the repo root, against the real DB — always via Doppler):
  *
- *   doppler run -- pnpm --filter @folio/api exec tsx src/modules/import/backfill-reference-price.cli.ts [--dry-run]
+ *   doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/backfill-reference-price.cli.ts [--dry-run]
  *
  * `--dry-run` computes and reports the same totals without writing anything.
  */

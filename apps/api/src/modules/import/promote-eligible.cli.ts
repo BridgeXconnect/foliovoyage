@@ -16,7 +16,7 @@ import { ExperienceAutoPromoter } from "./experience-auto-promoter";
  *
  * Usage (from the repo root, against the real DB — always via Doppler):
  *
- *   doppler run -- pnpm --filter @folio/api exec tsx src/modules/import/promote-eligible.cli.ts [--dry-run]
+ *   doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/promote-eligible.cli.ts [--dry-run]
  *
  * `--dry-run` counts what would be promoted without writing anything.
  */
