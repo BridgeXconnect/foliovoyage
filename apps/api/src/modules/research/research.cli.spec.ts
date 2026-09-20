@@ -123,7 +123,7 @@ describe("research:hub CLI", () => {
   });
 
   describe("stages not built yet", () => {
-    it.each(["candidates", "demand", "serp", "classify"])(
+    it.each(["demand", "serp", "classify"])(
       "%s says it is not built and that nothing was spent",
       async (stage) => {
         const code = await run([stage, "--city", "rome"]);
@@ -132,6 +132,68 @@ describe("research:hub CLI", () => {
         expect(err.join("\n")).toContain("Nothing was sent and nothing was spent");
       },
     );
+  });
+
+  describe("candidates", () => {
+    const tourRow = (title: string) => ({ title, ratingAvg: 4.5, ratingCount: 20 });
+    const reader = (tours = [tourRow("Bangkok food tour")]) => ({
+      tagRows: async () => [{ tagId: 1, productCount: 40, ratingAvg: 4.6 }],
+      tourRows: async () => tours,
+    });
+    const catalog = {
+      tagNames: async () => new Map([[1, "Food Tours"]]),
+      attractions: async () => [{ name: "Grand Palace", productCount: 30, ratingAvg: 4.7 }],
+    };
+    const runCandidates = (argv: string[], deps: Record<string, unknown> = {}) =>
+      main(argv, {}, io(), { dataDir: dir, now: () => NOW, reader: reader(), catalog, ...deps });
+
+    it("writes candidates.json and candidates.csv and reports a cost of zero", async () => {
+      const code = await runCandidates(["candidates", "--city", "bangkok"]);
+      const text = out.join("\n");
+
+      expect(code).toBe(0);
+      expect(text).toContain("Cost: $0.0000");
+      const folder = path.join(dir, "bri-206", "bangkok");
+      const file = JSON.parse(fs.readFileSync(path.join(folder, "candidates.json"), "utf8"));
+      expect(file.city).toBe("bangkok");
+      expect(file.candidates.map((c: { query: string }) => c.query)).toContain("things to do in bangkok");
+      expect(fs.readFileSync(path.join(folder, "candidates.csv"), "utf8")).toContain("grand palace tickets");
+    });
+
+    it("never writes to the ledger", async () => {
+      await runCandidates(["candidates", "--city", "bangkok"]);
+      expect(fs.existsSync(path.join(dir, "ledger.jsonl"))).toBe(false);
+    });
+
+    it("gives the same file on a second run", async () => {
+      await runCandidates(["candidates", "--city", "bangkok"]);
+      const file = path.join(dir, "bri-206", "bangkok", "candidates.json");
+      const first = fs.readFileSync(file, "utf8");
+      await runCandidates(["candidates", "--city", "bangkok"]);
+      expect(fs.readFileSync(file, "utf8")).toBe(first);
+    });
+
+    it("needs --city", async () => {
+      expect(await runCandidates(["candidates"])).toBe(2);
+      expect(err.join("\n")).toContain("--city");
+    });
+
+    it("names the curated cities when the city is unknown", async () => {
+      expect(await runCandidates(["candidates", "--city", "atlantis"])).toBe(1);
+      expect(err.join("\n")).toContain("Unknown city");
+      expect(err.join("\n")).toContain("bangkok");
+    });
+
+    it("stops when no tours are stored for the city", async () => {
+      expect(await runCandidates(["candidates", "--city", "bangkok"], { reader: reader([]) })).toBe(1);
+      expect(err.join("\n")).toContain("nothing to rank");
+    });
+
+    it("stops with a plain message when Viator config is missing and no fake is given", async () => {
+      const code = await main(["candidates", "--city", "bangkok"], {}, io(), { dataDir: dir, reader: reader() });
+      expect(code).toBe(1);
+      expect(err.join("\n")).toContain("VIATOR_API_KEY");
+    });
   });
 
   describe("usage", () => {

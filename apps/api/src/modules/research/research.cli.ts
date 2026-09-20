@@ -1,6 +1,8 @@
 import * as path from "node:path";
 
 import { envSchema } from "../../config/env.validation";
+import { CandidatesError, type CatalogSource, runCandidates } from "./candidates.stage";
+import type { CatalogReader } from "./catalog-reader";
 import {
   Ledger,
   MONTH_CEILING_USD,
@@ -10,6 +12,7 @@ import {
   resolveRunCap,
   toMicros,
 } from "./spend-guard";
+import { ViatorCatalog, ViatorCatalogError } from "./viator-catalog";
 
 /**
  * Hub page research CLI (BRI-206).
@@ -19,16 +22,17 @@ import {
  *
  *   doppler run -- pnpm --filter @folio/api research:hub <stage> --city <slug> [--execute]
  *
- * Every stage is a dry run unless `--execute` is passed. Only `spend` exists
- * so far; the stages that call the provider are built in later tasks of the
- * BRI-206 build plan and reuse `SpendGuard` and `SearchProviderClient`.
+ * Every stage that calls the search provider is a dry run unless `--execute`
+ * is passed. `spend` and `candidates` exist so far. `candidates` reads the
+ * database and the free Viator partner endpoints and never calls the provider.
+ * The provider stages are built in later tasks of the BRI-206 build plan and
+ * reuse `SpendGuard` and `SearchProviderClient`.
  */
 
 /** `apps/api/research-data`, resolved the same from `src/` and from `dist/`. */
 export const RESEARCH_DATA_DIR = path.resolve(__dirname, "../../../research-data");
 
 const PENDING_STAGES: Record<string, string> = {
-  candidates: "task 6",
   demand: "tasks 5 and 7",
   serp: "tasks 5 and 7",
   classify: "tasks 5 and 7",
@@ -45,6 +49,9 @@ export interface CliIo {
 export interface CliDeps {
   dataDir?: string;
   now?: () => Date;
+  /** Test seams for the candidates stage. Unset means the real database and Viator. */
+  reader?: CatalogReader;
+  catalog?: CatalogSource;
 }
 
 const configSchema = envSchema.pick({
@@ -75,12 +82,91 @@ export async function main(
     return 2;
   }
 
+  if (stage === "candidates") return runCandidatesStage(argv.slice(1), env, io, deps);
+
   if (stage !== "spend") {
     io.err(`Unknown stage "${stage}". ${USAGE}`);
     return 2;
   }
 
   return runSpend(env, io, deps);
+}
+
+/** The value after `--city`, or `undefined` when the flag is missing or has no value. */
+function cityFlag(args: readonly string[]): string | undefined {
+  const i = args.indexOf("--city");
+  const value = i === -1 ? undefined : args[i + 1];
+  return value === undefined || value.startsWith("--") ? undefined : value;
+}
+
+const catalogConfigSchema = envSchema.pick({
+  VIATOR_API_KEY: true,
+  VIATOR_API_BASE_URL: true,
+  VIATOR_API_LANGUAGE: true,
+  VIATOR_REQUEST_TIMEOUT_MS: true,
+});
+
+async function runCandidatesStage(
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+  io: CliIo,
+  deps: CliDeps,
+): Promise<number> {
+  const city = cityFlag(args);
+  if (city === undefined) {
+    io.err("candidates needs --city <slug>, for example --city bangkok.");
+    return 2;
+  }
+
+  const dataDir = deps.dataDir ?? RESEARCH_DATA_DIR;
+  let catalog = deps.catalog;
+  if (catalog === undefined) {
+    const parsed = catalogConfigSchema.safeParse(env);
+    if (!parsed.success) {
+      io.err(
+        `Invalid Viator configuration: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+      );
+      return 1;
+    }
+    catalog = new ViatorCatalog({
+      dataDir,
+      apiKey: parsed.data.VIATOR_API_KEY,
+      baseUrl: parsed.data.VIATOR_API_BASE_URL,
+      language: parsed.data.VIATOR_API_LANGUAGE,
+      timeoutMs: parsed.data.VIATOR_REQUEST_TIMEOUT_MS,
+    });
+  }
+
+  let disconnect: (() => Promise<void>) | undefined;
+  let reader = deps.reader;
+  if (reader === undefined) {
+    // Loaded here so the `spend` command never needs the Prisma client or a database.
+    const { PrismaClient } = await import("@prisma/client");
+    const { PrismaCatalogReader } = await import("./catalog-reader");
+    const prisma = new PrismaClient();
+    reader = new PrismaCatalogReader(prisma);
+    disconnect = () => prisma.$disconnect();
+  }
+
+  try {
+    const { file, jsonPath, csvPath } = await runCandidates(city, { dataDir, reader, catalog });
+    io.out(`Candidates for ${file.city}: ${file.counts.queries} queries from ${file.counts.tours} tours`);
+    io.out(`  tags kept:        ${file.counts.tags} (at least ${file.cutoffs.minTagProducts} products each, top ${file.cutoffs.topTags})`);
+    io.out(`  attractions kept: ${file.counts.attractions} (counted by ${file.attractionMode === "viator_count" ? "Viator's own product count" : "title match over stored tours"})`);
+    io.out(`  dropped:          ${file.dropped.length}`);
+    io.out(`  wrote ${jsonPath}`);
+    io.out(`  wrote ${csvPath}`);
+    io.out(`Cost: $0.0000. This stage never calls the search provider.`);
+    return 0;
+  } catch (error) {
+    if (error instanceof CandidatesError || error instanceof ViatorCatalogError) {
+      io.err(error.message);
+      return 1;
+    }
+    throw error;
+  } finally {
+    await disconnect?.();
+  }
 }
 
 function runSpend(env: NodeJS.ProcessEnv, io: CliIo, deps: CliDeps): number {
