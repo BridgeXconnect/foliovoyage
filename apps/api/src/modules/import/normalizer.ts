@@ -153,6 +153,16 @@ export interface TourDTO {
    */
   cancellation_policy: TourCancellationPolicyDTO | null;
   /**
+   * Per-source review breakdown, from the payload's `reviews.sources` — one
+   * entry per review provider Viator federates (e.g. Viator's own vs.
+   * TripAdvisor), each with its count, average and 5-bucket star histogram.
+   * {@link rating_avg}/{@link rating_count} remain the blended scalars used for
+   * display/sort; this is the un-blended detail behind them. Empty array when
+   * `reviews.sources` is absent or malformed, never `null`. Part of
+   * {@link source_hash}: a change in per-source reviews is a content change.
+   */
+  reviews_by_source: TourReviewSourceDTO[];
+  /**
    * Resolved latitude of the start location (WGS-84 decimal degrees), or `null`
    * when unresolved. **Not** set by {@link normalizeViatorProduct} — normalization
    * is pure and never touches the network, so it leaves this `null` and the
@@ -227,6 +237,23 @@ export interface TourCancellationPolicyDTO {
   }[];
 }
 
+/**
+ * One review provider's breakdown for a tour. See
+ * {@link TourDTO.reviews_by_source}.
+ */
+export interface TourReviewSourceDTO {
+  /**
+   * The provider's name as Viator reports it (e.g. `"VIATOR"`,
+   * `"TRIPADVISOR"`). Deliberately an open string, not an enum — Viator could
+   * federate a new source without a schema change here.
+   */
+  provider: string;
+  totalCount: number;
+  averageRating: number;
+  /** The 5-bucket star histogram: how many reviews gave each rating. */
+  reviewCounts: { rating: number; count: number }[];
+}
+
 /** Context the caller must supply — provenance that isn't in the payload. */
 export interface NormalizeContext {
   /** ISO-8601 timestamp of when this raw page was fetched (ST-6). */
@@ -289,6 +316,7 @@ export function normalizeViatorProduct(
     inclusions: extractIncludedItems(raw["inclusions"]),
     exclusions: extractIncludedItems(raw["exclusions"]),
     cancellation_policy: extractCancellationPolicy(raw),
+    reviews_by_source: extractReviewsBySource(raw),
   };
 
   return {
@@ -333,6 +361,7 @@ function hashContent(content: TourContent): string {
     content.inclusions,
     content.exclusions,
     content.cancellation_policy,
+    content.reviews_by_source,
   ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
@@ -358,6 +387,44 @@ function extractRatingAvg(raw: ViatorProduct): number | null {
   const value = asRecord(raw["reviews"])?.["combinedAverageRating"];
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return Math.round(value * 10) / 10;
+}
+
+/**
+ * The per-provider review breakdown from `reviews.sources: [{ provider,
+ * totalCount, averageRating, reviewCounts: [{ rating, count }] }]`. Entries
+ * without a usable `provider` are skipped; missing numbers default to `0` and a
+ * missing histogram to `[]`. `[]` when `sources` is absent or not an array.
+ * Purely additive to {@link extractRatingAvg}/{@link extractRatingCount}, which
+ * keep reading the blended scalars.
+ */
+function extractReviewsBySource(raw: ViatorProduct): TourReviewSourceDTO[] {
+  const sources = asRecord(raw["reviews"])?.["sources"];
+  if (!Array.isArray(sources)) return [];
+  const out: TourReviewSourceDTO[] = [];
+  for (const entry of sources) {
+    const source = asRecord(entry);
+    const provider = optionalString(source?.["provider"]);
+    if (!source || !provider) continue;
+    const counts = Array.isArray(source["reviewCounts"])
+      ? source["reviewCounts"]
+      : [];
+    out.push({
+      provider,
+      totalCount: optionalInteger(source["totalCount"]) ?? 0,
+      averageRating:
+        typeof source["averageRating"] === "number"
+          ? source["averageRating"]
+          : 0,
+      reviewCounts: counts
+        .map(asRecord)
+        .filter((c): c is Record<string, unknown> => c !== undefined)
+        .map((c) => ({
+          rating: typeof c["rating"] === "number" ? c["rating"] : 0,
+          count: optionalInteger(c["count"]) ?? 0,
+        })),
+    });
+  }
+  return out;
 }
 
 /** Combined aggregate review count. */

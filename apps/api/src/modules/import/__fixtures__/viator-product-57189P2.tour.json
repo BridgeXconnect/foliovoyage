@@ -1106,6 +1106,62 @@
       }
     ]
   },
+  "reviews_by_source": [
+    {
+      "provider": "VIATOR",
+      "totalCount": 580,
+      "averageRating": 4.9,
+      "reviewCounts": [
+        {
+          "rating": 1,
+          "count": 2
+        },
+        {
+          "rating": 2,
+          "count": 2
+        },
+        {
+          "rating": 3,
+          "count": 3
+        },
+        {
+          "rating": 4,
+          "count": 22
+        },
+        {
+          "rating": 5,
+          "count": 551
+        }
+      ]
+    },
+    {
+      "provider": "TRIPADVISOR",
+      "totalCount": 4595,
+      "averageRating": 5,
+      "reviewCounts": [
+        {
+          "rating": 1,
+          "count": 0
+        },
+        {
+          "rating": 2,
+          "count": 2
+        },
+        {
+          "rating": 3,
+          "count": 15
+        },
+        {
+          "rating": 4,
+          "count": 75
+        },
+        {
+          "rating": 5,
+          "count": 4503
+        }
+      ]
+    }
+  ],
   "price_minor": null,
   "currency": null,
   "price_reference_minor": null,
@@ -1113,5 +1169,5 @@
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",
-  "source_hash": "e4fc97205e77b74a4c25b4b30927555834a9b5f659f39dba6144afcc279a1227"
+  "source_hash": "210520d419c87783a0c3528a9467faef400c7c1cc1cf02d842d4a0b5c0b64767"
 }
