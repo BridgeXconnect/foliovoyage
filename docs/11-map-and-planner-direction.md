@@ -128,20 +128,18 @@ add-on** that extends the existing planner (`03 M8 / EP-17`, `FR-DEST-5`, `FR-MA
 chats, and the agent shows curated experiences on the MapLibre 3D map, ordering them into a
 mapped, walkable itinerary with a per-stop affiliate CTA.
 
-**Hard requirement — the provenance wall.** The moat is trust (`01 §7.3`) and our promise is
-*researched, vetted, fact-checked*. When the agent suggests places for a city we have not curated,
+**Hard requirement — the provenance wall.** The moat is trust (`01 §7.3`). When the agent suggests places for a city we have not curated,
 those suggestions must be **visually and legally distinct** from curated content:
 
 | | Folio curated | AI suggested |
 |---|---|---|
 | Marker style | branded / primary | clearly different |
-| Label | vetted experience | "Suggested by AI — not yet vetted by Folio" |
+| Label | — | "Suggested by AI — not yet vetted by Folio" |
 | Affiliate CTA | yes | **no** |
-| Editorial guarantee | yes | none (draft-to-research only) |
 
 This mirrors the `08` voice rule (don't overclaim) one layer up, and reuses the `02 §12` /
-`EP-15` AI guardrails (human-in-the-loop, provenance recorded, prompts constrained to provided
-data, never fabricate prices/availability).
+`EP-15` AI guardrails (provenance recorded, prompts constrained to provided data, never fabricate
+prices/availability; no per-item human review, per the 2026-09-19 reframe).
 
 **Upside:** every uncovered city the agent is asked about is a **curation demand signal** —
 telling us what to curate next (feeds `BG-3`, the dataset moat).

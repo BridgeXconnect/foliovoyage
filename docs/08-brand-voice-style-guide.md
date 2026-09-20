@@ -4,16 +4,9 @@
 
 ## The positioning shift: "hand-picked," not "hand-written"
 
-The site currently oversells manual authorship in places ("written by hand"). That's not a claim worth defending if content was AI-drafted — and it doesn't need to be. **The honest, sustainable claim is curation and judgment, not keystrokes**: every recommendation is researched, vetted, fact-checked, and edited before it's published. That's true, it's the actual value being offered, and it doesn't collapse under scrutiny.
+The site currently oversells manual authorship in places ("written by hand"). That's not a claim worth defending if content was AI-drafted — and it doesn't need to be. **The honest, sustainable claim is curation and judgment, not keystrokes.**
 
-Reframe copy from *"we wrote every word ourselves"* to *"we checked and picked every recommendation ourselves."* Concretely:
-
-| Before | After |
-|---|---|
-| "Every guide is researched and written by hand — considered picks, not an endless list to wade through." | "Every guide is researched and vetted, one city at a time. Considered picks, not an endless list to wade through." |
-| "Each destination is researched and written by hand, built around the experiences we think are worth your time." | "Each destination is researched and checked, built around the experiences we think are worth your time." |
-
-Apply this swap wherever the site currently claims manual/hand authorship specifically (as opposed to editorial judgment, which is fine to claim). "Independently written, in our own words" is fine to keep — that's about not reprinting press releases or sponsored rankings, which is true regardless of drafting process.
+Wherever the site currently claims manual/hand authorship specifically (as opposed to editorial judgment, which is fine to claim), cut the claim. "Independently written, in our own words" is fine to keep — that's about not reprinting press releases or sponsored rankings, which is true regardless of drafting process.
 
 ## Cut these patterns — they read as AI-generated
 
@@ -45,5 +38,5 @@ Which rule applies depends on how the content is produced:
 
 - **Hand-authored surfaces (destination pages, guides, collections, hub/category intros):** content can be AI-drafted, but must be substantively human-edited before publishing: facts checked, at least one genuinely specific detail added, generic phrasing cut against the list above.
 - **AI-generated per-tour copy (`ai_summary`, BRI-154):** no per-item human edit. It publishes automatically once a tour clears the eligibility gate (BRI-200), so this guide is enforced at the engine level instead of the item level: the patterns above are constraints on the generation prompt, and voice or tone drift is checked in aggregate by the sampled eval/QA harness (BRI-201), not tour by tour. See [docs/02 §12](02-system-architecture-specification.md#12-ai-content-generation).
-- **Claims about human vetting:** "researched, vetted, fact-checked, and edited" (see the positioning section above) is true of the hand-authored surfaces only. Don't use that language for AI-generated tour copy, or in a way that implies it covers it.
+- **Claims about human vetting:** "researched, vetted, fact-checked, and edited" is true of the hand-authored surfaces only. Don't use that language for AI-generated tour copy, or in a way that implies it covers it.
 - The editing pass applies retroactively to the hand-authored surfaces — existing pages should get an editing pass against this guide, not just new content going forward.

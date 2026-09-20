@@ -12,12 +12,6 @@ const points = [
     imageAlt: "Ruins of the Roman Forum",
   },
   {
-    title: "Every operator vetted",
-    body: "We only point you at experiences and operators we'd send a friend to — the rest doesn't make the page.",
-    image: IMG.kyo_arashiyama,
-    imageAlt: "Sunlight through the Arashiyama bamboo grove, Kyoto",
-  },
-  {
     title: "Transparent by default",
     body: "We're reader-supported and say so, on every page. Commissions fund the work; they never buy a recommendation.",
     image: IMG.lis_belem,
@@ -44,7 +38,7 @@ export function TrustSection() {
         </Reveal>
       </div>
 
-      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {points.map((p, i) => (
           <Reveal key={p.title} delay={i * 90}>
             <article className="group flex h-full flex-col overflow-hidden rounded-[3px] border border-line bg-white">

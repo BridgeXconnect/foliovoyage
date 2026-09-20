@@ -126,7 +126,7 @@ Each persona lists motivations, frustrations, goals, and jobs-to-be-done (JTBD).
 | P-7 | **Weekend Traveler** (Tom) | A compact, mapped 48-hour highlight itinerary. |
 | P-8 | **Travel Researcher** (Nadia) | Compare and save experiences into collections over time. |
 | P-9 | **Blogger / Affiliate Partner** (Chris) | A structured source to link/embed curated recommendations _(future partner API)_. |
-| P-10 | **Editor / Operator** (You) | Review, enrich, and publish imported tours from one dashboard. |
+| P-10 | **Editor / Operator** (You) | Enrich and edit imported tours, and author and publish guides and collections, from one dashboard. |
 
 Full persona detail (motivations/frustrations/goals) is preserved in [MPS §4](../Travel-Affiliate-Platform-Master-Product-Specification-v1.0.md#4-user-personas).
 
@@ -144,7 +144,7 @@ Notation: `→` = user-visible step. Each journey references requirements define
 - **J-6 Save itinerary/collection:** save → collection → mapped view → reorder → share. _Refs: FR-DEST-5, FR-AUTH-\*._
 - **J-7 Click affiliate → purchase:** CTA → `/go/:tourId` (log click) → 302 deep link → OTA checkout. _Refs: FR-AFF-\*, NFR-PERF-4._
 - **J-8 Return later:** saved collections restored; "new since last visit" for saved destinations. _Refs: FR-DEST-5._
-- **J-9 (internal) Curate imports:** admin → review queue → approve/reject → edit AI content → feature → publish. _Refs: FR-CMS-\*, FR-ADMIN-\*._
+- **J-9 (internal) Curate imports:** admin → tours list (no approval queue) → enrich/edit or remove a tour → feature → author + publish guides and collections. AI tour copy is not reviewed per item; it publishes automatically behind an eligibility gate and is checked by a sampled eval harness ([Architecture §12](02-system-architecture-specification.md#12-ai-content-generation)). _Refs: FR-CMS-\*, FR-ADMIN-\*._
 
 ---
 
@@ -218,7 +218,7 @@ Milestones are **deployable at every stage**; each introduces one new backend co
 | **M4 Affiliate** | Revenue | Working affiliate CTAs + click tracking (first revenue possible) |
 | **M5 SEO** | Traffic | Programmatic destination pages indexed; organic traffic begins |
 | **M6 Scale-out** | Backend depth | Faster search & map via queues/cache/search engine |
-| **M7 CMS/Admin** | Operations | Editor can moderate, enrich, and publish at scale |
+| **M7 CMS/Admin** | Operations | Editor can enrich, edit, and publish guides and collections at scale |
 | **M8 Intelligence** | AI + planner | AI summaries + recommendations + trip planner |
 | **M9 Hardening** | Production-grade | Observability, load-tested, security-reviewed |
 

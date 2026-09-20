@@ -21,7 +21,7 @@ export function DestinationShowcase({
         <Reveal className="max-w-xl">
           <p className="eyebrow">Folio destinations</p>
           <h2 className="mt-4 text-[34px] font-semibold leading-[1.1] md:text-[46px]">
-            Six cities, each researched and written by hand
+            Six cities
           </h2>
         </Reveal>
         <Link

@@ -4,12 +4,12 @@ const features = [
   {
     icon: Compass,
     title: "Hands-on curation",
-    body: "Every guide is researched and written by hand — considered recommendations, not an endless list to wade through.",
+    body: "Considered recommendations, not an endless list to wade through.",
   },
   {
     icon: Sparkles,
     title: "Only what's worth it",
-    body: "We vet operators and cut the filler, so each experience we feature earns its place on the page.",
+    body: "We cut the filler, so each experience we feature earns its place on the page.",
   },
   {
     icon: Wallet,

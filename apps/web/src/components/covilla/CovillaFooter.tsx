@@ -52,8 +52,8 @@ export function CovillaFooter() {
             </span>
           </span>
           <p className="mt-4 text-[14px] leading-6 text-white/60">
-            A hand-picked travel folio — original city guides and vetted tours
-            and experiences worth taking.
+            A hand-picked travel folio — original city guides and tours and
+            experiences worth taking.
           </p>
           <div className="mt-6 flex gap-4">
             {socials.map(({ Icon, href, label }) => (

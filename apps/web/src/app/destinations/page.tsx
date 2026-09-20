@@ -67,7 +67,7 @@ export default function DestinationsPage() {
               Destinations worth the journey
             </h1>
             <p className="mt-5 max-w-2xl text-[18px] leading-8 text-ink-soft">
-              Every guide below is written by hand and built around the
+              Every guide below is built around the
               experiences we think are genuinely worth your time — the landmarks,
               the neighbourhoods, the meals, and the day trips that define a
               place.
