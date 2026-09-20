@@ -47,6 +47,20 @@ export function resolveRunCap(raw: number | undefined): number {
   return Math.min(raw, RUN_CAP_HARD_MAX_USD);
 }
 
+/**
+ * Resolve the total budget: unset stays unset, anything else must be a positive
+ * finite number. It is never clamped up, only rejected, so a typo cannot loosen it.
+ */
+export function resolveTotalBudget(raw: number | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  if (!Number.isFinite(raw) || raw <= 0) {
+    throw new Error(
+      `HUB_RESEARCH_BUDGET_USD must be a positive number, got "${String(raw)}".`,
+    );
+  }
+  return raw;
+}
+
 /** One line of `ledger.jsonl`. Never carries a header or credential. */
 export interface LedgerLine {
   /** ISO 8601 UTC timestamp of the call. */
@@ -120,9 +134,14 @@ export class Ledger {
       .filter((l) => new Date(l.ts).toISOString().slice(0, 7) === month)
       .reduce((sum, l) => sum + toMicros(l.cost), 0);
   }
+
+  /** Sum of every ledger line, whatever its date, in micro dollars. */
+  allTimeTotalMicros(): number {
+    return this.read().reduce((sum, l) => sum + toMicros(l.cost), 0);
+  }
 }
 
-export type SpendRefusalReason = "run_cap" | "month_ceiling";
+export type SpendRefusalReason = "run_cap" | "month_ceiling" | "total_budget";
 
 /** Thrown before a call is sent, so nothing was spent. */
 export class SpendRefusedError extends Error {
@@ -141,6 +160,12 @@ export interface SpendGuardOptions {
   runCapUsd?: number;
   /** Month ceiling in USD. Defaults to {@link MONTH_CEILING_USD}. */
   monthCeilingUsd?: number;
+  /**
+   * Total budget in USD across every run, summed from the whole ledger. The run
+   * cap restarts at zero in each process, so this is the limit that holds
+   * across the separate stages. Unset means no total budget is enforced.
+   */
+  totalBudgetUsd?: number;
   /** Injectable clock for tests. */
   now?: () => Date;
 }
@@ -148,6 +173,7 @@ export interface SpendGuardOptions {
 export class SpendGuard {
   readonly runCapUsd: number;
   readonly monthCeilingUsd: number;
+  readonly totalBudgetUsd: number | undefined;
   private readonly ledger: Ledger;
   private readonly now: () => Date;
 
@@ -159,7 +185,14 @@ export class SpendGuard {
     this.ledger = options.ledger;
     this.runCapUsd = resolveRunCap(options.runCapUsd);
     this.monthCeilingUsd = options.monthCeilingUsd ?? MONTH_CEILING_USD;
+    this.totalBudgetUsd = resolveTotalBudget(options.totalBudgetUsd);
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** What is left of the total budget in USD, or undefined when none is set. */
+  totalBudgetLeftUsd(): number | undefined {
+    if (this.totalBudgetUsd === undefined) return undefined;
+    return (toMicros(this.totalBudgetUsd) - this.ledger.allTimeTotalMicros()) / MICROS;
   }
 
   /** Spent so far in this run, from provider reported costs, in USD. */
@@ -213,6 +246,18 @@ export class SpendGuard {
         `Refused before sending: this month is at ${formatUsd(monthSoFar)} and the next call is estimated at ` +
           `${formatUsd(estimate)}, which would pass the month ceiling of ${formatUsd(monthCeiling)}. Nothing was spent.`,
       );
+    }
+
+    if (this.totalBudgetUsd !== undefined) {
+      const budget = toMicros(this.totalBudgetUsd);
+      const totalSoFar = this.ledger.allTimeTotalMicros() + this.plannedMicros;
+      if (totalSoFar + estimate > budget) {
+        throw new SpendRefusedError(
+          "total_budget",
+          `Refused before sending: the ledger is at ${formatUsd(totalSoFar)} in total and the next call is estimated at ` +
+            `${formatUsd(estimate)}, which would pass the total budget of ${formatUsd(budget)}. Nothing was spent.`,
+        );
+      }
     }
   }
 

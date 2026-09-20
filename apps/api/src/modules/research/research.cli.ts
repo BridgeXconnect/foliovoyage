@@ -51,6 +51,7 @@ const configSchema = envSchema.pick({
   DATAFORSEO_LOGIN: true,
   DATAFORSEO_PASSWORD: true,
   HUB_RESEARCH_MAX_USD: true,
+  HUB_RESEARCH_BUDGET_USD: true,
 });
 
 /** Runs the CLI and returns the process exit code. */
@@ -104,15 +105,20 @@ function runSpend(env: NodeJS.ProcessEnv, io: CliIo, deps: CliDeps): number {
 
   const dataDir = deps.dataDir ?? RESEARCH_DATA_DIR;
   const ledger = new Ledger(path.join(dataDir, "ledger.jsonl"));
-  const guard = new SpendGuard({
-    ledger,
-    runCapUsd,
-    ...(deps.now ? { now: deps.now } : {}),
-  });
-
+  let guard: SpendGuard;
   let monthUsd: number;
+  let budgetLeftUsd: number | undefined;
   try {
+    guard = new SpendGuard({
+      ledger,
+      runCapUsd,
+      ...(config.HUB_RESEARCH_BUDGET_USD === undefined
+        ? {}
+        : { totalBudgetUsd: config.HUB_RESEARCH_BUDGET_USD }),
+      ...(deps.now ? { now: deps.now } : {}),
+    });
     monthUsd = guard.monthSpentUsd();
+    budgetLeftUsd = guard.totalBudgetLeftUsd();
   } catch (error) {
     io.err(error instanceof Error ? error.message : String(error));
     return 1;
@@ -124,6 +130,11 @@ function runSpend(env: NodeJS.ProcessEnv, io: CliIo, deps: CliDeps): number {
   io.out(`Month spent:    ${formatUsd(toMicros(monthUsd))} of ${formatUsd(toMicros(MONTH_CEILING_USD))} (UTC calendar month, this machine's ledger)`);
   io.out(`Month left:     ${formatUsd(toMicros(MONTH_CEILING_USD - monthUsd))}`);
   io.out(`Run cap:        ${formatUsd(toMicros(runCapUsd))} per run${clamped ? ` (HUB_RESEARCH_MAX_USD=${requested} was clamped to the hard maximum)` : ""}`);
+  io.out(
+    guard.totalBudgetUsd === undefined || budgetLeftUsd === undefined
+      ? `Total budget:   not set (HUB_RESEARCH_BUDGET_USD), so nothing limits spend across runs except the month ceiling`
+      : `Total budget:   ${formatUsd(toMicros(guard.totalBudgetUsd))} across all runs, ${formatUsd(toMicros(budgetLeftUsd))} left (whole ledger)`,
+  );
   io.out(`Run so far:     ${formatUsd(toMicros(guard.runSpentUsd))} (a new run starts at zero)`);
   io.out(`Credentials:    DATAFORSEO_LOGIN ${config.DATAFORSEO_LOGIN ? "set" : "missing"}, DATAFORSEO_PASSWORD ${config.DATAFORSEO_PASSWORD ? "set" : "missing"}`);
   io.out(`Ledger:         ${ledger.file}`);

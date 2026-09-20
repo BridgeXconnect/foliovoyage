@@ -84,6 +84,36 @@ describe("research:hub CLI", () => {
       expect(out).toEqual([]);
     });
 
+    it("says when no total budget is set", async () => {
+      await run(["spend"]);
+      expect(out.join("\n")).toContain("Total budget:   not set");
+    });
+
+    it("shows the total budget and what is left of it from the whole ledger", async () => {
+      fs.writeFileSync(
+        path.join(dir, "ledger.jsonl"),
+        `${JSON.stringify({
+          ts: "2026-08-02T00:00:00.000Z",
+          stage: "demand",
+          endpoint: "e",
+          keywords: 5,
+          cost: 0.25,
+          cacheKey: "k",
+        })}\n`,
+      );
+      await run(["spend"], { HUB_RESEARCH_MAX_USD: "0.6", HUB_RESEARCH_BUDGET_USD: "0.6" });
+      const text = out.join("\n");
+      expect(text).toContain("Run cap:        $0.6000");
+      expect(text).toContain("Total budget:   $0.6000 across all runs, $0.3500 left");
+    });
+
+    it("rejects a bad HUB_RESEARCH_BUDGET_USD instead of loosening the budget", async () => {
+      const code = await run(["spend"], { HUB_RESEARCH_BUDGET_USD: "0" });
+      expect(code).toBe(1);
+      expect(err.join("\n")).toContain("HUB_RESEARCH_BUDGET_USD");
+      expect(out).toEqual([]);
+    });
+
     it("stops on a corrupt ledger with a plain message", async () => {
       fs.writeFileSync(path.join(dir, "ledger.jsonl"), "garbage\n");
       const code = await run(["spend"]);
