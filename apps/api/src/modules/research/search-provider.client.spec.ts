@@ -113,6 +113,47 @@ describe("SearchProviderClient", () => {
     });
   });
 
+  describe("one SERP task per request", () => {
+    const twoTasks = {
+      stage: "serp",
+      endpoint: SERP_ORGANIC_ENDPOINT,
+      tasks: [
+        { keyword: "rome food tour", location_code: 2840, language_code: "en" },
+        { keyword: "rome day trips", location_code: 2840, language_code: "en" },
+      ],
+    };
+
+    it.each([true, false])(
+      "refuses a two task SERP request before sending, spending or caching anything (execute=%p)",
+      async (execute) => {
+        const fetchImpl = jest.fn<FetchLike>();
+        const { client, guard } = build({ execute, fetchImpl });
+
+        await expect(client.request(twoTasks)).rejects.toThrow(/one task per request/);
+
+        expect(fetchImpl).not.toHaveBeenCalled();
+        expect(guard.plannedCallCount).toBe(0);
+        expect(ledgerText()).toBe("");
+        expect(cacheFiles()).toEqual([]);
+      },
+    );
+
+    it("sends the same two keywords as two requests, each cached and charged on its own", async () => {
+      const fetchImpl = jest.fn<FetchLike>().mockImplementation(async () => reply(okBody(0.002)));
+      const { client } = build({ execute: true, fetchImpl });
+
+      for (const task of twoTasks.tasks) {
+        await client.request({ stage: "serp", endpoint: SERP_ORGANIC_ENDPOINT, tasks: [task] });
+      }
+
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      const bodies = fetchImpl.mock.calls.map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+      expect(bodies.map((b: unknown[]) => b.length)).toEqual([1, 1]);
+      expect(ledger.read()).toHaveLength(2);
+      expect(cacheFiles()).toHaveLength(2);
+    });
+  });
+
   describe("execute", () => {
     it("sends one authenticated POST to the provider host and records the reported cost", async () => {
       const fetchImpl = jest.fn<FetchLike>().mockResolvedValue(reply(okBody(0.002)));

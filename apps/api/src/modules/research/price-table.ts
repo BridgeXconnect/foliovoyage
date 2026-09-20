@@ -105,6 +105,14 @@ export function estimateRequest(
   }
 
   if (endpoint === SERP_ORGANIC_ENDPOINT) {
+    // Live SERP takes one task per request. A longer array is refused here,
+    // before any cache, guard or network step, because the provider rejects it
+    // and a rejected batch is not guaranteed to be free.
+    if (tasks.length > 1) {
+      throw new InvalidRequestError(
+        `${endpoint} takes one task per request, got ${tasks.length}. Send one request per keyword`,
+      );
+    }
     let estimateUsd = 0;
     tasks.forEach((raw, i) => {
       const task = asTask(raw, i);
