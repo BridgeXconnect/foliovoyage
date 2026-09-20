@@ -363,6 +363,7 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
       tour.cancellation_policy === null
         ? Prisma.DbNull
         : (tour.cancellation_policy as unknown as Prisma.InputJsonValue),
+    reviewsBySource: tour.reviews_by_source as unknown as Prisma.InputJsonValue,
     destinationRefs: tour.destination_refs,
     tags: tour.tags,
     fetchedAt: new Date(tour.fetched_at),

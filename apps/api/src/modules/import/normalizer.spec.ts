@@ -721,3 +721,131 @@ describe("cancellation policy (Task 3)", () => {
     expect(withPolicy.source_hash).not.toBe(base.source_hash);
   });
 });
+
+describe("reviews by source (Task 4)", () => {
+  const raw = loadJson<ViatorProduct>("viator-product-57189P2.json");
+
+  it("captures both providers with their real counts and 5-bucket histograms from the real fixture", () => {
+    const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    expect(tour.reviews_by_source).toEqual([
+      {
+        provider: "VIATOR",
+        totalCount: 580,
+        averageRating: 4.9,
+        reviewCounts: [
+          { rating: 1, count: 2 },
+          { rating: 2, count: 2 },
+          { rating: 3, count: 3 },
+          { rating: 4, count: 22 },
+          { rating: 5, count: 551 },
+        ],
+      },
+      {
+        provider: "TRIPADVISOR",
+        totalCount: 4595,
+        averageRating: 5,
+        reviewCounts: [
+          { rating: 1, count: 0 },
+          { rating: 2, count: 2 },
+          { rating: 3, count: 15 },
+          { rating: 4, count: 75 },
+          { rating: 5, count: 4503 },
+        ],
+      },
+    ]);
+  });
+
+  it("leaves the blended rating_avg/rating_count scalars untouched", () => {
+    const tour = normalizeViatorProduct(raw, { fetchedAt: FETCHED_AT });
+    expect(tour.rating_avg).toBe(5);
+    expect(tour.rating_count).toBe(5175);
+  });
+
+  it("defaults to [] when reviews.sources is absent or malformed", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const base = { productCode: "RVW1", title: "T" };
+
+    // No `reviews` at all.
+    expect(normalizeViatorProduct(base, ctx).reviews_by_source).toEqual([]);
+    // `reviews` present, `sources` absent.
+    expect(
+      normalizeViatorProduct({ ...base, reviews: { totalReviews: 3 } }, ctx)
+        .reviews_by_source,
+    ).toEqual([]);
+    // `sources` not an array.
+    expect(
+      normalizeViatorProduct({ ...base, reviews: { sources: "VIATOR" } }, ctx)
+        .reviews_by_source,
+    ).toEqual([]);
+    expect(
+      normalizeViatorProduct({ ...base, reviews: { sources: { a: 1 } } }, ctx)
+        .reviews_by_source,
+    ).toEqual([]);
+  });
+
+  it("skips entries without a usable provider and defaults missing numbers", () => {
+    const tour = normalizeViatorProduct(
+      {
+        productCode: "RVW2",
+        title: "T",
+        reviews: {
+          sources: [
+            "not-an-object",
+            { totalCount: 9, averageRating: 4.5 }, // no provider → skipped
+            { provider: "" }, // empty provider → skipped
+            { provider: "FEDERATED" }, // kept; scalars default, histogram []
+            {
+              provider: "OTHER",
+              totalCount: 7.9, // truncated like every other integer field
+              averageRating: "n/a", // non-number → 0
+              reviewCounts: [
+                { rating: 5, count: 4 },
+                "junk", // dropped
+                { count: 3 }, // rating defaults to 0
+              ],
+            },
+          ],
+        },
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+    expect(tour.reviews_by_source).toEqual([
+      { provider: "FEDERATED", totalCount: 0, averageRating: 0, reviewCounts: [] },
+      {
+        provider: "OTHER",
+        totalCount: 7,
+        averageRating: 0,
+        reviewCounts: [
+          { rating: 5, count: 4 },
+          { rating: 0, count: 3 },
+        ],
+      },
+    ]);
+  });
+
+  it("includes reviews_by_source in the source hash", () => {
+    const ctx = { fetchedAt: FETCHED_AT };
+    const base = normalizeViatorProduct(
+      { productCode: "RVW3", title: "T" },
+      ctx,
+    );
+    const withSources = normalizeViatorProduct(
+      {
+        productCode: "RVW3",
+        title: "T",
+        reviews: {
+          sources: [
+            {
+              provider: "VIATOR",
+              totalCount: 1,
+              averageRating: 5,
+              reviewCounts: [{ rating: 5, count: 1 }],
+            },
+          ],
+        },
+      },
+      ctx,
+    );
+    expect(withSources.source_hash).not.toBe(base.source_hash);
+  });
+});

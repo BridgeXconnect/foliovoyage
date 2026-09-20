@@ -217,6 +217,12 @@ model Tour {
   /// object. `null` when the product carries none — distinct from an
   /// empty tier list.
   cancellationPolicy Json?
+  /// Per-source review breakdown (provider name, total count, average
+  /// rating, 5-bucket star histogram), verbatim from `reviews.sources`.
+  /// `rating_avg`/`rating_count` above remain the blended scalars used
+  /// for display/sort; this is the un-blended detail (e.g. Viator vs.
+  /// TripAdvisor volume). Empty array when absent.
+  reviewsBySource Json        @default("[]")
   /// Provider destination refs this product is filed under, e.g. `["343"]`
   /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
   /// import linker matches these against curated `City.viatorDestRef` to decide

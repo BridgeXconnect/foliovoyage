@@ -318,6 +318,7 @@ describe("ImportPipeline data path end-to-end", () => {
       inclusions: [],
       exclusions: [],
       cancellation_policy: null,
+      reviews_by_source: [],
       fetched_at: FETCHED_AT.toISOString(),
       source_hash: "hash",
     });

@@ -39,6 +39,7 @@ function makeTour(overrides: Partial<TourDTO> = {}): TourDTO {
     inclusions: [],
     exclusions: [],
     cancellation_policy: null,
+    reviews_by_source: [],
     fetched_at: "2026-07-18T00:00:00.000Z",
     source_hash: "abc",
     ...overrides,
