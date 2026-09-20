@@ -122,7 +122,7 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 
 ## 2.6 CMS, Admin, Auth
 - **FR-CMS-1 (Must):** Editors can edit Experience enrichment. There is **no per-tour approval step**: imported tours and AI-generated tour copy publish automatically behind an eligibility gate and are quality-checked by a sampled eval harness, not item by item (§12). _(Approve/reject half superseded 2026-09-19 — BRI-120/BRI-154; BRI-150 canceled.)_
-- **FR-CMS-2 (Must):** Editors create/publish/schedule Guides and Collections with SEO metadata.
+- **FR-CMS-2 (Must):** ~~Editors create/publish/schedule Guides and Collections with SEO metadata.~~ _(Superseded 2026-09-20, F1 — BRI-152/BRI-120: this no longer applies as written. Guide and collection content is generated, not authored: same publish model as tour and hub copy (§12), no `draft`/`in_review`/`scheduled`/`published`/`updated`/`archived` workflow states, no editor, no CMS. See BRI-152 and BRI-120 in Linear for current scope. Struck text kept for traceability.)_
 - **FR-ADMIN-1 (Must):** Admins view import logs, failed jobs, click/revenue analytics, and re-run imports.
 - **FR-ADMIN-2 (Must):** Admin access is role-gated ([§14.3](#143-authorization-model-rbac)).
 - **FR-AUTH-1 (Must):** Admin/editor auth via email+password, JWT sessions, RBAC.
@@ -409,14 +409,15 @@ Automated, eligibility-gated, and eval-checked — **no per-item human approval*
 - **Quality backstop:** the sampled eval/QA harness (BRI-201), run **after** generation, replaces per-item editor approval. Deterministic checks run on every generation and are blocking — every number, amount, duration, and cancellation claim in the copy must exist in the source fields, and a failing generation falls back to provider text and retries rather than publishing. A sampled second-model claim check and a golden set run before any prompt/model change catch systematic failures (bad prompt version, tone drift) before they spread across the catalogue.
 - **Ops:** batched/queued/rate-limited with cost alerts.
 - **Model choice:** provider-agnostic `LLMProvider` interface; latest capable model for user-facing content, cheaper/faster model for high-volume assistive tasks; prompt versions tracked for reproducibility.
-- **Scope:** this section covers machine-generated content. Human-authored content (guides, collections) keeps the editorial workflow in §13.1.
+- **Scope:** this section covers all site content, not only tour copy: per-tour copy (BRI-154), hub/category/attraction copy (BRI-205), and guide and collection copy (BRI-152) are three generation types on one engine, with the same eligibility gate, eval harness, and no-per-item-human-edit model. There is no human-authored content tier. _(Extended 2026-09-20, F1 — BRI-120/BRI-152; previously "human-authored content (guides, collections) keeps the editorial workflow in §13.1", now superseded.)_
+- **Voice:** brand voice ([docs/08](08-brand-voice-style-guide.md)) is enforced here, at the engine level: banned patterns and the lead-with-one-checkable-fact rule are generation-prompt constraints, and the BRI-201 harness checks both in aggregate. Guide and collection copy also states the deterministic curation rule that selected each item.
 
 ---
 
 # 13. CMS & Admin
 
 ## 13.1 CMS (Editor P-10)
-Experience enrichment + merge/dedupe + canonical · guides (markdown + embedded cards/map anchors + SEO fields) · collections (build/order/feature) · media (upload/attribute/hero) · scheduling · featured content. **No tour moderation/approval queue** — AI-generated tour copy publishes automatically behind an eligibility gate and is checked by a sampled eval harness instead (§12; BRI-150 canceled). Workflow `draft → in_review → scheduled → published → updated → archived` applies to **human-authored content only** (guides, collections — FR-CMS-2), fully audited; publish triggers cache invalidation + sitemap regen.
+Experience enrichment + merge/dedupe + canonical · guides (markdown + embedded cards/map anchors + SEO fields) · collections (build/order/feature) · media (upload/attribute/hero) · scheduling · featured content. **No tour moderation/approval queue** — AI-generated tour copy publishes automatically behind an eligibility gate and is checked by a sampled eval harness instead (§12; BRI-150 canceled). ~~Workflow `draft → in_review → scheduled → published → updated → archived` applies to **human-authored content only** (guides, collections — FR-CMS-2), fully audited; publish triggers cache invalidation + sitemap regen.~~ _(Superseded 2026-09-20, F1 — BRI-152/BRI-120: guides and collections are generated (§12), so this workflow and the guide/collection authoring surfaces above no longer apply. Whether the rest of this CMS, including the `editor` role, survives is undecided — see BRI-118.)_
 
 ## 13.2 Admin dashboard (`admin.<domain>`, noindex, auth-gated)
 Overview KPIs · Imports (runs, logs, failed jobs, **re-run**, quarantine) · Tours (edit/remove; no approval queue) · Experiences dedupe · Analytics (clicks, top items, search terms incl. zero-result, funnels, CTR) · Affiliates (config, link health, est vs confirmed commission) · Content · Users/roles · Settings (API keys write-only, feature flags). Destructive actions confirm + audit-log.

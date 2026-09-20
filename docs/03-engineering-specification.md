@@ -271,9 +271,9 @@ _Goal: operate at scale. New concept: auth/RBAC + dashboards._
 - **ST-39 (5)** — _As an editor, I want experience enrichment + merge/dedupe, so that the moat data stays high-quality._
   - Traces: FR-CMS-1, FR-IMPORT-5.
   - AC: Editor can edit rating/tags/categories/summaries/flags, merge duplicate experiences, and set the canonical; changes invalidate cache + sitemap.
-- **ST-40 (5)** — _As an editor, I want guides + collections with scheduling + SEO fields, so that editorial content ships on time._
-  - Traces: FR-CMS-2.
-  - AC: Markdown guide editor with embedded experience cards/map anchors + SEO overrides; publish/schedule/unpublish works; workflow states audited.
+- **ST-40 (5)** — ~~_As an editor, I want guides + collections with scheduling + SEO fields, so that editorial content ships on time._~~ **Rescoped 2026-09-20 (F1, BRI-152):** guides and collections are generated, not authored — a third generation type alongside tour copy (ST-42) and hub copy (BRI-205), under EP-15 (BRI-120). No editor, no CMS, no draft/scheduled/published workflow. Number kept for traceability.
+  - Traces: FR-CMS-2 (superseded).
+  - ~~AC: Markdown guide editor with embedded experience cards/map anchors + SEO overrides; publish/schedule/unpublish works; workflow states audited.~~
 
 ### EP-14 — Admin analytics
 - **ST-41 (5)** — _As an operator, I want import + revenue analytics, so that I can monitor health and money._
