@@ -35,11 +35,11 @@ Static editorial pages for Bangkok, Kyoto, Hanoi, Rome, Lisbon and Bali, with Vi
 A safe way to call the search data provider you already chose, with credentials handled the project way and a hard cap so the monthly ceiling cannot be crossed by accident. Nothing in the repo wires this up yet. code in `apps/api/src/modules/research/`
 **Done when:** one cheap test call works with project managed credentials, a spend cap refuses any call that would pass the budget, and every call's cost is written to a log.
 - [x] Design it (spec): [0001](../../specs/_root/0001-hub-page-validation/index.md), child [0001-search-data-access-and-spend-guard.md](../../specs/_root/0001-hub-page-validation/0001-search-data-access-and-spend-guard.md)
-- [ ] Build it: `/develop search data access and spend guard`
+- [x] Build it: `/develop search data access and spend guard`
   - [x] Env vars, gitignore and script wiring (AC-5)
   - [x] Spend guard, ledger, cache and client with specs (AC-1 to AC-5)
-  - [ ] One real cheap call checked against the provider dashboard (AC-2)
-- [ ] Verify it: `/check verify search data access and spend guard`
+  - [x] One real cheap call checked against the provider dashboard (AC-2)
+- [x] Verify it: `/check verify search data access and spend guard`
 
 ### 2. Pursue or skip rule, written first · in-progress
 The rule that turns a classified results page into a pursue or skip call, plus how a domain is put in one of four classes (marketplace, big publisher, forum, small site). It must exist before any results page is pulled, so the data cannot bend the rule.

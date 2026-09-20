@@ -134,7 +134,7 @@ Ordered for Tracer Bullet: guard first, then a thin thread on one city, then thi
 
 1. [x] Add the three env vars to `env.validation.ts` and `.env.example`, gitignore `apps/api/research-data/`, load credentials into Doppler `dev`, add the `research:hub` script, satisfies **AC-5**
 2. [x] Build `SpendGuard` (run cap, month ceiling, ledger, dry run) and the cached `SearchProviderClient` on `AllowlistFetch`, with jest specs for the guard math, satisfies **AC-1**, **AC-2**, **AC-3**, **AC-4**, **AC-5**
-3. Prove the client with one real cheap call (one keyword) and check the ledger cost against the provider dashboard, satisfies **AC-2**
+3. [x] Prove the client with one real cheap call (one keyword) and check the ledger cost against the provider dashboard, satisfies **AC-2**
 4. Write `docs/research/bri-206/rule.md` from child 0002, get Roy's sign off, commit it, and build the commit first gate, satisfies **AC-6**
 5. Thin thread for one city (Bangkok) with three hand picked queries through demand, results pull, classify and verdict, satisfies **AC-9**, **AC-10**, **AC-11**, **AC-12**
 6. Thicken candidates: the full tag and attraction ranking from the catalog with the query templates, satisfies **AC-7**, **AC-8**
