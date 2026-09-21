@@ -52,7 +52,7 @@
 | M4 | Affiliate | EP-8 | CTA → `/go/:tourId` logs click → deep-link redirect to OTA |
 | M5 | SEO | EP-9 | Programmatic destination pages with schema + sitemap, indexable |
 | M6 | Scale-out | EP-10, EP-11 | Imports on queue/workers; Redis cache; dedicated search engine |
-| M7 | CMS / Admin | EP-12, EP-13, EP-14 | Editor logs in, enriches, publishes guides + collections; analytics visible |
+| M7 | CMS / Admin | EP-12, ~~EP-13~~, EP-14 | ~~Editor logs in, enriches, publishes guides + collections;~~ Operator logs in with role-gated access; analytics visible _(EP-13 canceled, BRI-118; guides + collections are generated under BRI-152, M8)_ |
 | M8 | Intelligence | EP-15, EP-16, EP-17 | AI summaries (auto-published, eval-checked), recommendations, trip planner |
 | M9 | Hardening | EP-18, EP-19 | Observability, load-tested to budgets, security review passed |
 
@@ -265,12 +265,14 @@ _Goal: operate at scale. New concept: auth/RBAC + dashboards._
   - AC: Email+password (Argon2id), JWT access (15 min) + rotating refresh (httpOnly); `admin/editor/viewer` roles enforced by API guards; login throttling + lockout.
 
 ### EP-13 — CMS
+_**Epic canceled 2026-09-20 (BRI-118).** F1 (no hand-written content) removed the last live reason for a CMS. ST-38 was canceled earlier (BRI-150), ST-40 was rescoped into BRI-152 (generated guide and collection copy, M8, EP-15), and ST-39 is unreconciled, see its note below._
 - **ST-38 (5)** — ~~_As an editor, I want a moderation queue, so that I approve/reject/edit imported tours before they're public._~~ **Canceled 2026-09-19 (BRI-150):** there is no per-tour approval step. AI tour copy publishes automatically behind an eligibility gate and is quality-checked by a sampled eval harness instead (see EP-15, [Architecture §12](02-system-architecture-specification.md#12-ai-content-generation)). Number kept for traceability.
   - Traces: FR-CMS-1 (approve/reject half superseded).
   - ~~AC: Queue lists pending tours; approve publishes; reject hides; edits to enrichment fields persist + audit-log who/when.~~
 - **ST-39 (5)** — _As an editor, I want experience enrichment + merge/dedupe, so that the moat data stays high-quality._
   - Traces: FR-CMS-1, FR-IMPORT-5.
   - AC: Editor can edit rating/tags/categories/summaries/flags, merge duplicate experiences, and set the canonical; changes invalidate cache + sitemap.
+  - **Unreconciled (2026-09-20):** the parent epic, BRI-118, is Canceled, but this story's ticket, BRI-151, is still Backlog in Linear and still parented to BRI-118. Neither the story nor the ticket is resolved here; whether to cancel or re-home it is Roy's call. Experience enrichment is otherwise untracked (see FR-CMS-1 in [Architecture §2.6](02-system-architecture-specification.md#26-cms-admin-auth)).
 - **ST-40 (5)** — ~~_As an editor, I want guides + collections with scheduling + SEO fields, so that editorial content ships on time._~~ **Rescoped 2026-09-20 (F1, BRI-152):** guides and collections are generated, not authored — a third generation type alongside tour copy (ST-42) and hub copy (BRI-205), under EP-15 (BRI-120). No editor, no CMS, no draft/scheduled/published workflow. Number kept for traceability.
   - Traces: FR-CMS-2 (superseded).
   - ~~AC: Markdown guide editor with embedded experience cards/map anchors + SEO overrides; publish/schedule/unpublish works; workflow states audited.~~
@@ -280,7 +282,7 @@ _Goal: operate at scale. New concept: auth/RBAC + dashboards._
   - Traces: FR-ADMIN-1, FR-ANALYTICS-1.
   - AC: Dashboard shows import runs/failures with **re-run**, click volume over time, top experiences/cities, search terms incl. **zero-result**, CTR, and estimated vs confirmed commission.
 
-**M7 exit:** editor logs in, enriches, publishes guides + collections; analytics visible.
+**M7 exit:** ~~editor logs in, enriches, publishes guides + collections; analytics visible.~~ Operator logs in with role-gated access (EP-12); analytics visible (EP-14). _(Revised 2026-09-20: EP-13 (CMS, BRI-118) was canceled, and guides and collections are generated under BRI-152 in M8 (EP-15), not published from M7. M7 is not empty: EP-12 and EP-14 are still open.)_
 
 ---
 

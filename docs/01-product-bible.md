@@ -218,7 +218,7 @@ Milestones are **deployable at every stage**; each introduces one new backend co
 | **M4 Affiliate** | Revenue | Working affiliate CTAs + click tracking (first revenue possible) |
 | **M5 SEO** | Traffic | Programmatic destination pages indexed; organic traffic begins |
 | **M6 Scale-out** | Backend depth | Faster search & map via queues/cache/search engine |
-| **M7 CMS/Admin** | Operations | Editor can enrich, edit, and publish guides and collections at scale |
+| **M7 CMS/Admin** | Operations | ~~Editor can enrich, edit, and publish guides and collections at scale~~ Role-gated admin login and import/revenue analytics _(EP-13 CMS canceled, BRI-118; guides and collections are generated, BRI-152, M8)_ |
 | **M8 Intelligence** | AI + planner | AI summaries + recommendations + trip planner |
 | **M9 Hardening** | Production-grade | Observability, load-tested, security-reviewed |
 
