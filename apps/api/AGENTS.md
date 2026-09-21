@@ -149,4 +149,6 @@ that env var in Vercel's project settings, not this repo, for the current value.
   (`GET /v1/search`, Postgres FTS over Experiences + Destinations — ST-13/16),
   `affiliate` (`POST /v1/affiliate-clicks`, the click-log write backing the web
   `/go` redirect — BRI-136), and `modules/import` (the ingest pipeline above,
-  wired to the nightly cron scheduler).
+  wired to the nightly cron scheduler), `modules/content`
+  (`tour-copy-eligibility.ts` — BRI-200's pure rating/review-count gate for AI
+  tour copy; not yet called by any pipeline, cron or route).
