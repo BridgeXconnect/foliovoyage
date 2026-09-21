@@ -38,11 +38,9 @@ Every generated piece follows this: tour copy, hub copy, and guide/collection co
 
 ### Calibration example
 
-_The rewrite below fixes the AI tells listed above. It does not open on a checkable fact, so it does not yet meet the rule in the previous section. Use it for register and rhythm, not as an opening-line template._
-
 **AI-tell version:** "Bangkok isn't just a city — it's a sensory experience that stays with you long after you leave, blending ancient tradition with modern energy at every turn."
 
-**Rewritten:** "Bangkok gets under your skin fast. You'll be planning your next bowl of noodle soup before you've even left the airport queue."
+**Rewritten:** "The Airport Rail Link takes about 30 minutes from Suvarnabhumi to Phaya Thai station. You'll be planning your next bowl of noodle soup before you've left the platform."
 
 ## Process for new and existing content
 
