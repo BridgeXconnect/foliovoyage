@@ -35,8 +35,19 @@ const PROVIDER = "tour-copy-test";
 const COUNTRY_SLUG = "tour-copy-test-land";
 const CITY_SLUG = "tour-copy-test-city";
 
-/** A minimal, always-eligible, never-thin description (well over MIN_SOURCE_CHARS). */
-const FULL_DESCRIPTION = "A wonderful half day tour through the old town. ".repeat(8);
+/**
+ * Always-eligible, never-thin description (well over MIN_SOURCE_CHARS) with
+ * enough distinct >=4-letter vocabulary that {@link PASSING_SUMMARY} clears
+ * the real check's overlap floor regardless of a test's generic
+ * `Tour ${providerTourId}` title — verified against the real `checkTourCopy`
+ * before being hardcoded here, not hand-counted.
+ */
+const FULL_DESCRIPTION =
+  "Glide along peaceful canals in a traditional longtail boat through the historic floating markets of Bangkok. Your guide points out colorful stalls selling tropical fruit, fragrant spices, and handmade crafts along the water. Afterward, wander through a quiet riverside temple before returning to your hotel in the city center. This small-group tour captures everyday local life away from the busy streets of Bangkok.";
+
+/** Passes the real check outright against {@link FULL_DESCRIPTION}. */
+const PASSING_SUMMARY =
+  "Glide along peaceful canals in a traditional longtail boat through the historic floating markets of Bangkok. A local guide points out colorful stalls selling tropical fruit and fragrant spices along the water, then leads you through a quiet riverside temple. This small-group tour captures everyday local life away from the busy streets.";
 
 /** A fake {@link TourCopyGenerator} whose response is fixed per test. */
 class FakeGenerator implements TourCopyGenerator {
@@ -143,7 +154,7 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const generator = new FakeGenerator({
       kind: "text",
-      text: "A lovely fake paragraph about this tour.",
+      text: PASSING_SUMMARY,
       usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     });
 
@@ -157,12 +168,12 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
     expect(row?.status).toBe("published");
-    expect(row?.aiSummary).toBe("A lovely fake paragraph about this tour.");
+    expect(row?.aiSummary).toBe(PASSING_SUMMARY);
 
     const destinations = new DestinationService(prisma as unknown as PrismaService);
     const result = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
     expect(result.experiences).toHaveLength(1);
-    expect(result.experiences[0].aiSummary).toBe("A lovely fake paragraph about this tour.");
+    expect(result.experiences[0].aiSummary).toBe(PASSING_SUMMARY);
   });
 
   it("skips a thin-source tour without calling the generator, and the read path serves null (AC-1)", async () => {
@@ -257,14 +268,14 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const generator = new FakeGenerator({
       kind: "text",
-      text: "Original paragraph.",
+      text: PASSING_SUMMARY,
       usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     });
     await service(generator).generateOne(tour.id, { runId: "run_1", model: "claude-sonnet-5" });
 
     const destinations = new DestinationService(prisma as unknown as PrismaService);
     const before = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
-    expect(before.experiences[0].aiSummary).toBe("Original paragraph.");
+    expect(before.experiences[0].aiSummary).toBe(PASSING_SUMMARY);
 
     // Edit a grounding field directly (as a later import re-normalizing the
     // tour would) without regenerating the copy.
@@ -281,17 +292,17 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const generator = new FakeGenerator({
       kind: "text",
-      text: "First tour's paragraph.",
+      text: PASSING_SUMMARY,
       usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     });
     await service(generator).generateOne(first.id, { runId: "run_1", model: "claude-sonnet-5" });
 
     const destinations = new DestinationService(prisma as unknown as PrismaService);
     const result = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
-    expect(result.experiences[0].aiSummary).toBe("First tour's paragraph.");
+    expect(result.experiences[0].aiSummary).toBe(PASSING_SUMMARY);
   });
 
-  it("stores a failed row on refusal, and the read path serves null (thin thread has no retry yet)", async () => {
+  it("stores a failed row on refusal, and the read path serves null (AC-6, AC-13, no retry on a refusal)", async () => {
     const experience = await makeExperience("T8");
     const tour = await makeTour("T8", { experienceId: experience.id });
 
@@ -321,7 +332,7 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const generator = new FakeGenerator({
       kind: "text",
-      text: "Copy that must survive a re-import.",
+      text: PASSING_SUMMARY,
       usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
     });
     await service(generator).generateOne(tour.id, { runId: "run_1", model: "claude-sonnet-5" });
@@ -337,6 +348,6 @@ describe("TourCopyService.generateOne (integration)", () => {
 
     const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
     expect(row?.status).toBe("published");
-    expect(row?.aiSummary).toBe("Copy that must survive a re-import.");
+    expect(row?.aiSummary).toBe(PASSING_SUMMARY);
   });
 });
