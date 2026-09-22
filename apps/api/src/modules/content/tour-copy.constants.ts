@@ -14,3 +14,21 @@
  * regenerating without a hash change.
  */
 export const TOUR_COPY_PROMPT_VERSION = 1;
+
+/**
+ * Allowed Anthropic model ids for tour-copy generation (AC-11). A code
+ * constant, not an env var, so the set of models the feature will ever call
+ * stays an explicit, reviewed decision rather than something a config typo
+ * could widen. `TOUR_COPY_MODEL` (env, `env.validation.ts`) picks which one
+ * of these to use; the CLI's startup check (`tour-copy-startup-check.ts`,
+ * AC-19) rejects anything not on this list before any model call.
+ */
+export const TOUR_COPY_ALLOWED_MODELS = [
+  "claude-sonnet-5",
+  "claude-haiku-4-5-20251001",
+] as const;
+
+export type TourCopyModel = (typeof TOUR_COPY_ALLOWED_MODELS)[number];
+
+/** Used when `TOUR_COPY_MODEL` is unset. */
+export const TOUR_COPY_MODEL_DEFAULT: TourCopyModel = "claude-sonnet-5";

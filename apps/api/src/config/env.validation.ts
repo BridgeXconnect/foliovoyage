@@ -279,6 +279,73 @@ export const envSchema = z.object({
    * Set it under the provider account balance, which the ledger cannot see.
    */
   HUB_RESEARCH_BUDGET_USD: z.coerce.number().positive().optional(),
+
+  // --- AI tour-copy generation (BRI-154, spec 0002) -------------------------
+  // The gateway variables and TOUR_COPY_MODEL are all optional here so the API
+  // service boots without them — it never calls the model. The `tour-copy`
+  // CLI (build plan task 8) re-validates presence and the model allowlist at
+  // startup itself (AC-19, see tour-copy-startup-check.ts), before it touches
+  // the database or sends a call.
+
+  /**
+   * Cloudflare AI Gateway base URL fronting Anthropic, e.g.
+   * `https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic`.
+   * The real Anthropic API key is configured on the gateway side (BYOK) — it
+   * never lives in Atlas's own secrets. Every model call must go through this
+   * host and no other (AC-9), so the URL is restricted the same way
+   * `VIATOR_API_BASE_URL` restricts the outbound Viator fetcher: a value on
+   * any other host, or missing the `/anthropic` provider suffix, fails config
+   * validation before anything is sent. Doppler `prd` and `dev`.
+   */
+  AI_GATEWAY_BASE_URL: z
+    .string()
+    .url()
+    .refine(
+      (v) => {
+        try {
+          const u = new URL(v);
+          return (
+            u.protocol === "https:" &&
+            u.hostname === "gateway.ai.cloudflare.com" &&
+            u.pathname.endsWith("/anthropic")
+          );
+        } catch {
+          return false;
+        }
+      },
+      {
+        message:
+          "AI_GATEWAY_BASE_URL must be an https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic URL (AC-9: no other host is ever called)",
+      },
+    )
+    .optional(),
+
+  /**
+   * Cloudflare AI Gateway auth token, sent as the gateway's own bearer
+   * credential — this is the only Anthropic-adjacent credential Atlas holds
+   * (BYOK: the real Anthropic key stays in the gateway's config, not here).
+   * Secret — Doppler `prd` and `dev`.
+   */
+  AI_GATEWAY_TOKEN: z.string().min(1).optional(),
+
+  /**
+   * Anthropic model id to call for tour copy, e.g. `claude-sonnet-5`. Left as
+   * a plain optional string here — any typo cannot stop the API from booting
+   * — because the real guard is the `TOUR_COPY_ALLOWED_MODELS` allowlist
+   * (`tour-copy.constants.ts`), checked by the CLI's startup check (AC-19,
+   * AC-11), not by this schema. Unset resolves to
+   * `TOUR_COPY_MODEL_DEFAULT` (`claude-sonnet-5`).
+   */
+  TOUR_COPY_MODEL: z.string().min(1).optional(),
+
+  /**
+   * Ceiling on how many tours one `tour-copy` CLI run will generate copy for.
+   * Defaults to 2500.
+   */
+  TOUR_COPY_MAX_TOURS: z.coerce.number().int().positive().default(2500),
+
+  /** Concurrent model-call workers the `tour-copy` CLI runs. Defaults to 4. */
+  TOUR_COPY_CONCURRENCY: z.coerce.number().int().positive().default(4),
 });
 
 /** Fully-parsed, typed environment. */
