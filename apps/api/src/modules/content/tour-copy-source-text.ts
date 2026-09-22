@@ -47,8 +47,12 @@ export function combinedSourceTextLength(input: TourCopySourceTextInput): number
  * `typeDescription`, and `description` fields (skipping nulls and anything
  * not a string), space-joined across every item. Anything that isn't an
  * array — `null`, `[]`, or a malformed value — reads as no text.
+ *
+ * Exported so the deterministic check (`tour-copy-check.ts`) can build the
+ * same "readable source text" this module sums the length of, rather than
+ * re-implementing checklist flattening a second way.
  */
-function checklistText(value: unknown): string {
+export function checklistText(value: unknown): string {
   if (!Array.isArray(value)) return "";
   const fields: string[] = [];
   for (const item of value) {
