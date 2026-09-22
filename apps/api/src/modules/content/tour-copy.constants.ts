@@ -32,3 +32,11 @@ export type TourCopyModel = (typeof TOUR_COPY_ALLOWED_MODELS)[number];
 
 /** Used when `TOUR_COPY_MODEL` is unset. */
 export const TOUR_COPY_MODEL_DEFAULT: TourCopyModel = "claude-sonnet-5";
+
+/**
+ * Rough characters-per-token divisor for the CLI's dry-run token estimate
+ * (AC-8). Not a pricing mechanism — the ledger and its per-model price table
+ * are gone, so a dry run reports this rough estimate only, never a dollar
+ * figure.
+ */
+export const CHARS_PER_TOKEN = 3.1;
