@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 
+import { evaluateTourCopyEligibility } from "../modules/content/tour-copy-eligibility";
+import { computeGroundingHash } from "../modules/content/tour-copy-grounding-hash";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   DestinationResponse,
@@ -19,14 +21,50 @@ export interface DestinationQuery {
   pageSize?: number;
 }
 
+/** The fields `resolveAiSummary` needs off the Experience's first linked Tour. */
+interface TourAiSummaryInput {
+  title: string;
+  description: string | null;
+  durationMin: number | null;
+  inclusions: unknown;
+  exclusions: unknown;
+  ratingAvg: number | null;
+  ratingCount: number | null;
+  tourCopy: { status: string; aiSummary: string | null; groundingHash: string } | null;
+}
+
+/**
+ * AC-12's read rule for `aiSummary` (BRI-154 / spec 0002): serve the stored
+ * copy only when its row is `published`, its stored hash still matches the
+ * tour's current grounding fields (so an edited tour doesn't keep serving
+ * stale copy until the next generation run), and the tour is still eligible.
+ * Null in every other case, including "no row yet" and "no linked tour".
+ */
+function resolveAiSummary(tour: TourAiSummaryInput | undefined): string | null {
+  if (!tour?.tourCopy || tour.tourCopy.status !== "published") return null;
+  const currentHash = computeGroundingHash({
+    title: tour.title,
+    description: tour.description,
+    durationMin: tour.durationMin,
+    inclusions: tour.inclusions,
+    exclusions: tour.exclusions,
+  });
+  if (tour.tourCopy.groundingHash !== currentHash) return null;
+  if (!evaluateTourCopyEligibility({ ratingAvg: tour.ratingAvg, ratingCount: tour.ratingCount }).eligible) {
+    return null;
+  }
+  return tour.tourCopy.aiSummary;
+}
+
 /**
  * Reads a single destination from Postgres via Prisma (ST-5 / BRI-100, extended
- * for ST-11 / BRI-164).
+ * for ST-11 / BRI-164 and for AI tour copy, BRI-154 / spec 0002).
  *
  * Returns the city's **published** Experiences (draft ones are hidden), ordered
  * and paginated, each enriched with the provider fields its card renders —
- * cover image and price band come from the Experience's linked Tour; editor
- * rating and tags are Atlas-owned and stay null/empty until curation. Throws
+ * cover image, price band, and `aiSummary` come from the Experience's linked
+ * Tour (the lowest-id one, when more than one is linked); editor rating and
+ * tags are Atlas-owned and stay null/empty until curation. Throws
  * {@link NotFoundException} for an unknown country/city so the controller's
  * problem-details filter can render an RFC 9457 404.
  */
@@ -85,12 +123,21 @@ export class DestinationService {
         // practice; take the first (and only) linked tour.
         tours: {
           where: { deletedAt: null },
+          orderBy: { id: "asc" },
           take: 1,
           select: {
             imageUrl: true,
             imageAlt: true,
             priceMinor: true,
             priceReferenceMinor: true,
+            title: true,
+            description: true,
+            durationMin: true,
+            inclusions: true,
+            exclusions: true,
+            ratingAvg: true,
+            ratingCount: true,
+            tourCopy: { select: { status: true, aiSummary: true, groundingHash: true } },
           },
         },
       },
@@ -115,6 +162,7 @@ export class DestinationService {
           priceBand: priceBandFromMinor(tour?.priceReferenceMinor ?? null),
           // Curated tags are Atlas-owned and not set on auto-created imports yet.
           tags: [],
+          aiSummary: resolveAiSummary(tour),
           // affiliateUrl intentionally omitted → card shows a "coming soon"
           // placeholder until review attaches a live link.
         };
