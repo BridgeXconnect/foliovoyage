@@ -1,8 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { checkTourCopy } from "./tour-copy-check";
+import { CORRECTIVE_SENTENCES } from "./tour-copy-check.constants";
 import { evaluateTourCopyEligibility } from "./tour-copy-eligibility";
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
+import { buildTourCopyUserMessage, TOUR_COPY_SYSTEM_PROMPT } from "./tour-copy-prompt";
 import { combinedSourceTextLength, MIN_SOURCE_CHARS } from "./tour-copy-source-text";
 import { TOUR_COPY_PROMPT_VERSION } from "./tour-copy.constants";
 import { TOUR_COPY_GENERATOR, type TourCopyGenerator } from "./tour-copy-generator";
@@ -21,7 +24,16 @@ export type TourCopySkipReason =
   | "experience_not_published"
   | "not_eligible"
   | "source_too_thin"
-  | "already_current";
+  | "already_current"
+  /**
+   * A `failed` row whose grounding hash and `promptVersion` are both still
+   * current, and `--retry-failed` was not passed (AC-7). Distinct from
+   * `already_current` (which means a *published* row is already serving the
+   * right text): this means the row failed the check on its current inputs
+   * already, and a rerun without one of AC-7's escape hatches would just
+   * fail the same way at the same cost.
+   */
+  | "failed_current";
 
 export type TourCopyOutcome =
   | { kind: "skipped"; reason: TourCopySkipReason }
@@ -32,24 +44,35 @@ export interface GenerateOneOptions {
   runId: string;
   /** The model id to request and to store as `TourCopy.model` (AC-11). */
   model: string;
+  /**
+   * AC-7: attempt a `failed` row again even though its grounding hash and
+   * `promptVersion` are still current (the CLI's `--retry-failed` flag).
+   */
+  retryFailed?: boolean;
+  /**
+   * AC-7: regenerate a `published` row whose `promptVersion` is below this
+   * value, even though its grounding hash is still current (the CLI's
+   * `--regenerate-older-than-version N` flag).
+   */
+  regenerateOlderThanVersion?: number;
 }
 
 /**
  * Generates (or resumes) one tour's AI copy (BRI-154 / spec 0002).
  *
- * This is the tracer-bullet slice (build plan task 3): it applies the
- * selection rules from AC-1, the thin-source rule, computes the grounding
- * hash, and applies the AC-7 "already current" skip — then, for now, accepts
- * whatever the injected {@link TourCopyGenerator} returns as-is and stores it
- * `published`. There is no deterministic check yet (that is task 4) and no
- * corrective retry (task 7); both slot into the gap between "call the
- * generator" and "save the row" without changing this method's shape.
+ * Applies the selection rules from AC-1, the thin-source rule, computes the
+ * grounding hash, applies the AC-7 skip rules for both `published` and
+ * `failed` rows, then calls the injected {@link TourCopyGenerator} with the
+ * real prompt (build plan task 4), runs the deterministic check (task 4) on
+ * the result, and — on a check failure — makes exactly one corrective retry
+ * before falling back to a `failed` row (AC-6, this task).
  *
  * The CLI's candidate query (task 8) is expected to have already filtered to
- * eligible, published, non-deleted, non-thin tours, but this method re-checks
- * all of it anyway — AC-18 requires "the pure gate is run again in code
- * before every call", so the DB query is never the only thing standing
- * between an ineligible tour and a wasted model call.
+ * eligible, published, non-deleted, non-thin tours whose skip rules don't
+ * apply, but this method re-checks all of it anyway — AC-18 requires "the
+ * pure gate is run again in code before every call", so the DB query is
+ * never the only thing standing between an ineligible tour and a wasted
+ * model call.
  */
 @Injectable()
 export class TourCopyService {
@@ -72,7 +95,7 @@ export class TourCopyService {
         ratingCount: true,
         deletedAt: true,
         experience: { select: { status: true } },
-        tourCopy: { select: { status: true, groundingHash: true } },
+        tourCopy: { select: { status: true, groundingHash: true, promptVersion: true } },
       },
     });
     if (!tour) return { kind: "skipped", reason: "not_found" };
@@ -91,25 +114,41 @@ export class TourCopyService {
 
     const groundingHash = computeGroundingHash(tour);
 
-    // AC-7's "published, matching hash" skip. The failed-row resume flags
-    // (--retry-failed, --regenerate-older-than-version) land in task 7.
-    if (tour.tourCopy?.status === "published" && tour.tourCopy.groundingHash === groundingHash) {
-      return { kind: "skipped", reason: "already_current" };
+    if (tour.tourCopy) {
+      const hashMatches = tour.tourCopy.groundingHash === groundingHash;
+
+      // AC-7, published: skip a row already serving the current text, unless
+      // --regenerate-older-than-version names a version above its promptVersion.
+      if (tour.tourCopy.status === "published" && hashMatches) {
+        const stalePromptVersion =
+          options.regenerateOlderThanVersion !== undefined &&
+          tour.tourCopy.promptVersion < options.regenerateOlderThanVersion;
+        if (!stalePromptVersion) {
+          return { kind: "skipped", reason: "already_current" };
+        }
+      }
+
+      // AC-7, failed: skip a row that would just fail the same way at the
+      // same cost, unless the hash or promptVersion has moved on, or
+      // --retry-failed says to try anyway.
+      if (tour.tourCopy.status === "failed") {
+        const promptVersionCurrent = tour.tourCopy.promptVersion === TOUR_COPY_PROMPT_VERSION;
+        if (hashMatches && promptVersionCurrent && !options.retryFailed) {
+          return { kind: "skipped", reason: "failed_current" };
+        }
+      }
     }
 
-    const result = await this.generator.generate({
+    const firstAttempt = await this.generator.generate({
       runId: options.runId,
       tourId: tour.id,
       groundingHash,
       attempt: 1,
-      // The prompt module (task 4) fills these in from the tour's grounding
-      // fields; the thin thread proves the wiring with a fake generator that
-      // doesn't need real prompt text.
-      systemPrompt: "",
-      userMessage: "",
+      systemPrompt: TOUR_COPY_SYSTEM_PROMPT,
+      userMessage: buildTourCopyUserMessage(tour),
     });
 
-    if (result.kind === "refusal") {
+    if (firstAttempt.kind === "refusal") {
       await this.saveRow(tour.id, {
         status: "failed",
         aiSummary: null,
@@ -122,19 +161,76 @@ export class TourCopyService {
       return { kind: "generated", status: "failed" };
     }
 
-    // Thin thread: no deterministic check yet (task 4) — accept the
-    // generator's text as-is. Tasks 4/7 insert the check and the corrective
-    // retry here, between the call and the save.
+    const firstCheck = checkTourCopy({ candidate: firstAttempt.text, source: tour });
+    if (firstCheck.passed) {
+      await this.saveRow(tour.id, {
+        status: "published",
+        aiSummary: firstAttempt.text,
+        groundingHash,
+        model: options.model,
+        attempts: 1,
+        failureReasons: [],
+        runId: options.runId,
+      });
+      return { kind: "generated", status: "published" };
+    }
+
+    // AC-6: exactly one corrective retry, holding one fixed sentence per
+    // failed reason code (in the check's closed-set order).
+    const correctiveMessage = firstCheck.reasons.map((reason) => CORRECTIVE_SENTENCES[reason]).join(" ");
+    const secondAttempt = await this.generator.generate({
+      runId: options.runId,
+      tourId: tour.id,
+      groundingHash,
+      attempt: 2,
+      systemPrompt: TOUR_COPY_SYSTEM_PROMPT,
+      userMessage: correctiveMessage,
+    });
+
+    if (secondAttempt.kind === "refusal") {
+      // No check ran on a refusal, same as attempt 1 (AC-13): the reason the
+      // row failed is the refusal itself, not whatever the first attempt's
+      // check found.
+      await this.saveRow(tour.id, {
+        status: "failed",
+        aiSummary: null,
+        groundingHash,
+        model: options.model,
+        attempts: 2,
+        failureReasons: ["refusal"],
+        runId: options.runId,
+      });
+      return { kind: "generated", status: "failed" };
+    }
+
+    const secondCheck = checkTourCopy({ candidate: secondAttempt.text, source: tour });
+    if (secondCheck.passed) {
+      // AC-6: failureReasons keeps the first attempt's codes even though
+      // this row ends up published.
+      await this.saveRow(tour.id, {
+        status: "published",
+        aiSummary: secondAttempt.text,
+        groundingHash,
+        model: options.model,
+        attempts: 2,
+        failureReasons: firstCheck.reasons,
+        runId: options.runId,
+      });
+      return { kind: "generated", status: "published" };
+    }
+
+    // No further retry regardless of outcome (AC-6): the retry's own check
+    // result is what the failed row records — it's what's currently wrong.
     await this.saveRow(tour.id, {
-      status: "published",
-      aiSummary: result.text,
+      status: "failed",
+      aiSummary: null,
       groundingHash,
       model: options.model,
-      attempts: 1,
-      failureReasons: [],
+      attempts: 2,
+      failureReasons: secondCheck.reasons,
       runId: options.runId,
     });
-    return { kind: "generated", status: "published" };
+    return { kind: "generated", status: "failed" };
   }
 
   private async saveRow(
