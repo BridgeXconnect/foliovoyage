@@ -85,6 +85,7 @@ describe("DestinationService", () => {
           editorRating: 4.7,
           priceBand: "$",
           tags: [],
+          aiSummary: null,
         },
         {
           id: "exp_2",
@@ -95,6 +96,7 @@ describe("DestinationService", () => {
           editorRating: null,
           priceBand: null,
           tags: [],
+          aiSummary: null,
         },
       ],
       pagination: { page: 1, pageSize: 12, total: 2, totalPages: 1 },

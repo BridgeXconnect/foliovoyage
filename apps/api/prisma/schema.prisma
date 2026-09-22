@@ -249,6 +249,10 @@ model Tour {
   /// Soft-delete tombstone: non-null once the tour vanished from a later run.
   /// Read paths filter on `deletedAt: null`; cleared again if the tour returns.
   deletedAt       DateTime?
+  /// Generated AI copy for this tour (BRI-154), or null until a generation run
+  /// creates one. The importer never reads or writes this relation — re-import
+  /// leaves an existing row in place (AC-16).
+  tourCopy        TourCopy?
 
   /// The immutable natural key. Makes upserts idempotent and gives the
   /// soft-delete diff a stable identity to match rows on.
@@ -465,4 +469,61 @@ model AffiliateClick {
   @@index([createdAt])
   /// Search ranking's popularity term (ST-13 / BRI-125) counts clicks per tour.
   @@index([tourId])
+}
+
+/// Terminal state of one `TourCopy` row (BRI-154). There is no `pending`
+/// state: a row is written only once generation finishes, either passing the
+/// deterministic check (`published`) or exhausting its one corrective retry
+/// (`failed`). A tour with no row yet was never generated at all.
+enum TourCopyStatus {
+  /// The paragraph passed the deterministic check and `aiSummary` is served
+  /// by the read path when its grounding hash and eligibility still hold.
+  published
+  /// Both attempts failed the check, or the model refused. `aiSummary` is
+  /// null; provider text keeps being served for the tour.
+  failed
+}
+
+/// AI-generated tour copy (BRI-154, spec 0002), one row per `Tour`. Written
+/// only by `tour-copy.cli.ts` / `TourCopyService` — the importer and
+/// `TourUpsertService` never read or write this table (AC-16). The read path
+/// (`DestinationService`) serves `aiSummary` only when this row is
+/// `published`, `groundingHash` matches a hash recomputed from the tour's
+/// current fields, and the tour is still eligible (AC-12); it never mutates
+/// this table.
+model TourCopy {
+  id              String         @id @default(cuid())
+  /// The tour this copy was generated for. Unique: one row per tour, never
+  /// more (AC-4). Cascades on tour deletion — copy has no meaning without it.
+  tourId          String         @unique
+  tour            Tour           @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  status          TourCopyStatus
+  /// The generated paragraph. Null when `failed`; a non-empty, check-passed
+  /// string when `published` (AC-4, key invariant).
+  aiSummary       String?
+  /// `v1:` plus a sha256 hex digest of the five grounding fields (title,
+  /// description, durationMin, inclusions, exclusions). The read path
+  /// recomputes this from the tour's current fields and serves `aiSummary`
+  /// only on a match (AC-3, AC-12).
+  groundingHash   String
+  /// The model id that produced this row (e.g. "claude-sonnet-5"), from
+  /// `TOUR_COPY_MODEL` at generation time.
+  model           String
+  /// `TOUR_COPY_PROMPT_VERSION` at generation time. A later run regenerates a
+  /// `published` row only when `--regenerate-older-than-version N` names a
+  /// version above this one (AC-7).
+  promptVersion   Int
+  /// When this row's generation attempt(s) completed.
+  generatedAt     DateTime
+  /// 1 (first attempt passed, or the model refused) or 2 (one corrective
+  /// retry was made).
+  attempts        Int
+  /// Reason codes from the closed set in AC-5, plus `refusal` and
+  /// `source_too_thin`. Empty when the first attempt passed.
+  failureReasons  String[]       @default([])
+  /// The run that wrote this row, also sent to the gateway as the `run_id`
+  /// request metadata — the durable link between a row and its gateway logs.
+  runId           String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }

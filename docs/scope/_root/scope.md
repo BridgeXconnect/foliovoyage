@@ -1,6 +1,6 @@
 # Scope: BRI-206 hub page validation (Folio Voyage, product name Atlas)
 
-Folio Voyage is a travel affiliate platform with curated destination guides and bookable experiences. This scope covers one slice only: two cheap experiments that decide which hub page types (BRI-205) are worth designing at all. It spans both apps, so it lives in `_root`.
+Folio Voyage is a travel affiliate platform with curated destination guides and bookable experiences. This scope started as one slice: two cheap experiments that decide which hub page types (BRI-205) are worth designing at all (rows 1 to 7). It now also carries the first generated content type, AI tour copy (BRI-154, rows 8 to 10). It spans both apps, so it lives in `_root`.
 
 **Build approach:** Tracer Bullet (prove the whole path on one city with real calls first, then widen to six).
 **Workflow:** Alpha (after develop, run check verify). The project default level of rigor. `/architect` is the recommended first stop for a feature with a real decision, but skippable when you already know the build. Any feature can carry its own tag (for example `· GA`) to do more or less.
@@ -20,6 +20,9 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 5 | Results page pull and domain classes (one city) | Slice 1 | in-progress |
 | 6 | Widen to all six cities | Slice 2 | planned |
 | 7 | Findings and hand off to BRI-205 | Slice 3 | planned |
+| 8 | AI generated tour copy (`ai_summary`) | Content engine | in-progress |
+| 9 | Show AI tour copy on the web | Content engine | planned |
+| 10 | Nightly AI tour copy generation | Content engine | planned |
 
 ## Already built (for context)
 
@@ -94,8 +97,34 @@ Roll the results up per page type family into a pursue or skip table, with the e
 **Done when:** one table has a call per page type family with its evidence and cost, and it is linked from BRI-206.
 - [ ] Build it: `/develop findings and hand off`
 
+## Content engine: tour copy (BRI-154)
+
+### 8. AI generated tour copy (`ai_summary`) · in-progress
+The first real model integration. A separate command writes a short paragraph for each eligible tour from its standard Viator fields only, through a Cloudflare AI Gateway, checks it for price, cancellation and invented facts, and stores it in a new `TourCopy` table. The destination API serves it as `aiSummary` only while its grounding hash and the eligibility gate still hold. code in `apps/api/src/modules/content/`
+**Done when:** about 8,850 eligible tours have a stored paragraph or a recorded failure reason, the gateway and console spend limits are proven by a real test, and `GET /v1/destinations/:country/:city` returns `aiSummary` for a tour whose copy is current.
+- [x] Design it (spec): [0002](../../specs/_root/0002-ai-tour-copy/index.md)
+- [ ] Build it: `/develop AI generated tour copy`
+  - [x] Table, grounding hash and a thin thread on a fake generator, with the API read path (AC-1, AC-3, AC-4, AC-12, AC-16)
+  - [ ] Prompt, blocking check, corrective retry and skip rules (AC-2, AC-5, AC-6, AC-7, AC-13, AC-15)
+  - [ ] Env config and the Anthropic adapter through the gateway (AC-9, AC-10, AC-11, AC-13, AC-14)
+  - [ ] The `tour-copy:run` command with dry run, limits and abort rules (AC-8, AC-9, AC-14, AC-15, AC-17, AC-18, AC-19)
+  - [ ] Cloudflare and Anthropic setup, calibration and the first backfill, done by Roy (AC-5, AC-9, AC-10, AC-18)
+- [ ] Verify it: `/check verify AI generated tour copy`
+
+### 9. Show AI tour copy on the web · planned · needs a decision · from spec 0002
+Render `aiSummary` on the destination page next to the provider description, escaped as untrusted text, and decide whether it carries a visible label. Add the field to the web type.
+**Done when:** a destination page shows the generated paragraph for tours that have one and the provider text for the rest.
+- [ ] Design it (spec): `/architect show AI tour copy on the web`
+
+### 10. Nightly AI tour copy generation · planned · from spec 0002
+Wire the generation command into a Railway cron so new and changed tours get copy each night, with the two gateway variables added to Doppler `prd`. Needs Roy's go ahead before any deploy.
+**Done when:** a nightly run generates copy for tours that are new or whose grounding hash changed, and its summary is readable in the service logs.
+- [ ] Build it: `/develop nightly AI tour copy generation`
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
+- **Durable run history table for tour copy (`TourCopyRun`)**: left out of spec 0002 to keep the schema small, add it if gateway logs prove too short lived · needs a decision
+- **Batch API for tour copy**: only worth it if the catalogue grows well past 30,157 live tours, and the gateway must support it first · needs a decision
 - **Reusable command for reruns and a future 100 cities**: about $4 by the strategy estimate, but you chose a one off with saved raw results · needs a decision
 - **Rank the next cities to add by demand times catalog depth**: a second use of the same candidate list (strategy section 1.5) · needs a decision
 

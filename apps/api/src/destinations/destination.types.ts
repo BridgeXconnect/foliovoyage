@@ -1,6 +1,6 @@
 /**
  * Response shape for `GET /v1/destinations/:country/:city` (ST-5 / BRI-100,
- * extended for ST-11 / BRI-164).
+ * extended for ST-11 / BRI-164 and for AI tour copy, BRI-154 / spec 0002).
  *
  * The endpoint now returns the city's **published** Experiences (draft ones are
  * invisible to the public site), paginated, each carrying the provider-owned
@@ -28,6 +28,14 @@ export interface ExperienceResponse {
   priceBand: PriceBand | null;
   /** Curated tags. Empty until editorial curation (M7). */
   tags: string[];
+  /**
+   * AI-generated summary of the linked Tour (BRI-154), or null. Null covers
+   * every case but one: no `TourCopy` row yet, the row is `failed`, its
+   * `groundingHash` no longer matches the tour's current fields, or the tour
+   * is no longer eligible (AC-12). Untrusted third-party-grounded text —
+   * whoever renders it must escape it.
+   */
+  aiSummary: string | null;
   /**
    * Live affiliate deep link, when present. Omitted for auto-created imports —
    * its absence is what makes the card render a "coming soon" placeholder (the
