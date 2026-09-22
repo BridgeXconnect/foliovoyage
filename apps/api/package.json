@@ -21,6 +21,7 @@
     "research:hub": "ts-node src/modules/research/research.cli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@aws-sdk/client-s3": "^3.1093.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.4",
