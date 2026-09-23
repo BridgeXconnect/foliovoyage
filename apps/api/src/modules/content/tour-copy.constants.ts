@@ -13,7 +13,7 @@
  * produced it, so `--regenerate-older-than-version` can find rows worth
  * regenerating without a hash change.
  */
-export const TOUR_COPY_PROMPT_VERSION = 1;
+export const TOUR_COPY_PROMPT_VERSION = 2;
 
 /**
  * Allowed Anthropic model ids for tour-copy generation (AC-11). A code
