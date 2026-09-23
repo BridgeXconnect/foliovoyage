@@ -18,10 +18,14 @@ import type {
  * Gateway (`AI_GATEWAY_BASE_URL`) with a stored, bring-your-own-key provider
  * key on the gateway side, and this process only holds the gateway's own
  * token (`AI_GATEWAY_TOKEN`), sent as `cf-aig-authorization`.
+ *
+ * Cloudflare only substitutes its stored BYOK key when the provider auth
+ * header is *absent* from the request — any `x-api-key` value we send,
+ * placeholder or not, is forwarded to Anthropic as-is and rejected. So
+ * `apiKey` is `null` and `x-api-key` is explicitly nulled out in
+ * `defaultHeaders` (the SDK's documented escape hatch for "no local auth,
+ * I know what I'm doing") rather than set to a placeholder string.
  */
-
-/** Never sent — BYOK gateway holds the real Anthropic key, but the SDK requires a non-empty `apiKey`. */
-const BYOK_PLACEHOLDER_API_KEY = "unused-byok-gateway-placeholder";
 
 const MAX_TOKENS = 400;
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -43,9 +47,10 @@ export class AnthropicTourCopyGenerator implements TourCopyGenerator {
     /** Injectable for tests; defaults to a real client pointed at the gateway. */
     private readonly client: Anthropic = new Anthropic({
       baseURL: config.gatewayBaseUrl,
-      apiKey: BYOK_PLACEHOLDER_API_KEY,
+      apiKey: null,
       timeout: REQUEST_TIMEOUT_MS,
       defaultHeaders: {
+        "x-api-key": null,
         "cf-aig-authorization": `Bearer ${config.gatewayToken}`,
       },
     }),
