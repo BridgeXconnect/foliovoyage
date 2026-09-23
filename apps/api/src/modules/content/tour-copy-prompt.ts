@@ -20,6 +20,8 @@ import {
   CHECK_MIN_SENTENCES,
   CHECK_MIN_WORDS,
   CLICHE_TERMS,
+  PRICE_CODES,
+  PRICE_SYMBOLS,
   PRICE_WORDS,
   STACKED_INTENSIFIER_TERMS,
 } from "./tour-copy-check.constants";
@@ -72,8 +74,8 @@ Use only the tour data given to you between ${DATA_BLOCK_START} and ${DATA_BLOCK
 Hard limits, checked mechanically after you answer:
 - ${CHECK_MIN_SENTENCES} to ${CHECK_MAX_SENTENCES} sentences, ${CHECK_MIN_WORDS} to ${CHECK_MAX_WORDS} words total.
 - No number, month name, or year that is not written in the tour data. Do not invent or infer a number, even a plausible one.
-- No price, cost, currency, discount, or affordability language of any kind (words like ${PRICE_WORDS.slice(0, 4).join(", ")}, or a currency symbol or code).
-- No cancellation, refund, reschedule, or availability language of any kind (words like ${CANCELLATION_PHRASES.slice(0, 4).join(", ")}).
+- No price, cost, currency, discount, or affordability language of any kind: not ${PRICE_WORDS.join(", ")}; not a currency code like ${PRICE_CODES.join(", ")}; not a currency symbol like ${PRICE_SYMBOLS.join(" ")}.
+- No cancellation, refund, reschedule, or availability language of any kind: not ${CANCELLATION_PHRASES.join(", ")}.
 - Plain prose only: no headings, no bullet points, no markdown, no quotation marks around the whole thing.
 
 Open the paragraph on one specific, checkable fact from the tour data — a duration, a material, a place named in the description, something a reader could verify — never an adjective and never a scene-setting generalization like "nestled" or "a sensory experience."
