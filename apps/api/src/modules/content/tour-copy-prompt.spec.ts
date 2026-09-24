@@ -41,6 +41,14 @@ describe("TOUR_COPY_SYSTEM_PROMPT", () => {
     expect(TOUR_COPY_SYSTEM_PROMPT.toLowerCase()).toContain("one specific, checkable fact");
   });
 
+  it("tells the model to vary its opening, and its own example doesn't lead on duration", () => {
+    expect(TOUR_COPY_SYSTEM_PROMPT).toContain("Vary which fact leads");
+    expect(TOUR_COPY_SYSTEM_PROMPT).toContain('"The tour runs N minutes"');
+    const exampleFirstSentence = TOUR_COPY_EXAMPLE_OUTPUT.split(/(?<=\.)\s/)[0];
+    expect(exampleFirstSentence).not.toMatch(/\b(minutes?|hours?|runs|lasts)\b/i);
+    expect(exampleFirstSentence).not.toContain(String(TOUR_COPY_EXAMPLE_SOURCE.durationMin));
+  });
+
   it("names the docs/08 negative patterns verbatim: contrastive-reveal, come-for-stay-for, stacked intensifiers, clichés", () => {
     expect(TOUR_COPY_SYSTEM_PROMPT).toContain("It's not just X");
     expect(TOUR_COPY_SYSTEM_PROMPT).toContain("Come for X, stay for Y");
