@@ -63,8 +63,8 @@ export const TOUR_COPY_EXAMPLE_SOURCE: TourCopyGroundingInput = {
 };
 
 export const TOUR_COPY_EXAMPLE_OUTPUT =
-  "The workshop runs about 75 minutes, most of it spent shaping a bamboo frame before stretching silk panels across it under an artisan's guidance. " +
-  "You cut, glue, and stretch the silk yourself, then watch the frame take its shape as the family explains each fold. " +
+  "A local artisan family teaches traditional Vietnamese lantern craft here, starting from a bare bamboo frame and a stack of silk panels. " +
+  "Over about 75 minutes you cut, glue, and stretch the silk yourself, then watch the frame take its shape as the family explains each fold. " +
   "Materials are provided, so you leave with a finished lantern built entirely by hand.";
 
 export const TOUR_COPY_SYSTEM_PROMPT = `You write one short paragraph of destination-guide copy for a single bookable tour, in English, for Folio Voyage.
@@ -79,6 +79,8 @@ Hard limits, checked mechanically after you answer:
 - Plain prose only: no headings, no bullet points, no markdown, no quotation marks around the whole thing.
 
 Open the paragraph on one specific, checkable fact from the tour data — a duration, a material, a place named in the description, something a reader could verify — never an adjective and never a scene-setting generalization like "nestled" or "a sensory experience."
+
+Vary which fact leads and how the first sentence is built. Pick the fact most distinctive to this tour: the activity itself, a place or sight named in the description, what you make, taste or ride, or what is included. Lead with the duration only when it is the most telling detail, and never fall back on a stock opening like "The tour runs N minutes": these paragraphs appear side by side on a page, so they must not all start the same way.
 
 Cut these patterns on sight, they read as AI-generated:
 - Em dashes: at most one in the whole paragraph. Prefer a comma or a full stop.
