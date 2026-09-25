@@ -270,7 +270,7 @@ The project approach is Tracer Bullet, so the order threads one tour end to end 
 - [ ] Consider a preflight in the CLI that reads the gateway configuration through Cloudflare's API and refuses `--execute` when no enabled spend rule exists. It needs a second Cloudflare token with read scope, so it is left out for now.
 - [ ] If a durable run history is wanted later, add a small `TourCopyRun` table (run id, start and end, counts, token totals, exit reason). It was left out of this version.
 - [ ] Web story: render `aiSummary`, escape it as untrusted text, and decide whether it carries a visible label. Add the field to the web type.
-- [ ] BRI-201: absorb the inline check and the voice counters, add a check for spelled out numbers, and add the sampled evaluation. This spec's check then becomes its first gate.
+- [x] BRI-201: absorb the inline check and the voice counters, add a check for spelled out numbers, and add the sampled evaluation. This spec's check then becomes its first gate.
 - [ ] Wire the Railway cron for nightly generation as a separate step, after Roy approves. It needs the two gateway variables in Doppler `prd`.
 - [ ] Update `docs/08-brand-voice-style-guide.md`: line 24 (a price example) and line 27 (Roy's firsthand knowledge) do not apply to tour copy and must not be carried into the prompt, and the calibration example states facts outside tour fields.
 - [ ] Update `docs/02-system-architecture-specification.md` section 12: cancellation policy is listed as grounding input, which conflicts with BRI-204, and the section should say model calls go through the gateway.
