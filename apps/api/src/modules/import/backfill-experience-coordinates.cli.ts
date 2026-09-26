@@ -1,6 +1,6 @@
 import { PrismaService } from "../../prisma/prisma.service";
 import { AllowlistFetch } from "./http/allowlist-fetch";
-import { CURATED_REFS } from "./curated-cities";
+import { CURATED_CITIES, CURATED_REFS } from "./curated-cities";
 import {
   extractLocationCandidates,
   type LocationCandidate,
@@ -101,11 +101,13 @@ interface ParsedArgs {
   maxPages: number | null;
   sample: number;
   concurrency: number;
+  /** Curated-city slug: only that city's tours are scanned, planned and written. */
+  city: string | null;
 }
 
 const USAGE =
   "Usage: backfill-experience-coordinates:run [--execute] [--dates YYYY-MM-DD,…] " +
-  "[--max-pages N] [--sample N] [--concurrency N]";
+  "[--max-pages N] [--sample N] [--concurrency N] [--city SLUG]";
 
 /** Same ceiling as backfill-reference-price: a full unthrottled batch exhausted the Prisma pool. */
 const WRITE_CONCURRENCY = 8;
@@ -119,6 +121,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
     maxPages: null,
     sample: 3,
     concurrency: 3,
+    city: null,
   };
   const positiveInt = (flag: string, raw: string | undefined): number | string => {
     const value = raw === undefined ? NaN : Number(raw);
@@ -136,6 +139,13 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
         return { error: `--dates needs YYYY-MM-DD[,YYYY-MM-DD…], got ${raw ?? "(nothing)"}.\n${USAGE}` };
       }
       parsed.dates = dates;
+    } else if (arg === "--city") {
+      const raw = argv[++i];
+      if (!raw || !CURATED_CITIES.some((c) => c.slug === raw)) {
+        const known = CURATED_CITIES.map((c) => c.slug).join(", ");
+        return { error: `--city needs one of: ${known}. Got ${raw ?? "(nothing)"}.\n${USAGE}` };
+      }
+      parsed.city = raw;
     } else if (arg === "--max-pages" || arg === "--sample" || arg === "--concurrency") {
       const value = positiveInt(arg, argv[++i]);
       if (typeof value === "string") return { error: value };
@@ -404,7 +414,9 @@ export async function main(
     }
 
     io.out(`backfill-experience-coordinates (${args.execute ? "EXECUTE, this will change rows" : "dry run, nothing is changed"})`);
-    const [cityRows, tours] = await Promise.all([store.cities(), store.activeTours()]);
+    const [cityRows, allTours] = await Promise.all([store.cities(), store.activeTours()]);
+    const tours = args.city ? allTours.filter((t) => cityForTour(t.destinationRefs)?.slug === args.city) : allTours;
+    if (args.city) io.out(`  Restricted to ${args.city}: ${tours.length} of ${allTours.length} tour(s).`);
     const cityBySlug = new Map(cityRows.map((c) => [c.slug, c]));
     io.out(`  ${tours.length} active curated tour(s), ${tours.filter((t) => t.experience).length} linked to an Experience.`);
 
