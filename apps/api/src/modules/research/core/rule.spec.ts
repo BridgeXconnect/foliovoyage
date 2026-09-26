@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 
 import { RuleError, checkRuleGate, describeRuleCommit, loadRule, parseRule, type GitRunner } from "./rule";
 
-const REAL_RULE = path.resolve(__dirname, "../../../../../docs/research/bri-206/rule.md");
+const REAL_RULE = path.resolve(__dirname, "../../../../../../docs/research/bri-206/rule.md");
 const NOW = new Date("2026-09-20T12:00:00.000Z");
 
 describe("parseRule", () => {

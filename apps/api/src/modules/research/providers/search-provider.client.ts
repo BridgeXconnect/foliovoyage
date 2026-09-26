@@ -5,9 +5,9 @@ import * as path from "node:path";
 import {
   AllowlistFetch,
   type FetchLike,
-} from "../import/http/allowlist-fetch";
-import { estimateRequest } from "./price-table";
-import { SpendGuard, toMicros } from "./spend-guard";
+} from "../../import/http/allowlist-fetch";
+import { estimateRequest } from "../pricing/price-table";
+import { SpendGuard, toMicros } from "../pricing/spend-guard";
 
 /**
  * The one code path to the search data provider (BRI-206, spec child 0001).

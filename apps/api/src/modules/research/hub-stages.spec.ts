@@ -5,10 +5,10 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 import type { FetchLike } from "../import/http/allowlist-fetch";
-import { parseDemand } from "./demand.stage";
-import { KEYWORD_OVERVIEW_ENDPOINT } from "./price-table";
+import { parseDemand } from "./stages/demand.stage";
+import { KEYWORD_OVERVIEW_ENDPOINT } from "./pricing/price-table";
 import { main } from "./research.cli";
-import type { GitRunner } from "./rule";
+import type { GitRunner } from "./core/rule";
 
 const NOW = new Date("2026-09-20T12:00:00.000Z");
 const RULE_FILE = path.resolve(__dirname, "../../../../../docs/research/bri-206/rule.md");

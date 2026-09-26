@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import type { CandidatesFile } from "./candidates.stage";
-import { MAX_QUERY_CHARS, MAX_QUERY_WORDS } from "./candidates";
-import { KEYWORD_OVERVIEW_ENDPOINT } from "./price-table";
-import type { Rule } from "./rule";
-import type { SearchProviderClient } from "./search-provider.client";
+import { MAX_QUERY_CHARS, MAX_QUERY_WORDS } from "../core/candidates";
+import { KEYWORD_OVERVIEW_ENDPOINT } from "../pricing/price-table";
+import type { Rule } from "../core/rule";
+import type { SearchProviderClient } from "../providers/search-provider.client";
 
 /**
  * Demand check for one city (BRI-206, spec child 0004): one Keyword Overview

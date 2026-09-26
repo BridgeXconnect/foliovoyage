@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { AllowlistFetch, type FetchLike } from "../import/http/allowlist-fetch";
+import { AllowlistFetch, type FetchLike } from "../../import/http/allowlist-fetch";
 
 /**
  * Viator tag names and attractions for the candidate stage (BRI-206, spec

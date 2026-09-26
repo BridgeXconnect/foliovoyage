@@ -152,3 +152,13 @@ that env var in Vercel's project settings, not this repo, for the current value.
   wired to the nightly cron scheduler), `modules/content`
   (`tour-copy-eligibility.ts` — BRI-200's pure rating/review-count gate for AI
   tour copy; not yet called by any pipeline, cron or route).
+- **`modules/research`** (BRI-206 hub-page validation, CLI only, no Nest module):
+  `pnpm --filter @folio/api research:hub <candidates|demand|serp|classify|spend>`.
+  Layout: `core/` (rule gate, candidate + classification logic, Viator catalog),
+  `pricing/` (price table, spend guard/ledger), `stages/` (one file per pipeline
+  stage), `providers/` (search-provider client). `research.cli.ts` **stays at
+  the module root**: it derives `RESEARCH_DATA_DIR` (`apps/api/research-data`,
+  gitignored, holds the spend ledger) and the repo root from `__dirname`, so
+  moving it would silently reset the monthly spend accounting to $0
+  (`research.cli.spec.ts` pins the location). Same reason its `*.spec.ts`
+  files that read `docs/research/bri-206/rule.md` count `../` from their own folder.

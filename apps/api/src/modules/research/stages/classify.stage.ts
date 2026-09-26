@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { ALL_FAMILIES, type FamilyInput, type FamilyVerdict, type QueryVerdict, judgeFamilies, judgeQuery } from "./classify";
+import { ALL_FAMILIES, type FamilyInput, type FamilyVerdict, type QueryVerdict, judgeFamilies, judgeQuery } from "../core/classify";
 import type { CandidatesFile } from "./candidates.stage";
 import type { DemandFile } from "./demand.stage";
-import type { Rule } from "./rule";
+import type { Rule } from "../core/rule";
 import type { SerpFile } from "./serp.stage";
-import type { QueryFamily } from "./candidates";
+import type { QueryFamily } from "../core/candidates";
 
 /**
  * Classify saved results pages and apply the rule (BRI-206, spec children
