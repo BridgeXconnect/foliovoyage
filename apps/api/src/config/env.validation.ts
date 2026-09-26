@@ -346,6 +346,30 @@ export const envSchema = z.object({
 
   /** Concurrent model-call workers the `tour-copy` CLI runs. Defaults to 4. */
   TOUR_COPY_CONCURRENCY: z.coerce.number().int().positive().default(4),
+
+  // --- AI tour-copy evaluation (BRI-201, spec 0003) -------------------------
+  // Same shape as the block above: optional, so the API boots without them.
+  // The `tour-copy-eval:run` and `tour-copy-golden:run` CLIs re-validate the
+  // judge model against its allowlist at startup (AC-5, AC-19, see
+  // tour-copy-judge-startup-check.ts).
+
+  /**
+   * Anthropic model id for the judge, e.g. `claude-opus-5-5`. A plain optional
+   * string for the same reason as TOUR_COPY_MODEL: the allowlist
+   * (`TOUR_COPY_JUDGE_ALLOWED_MODELS`, `tour-copy-eval.constants.ts`) is the
+   * real guard, checked by the CLI's startup check. Unset resolves to
+   * `TOUR_COPY_JUDGE_MODEL_DEFAULT`.
+   */
+  TOUR_COPY_JUDGE_MODEL: z.string().min(1).optional(),
+
+  /**
+   * Ceiling on how many judge calls one `tour-copy-eval:run` makes. Defaults
+   * to 500.
+   */
+  TOUR_COPY_EVAL_MAX_JUDGMENTS: z.coerce.number().int().positive().default(500),
+
+  /** Concurrent judge workers the `tour-copy-eval:run` CLI runs. Defaults to 4. */
+  TOUR_COPY_EVAL_CONCURRENCY: z.coerce.number().int().positive().default(4),
 });
 
 /** Fully-parsed, typed environment. */
