@@ -27,6 +27,11 @@ describe("TOUR_COPY_SYSTEM_PROMPT", () => {
     expect(TOUR_COPY_SYSTEM_PROMPT.toLowerCase()).toContain("no cancellation, refund, reschedule, or availability");
   });
 
+  it("states that a spelled out number is held to the same rule as digits (spec 0003 AC-3)", () => {
+    expect(TOUR_COPY_SYSTEM_PROMPT).toContain("digits or as words");
+    expect(TOUR_COPY_SYSTEM_PROMPT).toContain("Only \"one\" and ordinals");
+  });
+
   it("tells the model to write in English", () => {
     expect(TOUR_COPY_SYSTEM_PROMPT).toContain("in English");
   });

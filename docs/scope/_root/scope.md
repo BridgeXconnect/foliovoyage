@@ -1,6 +1,6 @@
 # Scope: BRI-206 hub page validation (Folio Voyage, product name Atlas)
 
-Folio Voyage is a travel affiliate platform with curated destination guides and bookable experiences. This scope started as one slice: two cheap experiments that decide which hub page types (BRI-205) are worth designing at all (rows 1 to 7). It now also carries the first generated content type, AI tour copy (BRI-154, rows 8 to 10). It spans both apps, so it lives in `_root`.
+Folio Voyage is a travel affiliate platform with curated destination guides and bookable experiences. This scope started as one slice: two cheap experiments that decide which hub page types (BRI-205) are worth designing at all (rows 1 to 7). It now also carries the first generated content type, AI tour copy (BRI-154, rows 8 to 10) and its sampled evaluation (BRI-201, row 11). It spans both apps, so it lives in `_root`.
 
 **Build approach:** Tracer Bullet (prove the whole path on one city with real calls first, then widen to six).
 **Workflow:** Alpha (after develop, run check verify). The project default level of rigor. `/architect` is the recommended first stop for a feature with a real decision, but skippable when you already know the build. Any feature can carry its own tag (for example `· GA`) to do more or less.
@@ -23,6 +23,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 8 | AI generated tour copy (`ai_summary`) | Content engine | in-progress |
 | 9 | Show AI tour copy on the web | Content engine | planned |
 | 10 | Nightly AI tour copy generation | Content engine | planned |
+| 11 | Sampled evaluation and kill switch for AI tour copy (BRI-201) | Content engine | in-progress |
 
 ## Already built (for context)
 
@@ -120,6 +121,18 @@ Render `aiSummary` on the destination page next to the provider description, esc
 Wire the generation command into a Railway cron so new and changed tours get copy each night, with the two gateway variables added to Doppler `prd`. Needs Roy's go ahead before any deploy.
 **Done when:** a nightly run generates copy for tours that are new or whose grounding hash changed, and its summary is readable in the service logs.
 - [ ] Build it: `/develop nightly AI tour copy generation`
+
+### 11. Sampled evaluation and kill switch for AI tour copy (BRI-201) · in-progress · from spec 0002
+A separate judge command (Claude Opus 5.5, a different model from the Sonnet 5 writer) samples published tour copy, lists each claim as supported, unsupported or contradicted with a quote from the source, and stores the verdicts in a new `TourCopyEval` table. If more than 5% of at least 30 judged pages carry a bad claim, every published row of that prompt version and model is withdrawn (reversible), and `tour-copy:run` refuses to run at that pair until it is restored. A golden set tests the judge and the prompt before a change ships, and a 30 page human spot check keeps the judge honest. Needs Roy's go ahead before any deploy. code in `apps/api/src/modules/content/`
+**Done when:** the judge has scored a sample of published copy through the gateway with verdicts stored, a pair over the bad claim limit is withdrawn and can be restored, and the golden set has passed with its stamp committed and enforced by a test.
+- [x] Design it (spec): [0003](../../specs/_root/0003-tour-copy-eval-harness/index.md)
+- [ ] Build it: `/develop sampled evaluation and kill switch for AI tour copy`
+  - [ ] Table, withdrawn read path and skip rule, then a thin thread on a fake judge with the kill switch (AC-1, AC-2, AC-7, AC-8, AC-9)
+  - [ ] Stronger inline check, prompt version 4 and the extracted generate loop (AC-3, AC-4, AC-18)
+  - [ ] Judge rubric, env config and the Anthropic judge adapter through the gateway (AC-5, AC-6, AC-12, AC-17, AC-19)
+  - [ ] Sample selection, withdraw and restore, and the spot check commands (AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-19)
+  - [ ] Golden data and command, then Roy's calibration and the committed stamp (AC-5, AC-9, AC-14, AC-15, AC-16)
+- [ ] Verify it: `/check verify sampled evaluation and kill switch for AI tour copy`
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

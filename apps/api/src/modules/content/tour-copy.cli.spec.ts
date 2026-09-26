@@ -3,8 +3,8 @@ import { describe, expect, it, jest } from "@jest/globals";
 
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
 import { TOUR_COPY_PROMPT_VERSION } from "./tour-copy.constants";
-import type { CandidateTour } from "./tour-copy.cli";
-import { main } from "./tour-copy.cli";
+import type { CandidateTour, CliDeps, CliIo } from "./tour-copy.cli";
+import { main as runCli } from "./tour-copy.cli";
 import type { GenerateOneOptions, TourCopyOutcome } from "./tour-copy.service";
 
 const VALID_ENV: NodeJS.ProcessEnv = {
@@ -12,6 +12,11 @@ const VALID_ENV: NodeJS.ProcessEnv = {
   AI_GATEWAY_TOKEN: "gw-token",
   TOUR_COPY_MODEL: "claude-sonnet-5",
 };
+
+/** Every test injects a zero withdrawn count unless it is about the refusal (AC-2). */
+function main(argv: readonly string[], env: NodeJS.ProcessEnv, cliIo: CliIo, deps: CliDeps = {}) {
+  return runCli(argv, env, cliIo, { withdrawnCount: async () => 0, publishedRows: async () => [], ...deps });
+}
 
 const SOURCE_FIELDS = {
   title: "Bangkok Floating Market Half-Day Tour",
@@ -167,11 +172,93 @@ describe("tour-copy:run CLI", () => {
     });
   });
 
+  describe("withdrawn pair (AC-2)", () => {
+    const pair = { promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" };
+
+    it("refuses a dry run with exit 1, naming the pair and the count, before touching candidates", async () => {
+      const { io: cliIo, out, err } = io();
+      const candidates = jest.fn(() => toAsync<CandidateTour>([]));
+      const withdrawnCount = jest.fn(async () => 3);
+
+      const code = await main([], VALID_ENV, cliIo, {
+        candidates,
+        service: { generateOne: generateOneSpy() },
+        withdrawnCount,
+      });
+
+      expect(code).toBe(1);
+      expect(withdrawnCount.mock.calls).toEqual([[pair]]);
+      expect(candidates).not.toHaveBeenCalled();
+      expect(out).toEqual([]);
+      const message = err.join("\n");
+      expect(message).toContain("3 withdrawn rows");
+      expect(message).toContain(`prompt version ${TOUR_COPY_PROMPT_VERSION}`);
+      expect(message).toContain("claude-sonnet-5");
+    });
+
+    it("refuses --execute the same way and never calls the service", async () => {
+      const { io: cliIo, err } = io();
+      const generateOne = generateOneSpy();
+
+      const code = await main(["--execute"], VALID_ENV, cliIo, {
+        candidates: () => toAsync([makeCandidate("t1")]),
+        service: { generateOne },
+        withdrawnCount: async () => 1,
+      });
+
+      expect(code).toBe(1);
+      expect(generateOne).not.toHaveBeenCalled();
+      expect(err.join("\n")).toContain("1 withdrawn row ");
+    });
+
+    it("disconnects when it refuses", async () => {
+      const { io: cliIo } = io();
+      const disconnect = jest.fn(async () => undefined);
+
+      await main([], VALID_ENV, cliIo, {
+        candidates: () => toAsync<CandidateTour>([]),
+        service: { generateOne: generateOneSpy() },
+        withdrawnCount: async () => 2,
+        disconnect,
+      });
+
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it("counts a withdrawn row at the current pair as withdrawn_current in the dry run, whatever its hash", async () => {
+      const { io: cliIo, out } = io();
+      const stale = makeCandidate("t1", {
+        tourCopy: { status: "withdrawn", groundingHash: "not-the-current-hash", promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
+      });
+
+      const code = await main([], VALID_ENV, cliIo, { candidates: () => toAsync([stale]), service: { generateOne: generateOneSpy() } });
+
+      expect(code).toBe(0);
+      expect(out.join("\n")).toContain("withdrawn_current: 1");
+    });
+
+    it("would regenerate a withdrawn row at another prompt version or model", async () => {
+      const { io: cliIo, out } = io();
+      const otherVersion = makeCandidate("t1", {
+        tourCopy: { status: "withdrawn", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION - 1, model: "claude-sonnet-5" },
+      });
+      const otherModel = makeCandidate("t2", {
+        tourCopy: { status: "withdrawn", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-haiku-4-5-20251001" },
+      });
+
+      const code = await main([], VALID_ENV, cliIo, { candidates: () => toAsync([otherVersion, otherModel]), service: { generateOne: generateOneSpy() } });
+
+      expect(code).toBe(0);
+      expect(out.join("\n")).toContain("would generate 2 tours");
+      expect(out.join("\n")).not.toContain("withdrawn_current");
+    });
+  });
+
   describe("flag independence", () => {
     it("--retry-failed alone does not imply --execute, and does influence dry-run classification", async () => {
       const { io: cliIo, out } = io();
       const failedCurrent = makeCandidate("t1", {
-        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const generateOne = generateOneSpy();
 
@@ -197,7 +284,7 @@ describe("tour-copy:run CLI", () => {
     it("--regenerate-older-than-version alone does not imply --execute, and does influence dry-run classification", async () => {
       const { io: cliIo, out } = io();
       const staleVersion = makeCandidate("t1", {
-        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: 1 },
+        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: 1, model: "claude-sonnet-5" },
       });
       const generateOne = generateOneSpy();
 
@@ -461,6 +548,64 @@ describe("tour-copy:run CLI", () => {
       expect(text).toContain("failed: 1");
       expect(text).toContain("skipped: 2");
       expect(text).toContain("not_eligible: 2");
+    });
+
+    it("prints voice counter totals and opening shares of the run's published rows, with no warning at or below 40% duration (spec 0003 AC-4)", async () => {
+      const { io: cliIo, out } = io();
+      const generateOne = jest.fn<(tourId: string, options: GenerateOneOptions) => Promise<TourCopyOutcome>>(
+        async () => ({ kind: "generated", status: "published" }),
+      );
+      const publishedRows = jest.fn(async () => [
+        { voiceCounts: { emDash: 1, contrastiveReveal: 0, clicheOrIntensifier: 2 }, openingPattern: "duration" },
+        { voiceCounts: { emDash: 0, contrastiveReveal: 1, clicheOrIntensifier: 0 }, openingPattern: "other" },
+        { voiceCounts: { emDash: 2, contrastiveReveal: 0, clicheOrIntensifier: 0 }, openingPattern: "other" },
+        { voiceCounts: { emDash: 0, contrastiveReveal: 0, clicheOrIntensifier: 1 }, openingPattern: "other" },
+        { voiceCounts: { emDash: 0, contrastiveReveal: 0, clicheOrIntensifier: 0 }, openingPattern: "other" },
+      ]);
+
+      await main(["--execute"], { ...VALID_ENV, TOUR_COPY_CONCURRENCY: "1" }, cliIo, {
+        runId: () => "run_x",
+        candidates: () => toAsync([makeCandidate("t1")]),
+        service: { generateOne },
+        publishedRows,
+      });
+
+      const text = out.join("\n");
+      expect(publishedRows.mock.calls).toEqual([["run_x"]]);
+      expect(text).toContain("voice counters: emDash 3, contrastiveReveal 1, clicheOrIntensifier 3");
+      expect(text).toContain("opening patterns: duration 1 (20%), other 4 (80%)");
+      expect(text).not.toContain("WARNING");
+    });
+
+    it("prints a warning line when more than 40% of the run's published rows open on the duration (spec 0003 AC-4)", async () => {
+      const { io: cliIo, out } = io();
+      const generateOne = jest.fn<(tourId: string, options: GenerateOneOptions) => Promise<TourCopyOutcome>>(
+        async () => ({ kind: "generated", status: "published" }),
+      );
+      const row = (openingPattern: string) => ({
+        voiceCounts: { emDash: 0, contrastiveReveal: 0, clicheOrIntensifier: 0 },
+        openingPattern,
+      });
+
+      await main(["--execute"], { ...VALID_ENV, TOUR_COPY_CONCURRENCY: "1" }, cliIo, {
+        candidates: () => toAsync([makeCandidate("t1")]),
+        service: { generateOne },
+        publishedRows: async () => [row("duration"), row("duration"), row("other")],
+      });
+
+      expect(out.join("\n")).toMatch(/WARNING: 67% of this run's published paragraphs open on the duration/);
+    });
+
+    it("prints no counter lines when the run published nothing", async () => {
+      const { io: cliIo, out } = io();
+      const publishedRows = jest.fn(async () => []);
+      await main(["--execute"], { ...VALID_ENV, TOUR_COPY_CONCURRENCY: "1" }, cliIo, {
+        candidates: () => toAsync([makeCandidate("t1")]),
+        service: { generateOne: async () => ({ kind: "generated", status: "failed" }) },
+        publishedRows,
+      });
+      expect(publishedRows).not.toHaveBeenCalled();
+      expect(out.join("\n")).not.toContain("voice counters");
     });
   });
 
