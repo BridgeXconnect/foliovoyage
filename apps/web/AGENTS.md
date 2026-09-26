@@ -24,7 +24,9 @@ pnpm --filter @folio/web test
 - Server components fetch destination data from the API via
   `src/lib/api.ts` (`fetchDestination`) — `API_BASE_URL` env var, no client-side
   fetching, no data hardcoded in components. A 404 from the API becomes `null`
-  → Next.js not-found; any other failure throws.
+  → Next.js not-found; any other failure throws, including a 200 whose body no
+  longer matches the `@folio/shared` wire schema (BRI-214; see
+  `packages/shared/AGENTS.md`).
 - `src/app/destinations/[slug]/page.tsx` (and the rest of `src/data/`) read the
   static `destinations.ts` content system and are the **canonical** destination
   surface. `src/app/destinations/[slug]/[city]/page.tsx` is the DB-backed
