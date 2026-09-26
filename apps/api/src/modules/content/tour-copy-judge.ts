@@ -57,9 +57,23 @@ export interface JudgeRequest {
  * promise, not a result variant, same as the generator port.
  */
 export type JudgeResult =
-  | { kind: "verdict"; verdict: JudgeVerdict; usage: TourCopyUsage }
-  | { kind: "refusal"; usage: TourCopyUsage }
-  | { kind: "invalid"; usage: TourCopyUsage };
+  | { kind: "verdict"; verdict: JudgeVerdict; usage: TourCopyUsage; attempts?: JudgeAttempt[] }
+  | { kind: "refusal"; usage: TourCopyUsage; attempts?: JudgeAttempt[] }
+  | { kind: "invalid"; usage: TourCopyUsage; attempts?: JudgeAttempt[] };
+
+/**
+ * How one model call inside a `judge()` ended. For logging only, nothing
+ * decides on it: `max_tokens` is a stop that cut the answer off (the worry is
+ * thinking tokens eating the cap), `no_text` is an answer with no text block,
+ * `unparseable` is text that is not JSON, `schema_invalid` is JSON that fails
+ * the verdict checks.
+ */
+export type JudgeAttemptOutcome = "ok" | "max_tokens" | "no_text" | "unparseable" | "schema_invalid" | "refusal";
+
+export interface JudgeAttempt {
+  outcome: JudgeAttemptOutcome;
+  outputTokens: number;
+}
 
 export interface TourCopyJudge {
   /** The model id that makes the calls; stored on every verdict as `evaluatorModel`. */

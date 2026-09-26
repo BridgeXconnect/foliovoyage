@@ -36,6 +36,7 @@ import {
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
 import type { TourCopyGenerator } from "./tour-copy-generator";
 import type { TourCopyJudge } from "./tour-copy-judge";
+import { formatAttempts, formatRetryStats } from "./tour-copy-judge-log";
 import type { TourCopyStartupConfig } from "./tour-copy-startup-check";
 import { checkTourCopyJudgeStartup, TourCopyJudgeStartupError } from "./tour-copy-judge-startup-check";
 import { buildJudgeUserMessage, getJudgeRubric } from "./tour-copy-judge-rubric";
@@ -147,10 +148,12 @@ function printStop(stop: GoldenStop, outcome: Extract<GoldenOutcome, { kind: "st
     }
   } else {
     io.err(`  The judge answered ${stop.reason === "judge_invalid" ? "with an invalid verdict" : "with a refusal"}. The golden run does not carry on past that.`);
+    if (stop.attempts !== undefined && stop.attempts.length > 0) io.err(`  judge attempts: ${formatAttempts(stop.attempts)}`);
   }
   io.err(
     `  Calls made so far: Part A ${outcome.progress.partACalls}, Part B generated ${outcome.progress.partBGenerated}, Part B judged ${outcome.progress.partBJudged}.`,
   );
+  io.err(`  ${formatRetryStats(outcome.progress.judgeRetries)}`);
   io.err("  No pass rates are printed for a stopped run, and no stamp is written.");
 }
 
@@ -313,6 +316,8 @@ export async function main(
   if (outcome.partA) printPartA(outcome.partA, io);
   if (outcome.partBSkipped) io.out("Part B was not run because Part A did not pass.");
   if (outcome.partB) printPartB(outcome.partB, io);
+  io.out(`  judge_invalid: 0 (a run stops on the first one)`);
+  io.out(`  ${formatRetryStats(outcome.progress.judgeRetries)}`);
 
   const passed = (outcome.partA?.passed ?? true) && (outcome.partB?.passed ?? true) && !outcome.partBSkipped;
   if (args.part === "b") {

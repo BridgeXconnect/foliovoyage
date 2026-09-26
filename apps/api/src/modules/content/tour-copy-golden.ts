@@ -4,7 +4,8 @@ import type { GoldenData, GoldenSeeded, GoldenTour } from "./tour-copy-golden-da
 import { generateChecked } from "./tour-copy-generate-checked";
 import type { TourCopyGenerator } from "./tour-copy-generator";
 import { computeGroundingHash, type TourCopyGroundingInput } from "./tour-copy-grounding-hash";
-import type { PageVerdict, TourCopyJudge } from "./tour-copy-judge";
+import type { JudgeAttempt, JudgedClaim, PageVerdict, TourCopyJudge } from "./tour-copy-judge";
+import { countAttempts, emptyRetryStats, flaggedClaimLines, retryLines, type JudgeRetryStats } from "./tour-copy-judge-log";
 
 /**
  * The golden run (BRI-201 / spec 0003, AC-15). Two parts, each one call at a
@@ -24,7 +25,7 @@ export type GoldenPart = "a" | "b" | "both";
 
 export type GoldenStop =
   | { reason: "api_error"; call: string; error: unknown }
-  | { reason: "judge_invalid" | "judge_refusal"; call: string };
+  | { reason: "judge_invalid" | "judge_refusal"; call: string; attempts?: JudgeAttempt[] };
 
 export interface PartAResult {
   defects: number;
@@ -60,6 +61,8 @@ export interface GoldenProgress {
   partACalls: number;
   partBGenerated: number;
   partBJudged: number;
+  /** Judge calls so far, how many needed a second model call, and how many first calls stopped at `max_tokens`. Logging only. */
+  judgeRetries: JudgeRetryStats;
 }
 
 export type GoldenOutcome =
@@ -89,9 +92,23 @@ const isBad = (verdict: PageVerdict): boolean => verdict !== "clean";
 const share = (part: number, whole: number): number => (whole === 0 ? 0 : part / whole);
 
 // Judge results shared by both parts: a verdict, or a reason to stop.
-type Judged = { ok: true; claimVerdict: PageVerdict; leadsWithFact: boolean } | { ok: false; stop: GoldenStop };
+type Judged =
+  | { ok: true; claimVerdict: PageVerdict; leadsWithFact: boolean; claims: JudgedClaim[]; attempts?: JudgeAttempt[] }
+  | { ok: false; stop: GoldenStop };
 
-async function judgeCall(deps: GoldenRunDeps, tour: GoldenTour, paragraph: string, call: string): Promise<Judged> {
+/** The detail lines under a progress line: any retry, then every claim the judge did not call supported, with its quote. */
+function detailLines(judged: Judged): string[] {
+  if (!judged.ok) return [];
+  return [...retryLines(judged.attempts), ...flaggedClaimLines(judged.claims)];
+}
+
+async function judgeCall(
+  deps: GoldenRunDeps,
+  progress: GoldenProgress,
+  tour: GoldenTour,
+  paragraph: string,
+  call: string,
+): Promise<Judged> {
   try {
     const result = await deps.judge.judge({
       contentType: "tour_copy",
@@ -101,9 +118,16 @@ async function judgeCall(deps: GoldenRunDeps, tour: GoldenTour, paragraph: strin
       source: sourceOf(tour),
       paragraph,
     });
-    if (result.kind === "refusal") return { ok: false, stop: { reason: "judge_refusal", call } };
-    if (result.kind === "invalid") return { ok: false, stop: { reason: "judge_invalid", call } };
-    return { ok: true, claimVerdict: result.verdict.claimVerdict, leadsWithFact: result.verdict.leadsWithFact };
+    countAttempts(progress.judgeRetries, result.attempts);
+    if (result.kind === "refusal") return { ok: false, stop: { reason: "judge_refusal", call, attempts: result.attempts } };
+    if (result.kind === "invalid") return { ok: false, stop: { reason: "judge_invalid", call, attempts: result.attempts } };
+    return {
+      ok: true,
+      claimVerdict: result.verdict.claimVerdict,
+      leadsWithFact: result.verdict.leadsWithFact,
+      claims: result.verdict.claims,
+      attempts: result.attempts,
+    };
   } catch (error) {
     return { ok: false, stop: { reason: "api_error", call, error } };
   }
@@ -154,9 +178,12 @@ export async function runPartA(
   const flaggedCleanPages: string[] = [];
 
   for (const page of pages) {
-    const judged = await judgeCall(deps, page.tour, page.paragraph, `Part A, ${page.label}`);
+    const judged = await judgeCall(deps, progress, page.tour, page.paragraph, `Part A, ${page.label}`);
     progress.partACalls++;
-    deps.onProgress?.(`  Part A ${progress.partACalls} of ${pages.length}`);
+    deps.onProgress?.(
+      `  Part A ${progress.partACalls} of ${pages.length}, ${page.label}` + (judged.ok ? `: ${judged.claimVerdict}` : ""),
+    );
+    for (const line of detailLines(judged)) deps.onProgress?.(line);
     if (!judged.ok) return { stop: judged.stop };
 
     const expectedBad = page.expected !== null && page.expected.claimVerdict !== "clean";
@@ -228,9 +255,12 @@ export async function runPartB(
     published++;
     if (generated.openingPattern === "duration") durationOpenings++;
 
-    const verdict = await judgeCall(deps, tour, generated.text, `${call}, judging`);
+    const verdict = await judgeCall(deps, progress, tour, generated.text, `${call}, judging`);
     progress.partBJudged++;
-    deps.onProgress?.(`  Part B ${progress.partBGenerated} of ${data.tours.length}`);
+    deps.onProgress?.(
+      `  Part B ${progress.partBGenerated} of ${data.tours.length}, tour ${tour.id}` + (verdict.ok ? `: ${verdict.claimVerdict}` : ""),
+    );
+    for (const line of detailLines(verdict)) deps.onProgress?.(line);
     if (!verdict.ok) return { stop: verdict.stop };
     judged++;
     if (verdict.leadsWithFact) leads++;
@@ -261,7 +291,7 @@ export async function runPartB(
 
 /** Runs the chosen part or parts. Part B only follows Part A in `both`, and only when Part A passed. */
 export async function runGolden(part: GoldenPart, data: GoldenData, deps: GoldenRunDeps): Promise<GoldenOutcome> {
-  const progress: GoldenProgress = { partACalls: 0, partBGenerated: 0, partBJudged: 0 };
+  const progress: GoldenProgress = { partACalls: 0, partBGenerated: 0, partBJudged: 0, judgeRetries: emptyRetryStats() };
   let partA: PartAResult | undefined;
   let partB: PartBResult | undefined;
 

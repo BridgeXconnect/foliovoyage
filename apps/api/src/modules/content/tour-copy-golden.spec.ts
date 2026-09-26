@@ -253,3 +253,77 @@ describe("runGolden both", () => {
     expect(peak).toBe(1);
   });
 });
+
+describe("runGolden logging", () => {
+  it("prints each judge call with its page verdict, and every flagged claim with its quote", async () => {
+    const lines: string[] = [];
+    const judge = new FakeJudge(() =>
+      verdict(
+        cleanVerdict({
+          claims: [
+            { text: "linger as long as you like", verdict: "contradicted", evidenceQuote: "60 minutes" },
+            { text: "a supported claim", verdict: "supported", evidenceQuote: "quote" },
+          ],
+          claimVerdict: "contradicted",
+        }),
+      ),
+    );
+    await runGolden("a", data, deps({ judge, onProgress: (line) => lines.push(line) }));
+
+    expect(lines[0]).toMatch(/^ {2}Part A 1 of 90, seeded paragraph 1 \(tour .+\): contradicted$/);
+    expect(lines[1]).toBe("    contradicted: linger as long as you like");
+    expect(lines[2]).toBe('      evidence: "60 minutes"');
+    expect(lines.some((line) => line.includes("a supported claim"))).toBe(false);
+  });
+
+  it("prints nothing under a clean page and counts no retry", async () => {
+    const lines: string[] = [];
+    const judge = new FakeJudge(() => verdict(cleanVerdict()));
+    const outcome = await runGolden("a", data, deps({ judge, onProgress: (line) => lines.push(line) }));
+    if (outcome.kind !== "completed") throw new Error("expected completed");
+    expect(lines.filter((line) => line.startsWith("    "))).toEqual([]);
+    expect(outcome.progress.judgeRetries).toEqual({ calls: 90, retried: 0, maxTokensStops: 0 });
+  });
+
+  it("makes a max_tokens retry visible per call and in the totals, without changing the verdict", async () => {
+    const lines: string[] = [];
+    let call = 0;
+    const judge = new FakeJudge(() => ({
+      ...verdict(cleanVerdict()),
+      attempts:
+        ++call === 2
+          ? [
+              { outcome: "max_tokens" as const, outputTokens: 1500 },
+              { outcome: "ok" as const, outputTokens: 300 },
+            ]
+          : [{ outcome: "ok" as const, outputTokens: 300 }],
+    }));
+    const outcome = await runGolden("a", data, deps({ judge, onProgress: (line) => lines.push(line) }));
+    if (outcome.kind !== "completed") throw new Error("expected completed");
+
+    expect(lines).toContain("    judge retry: attempt 1 ended max_tokens (1500 output tokens), attempt 2 ended ok (300 output tokens)");
+    expect(outcome.progress.judgeRetries).toEqual({ calls: 90, retried: 1, maxTokensStops: 1 });
+  });
+
+  it("carries the judge attempts on a judge_invalid stop", async () => {
+    const judge = new FakeJudge(() => ({
+      kind: "invalid",
+      usage: ZERO_USAGE,
+      attempts: [
+        { outcome: "max_tokens", outputTokens: 1500 },
+        { outcome: "max_tokens", outputTokens: 1500 },
+      ],
+    }));
+    const outcome = await runGolden("a", data, deps({ judge }));
+    if (outcome.kind !== "stopped") throw new Error("expected stopped");
+    expect(outcome.stop).toMatchObject({ reason: "judge_invalid", attempts: [{ outcome: "max_tokens" }, { outcome: "max_tokens" }] });
+    expect(outcome.progress.judgeRetries).toEqual({ calls: 1, retried: 1, maxTokensStops: 2 });
+  });
+
+  it("prints Part B judge calls with the tour and verdict too", async () => {
+    const lines: string[] = [];
+    await runGolden("b", data, deps({ judge: new FakeJudge(() => verdict(unsupportedVerdict())), onProgress: (line) => lines.push(line) }));
+    expect(lines[0]).toMatch(/^ {2}Part B 1 of 60, tour .+: unsupported$/);
+    expect(lines[1]).toBe("    unsupported: an invented claim");
+  });
+});

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { JUDGE_MAX_TOKENS, JUDGE_REQUEST_TIMEOUT_MS } from "./tour-copy-eval.constants";
-import type { JudgeRequest, JudgeResult, TourCopyJudge } from "./tour-copy-judge";
+import type { JudgeAttempt, JudgeAttemptOutcome, JudgeRequest, JudgeResult, TourCopyJudge } from "./tour-copy-judge";
 import type { TourCopyUsage } from "./tour-copy-generator";
 import { buildJudgeUserMessage, getJudgeRubric, judgeSourceText } from "./tour-copy-judge-rubric";
 import { JUDGE_OUTPUT_FORMAT, validateJudgeOutput } from "./tour-copy-judge-result";
@@ -76,6 +76,7 @@ export class AnthropicTourCopyJudge implements TourCopyJudge {
     const sourceText = judgeSourceText(request.source);
 
     let usage = ZERO_USAGE;
+    const attempts: JudgeAttempt[] = [];
 
     // Attempt 1, then exactly one retry with the same input (AC-6).
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -102,31 +103,45 @@ export class AnthropicTourCopyJudge implements TourCopyJudge {
         },
       );
 
-      usage = addUsage(usage, toUsage(message.usage));
+      const callUsage = toUsage(message.usage);
+      usage = addUsage(usage, callUsage);
+      const record = (outcome: JudgeAttemptOutcome): void => {
+        attempts.push({ outcome, outputTokens: callUsage.outputTokens });
+      };
 
       if (message.stop_reason === "refusal") {
-        return { kind: "refusal", usage };
+        record("refusal");
+        return { kind: "refusal", usage, attempts };
       }
 
       // A `max_tokens` stop means the JSON may be cut off, so it is invalid whatever it parses to.
-      if (message.stop_reason === "max_tokens") continue;
+      if (message.stop_reason === "max_tokens") {
+        record("max_tokens");
+        continue;
+      }
 
       const textBlock = message.content.find((block): block is Anthropic.TextBlock => block.type === "text");
-      if (!textBlock) continue;
+      if (!textBlock) {
+        record("no_text");
+        continue;
+      }
 
       let parsed: unknown;
       try {
         parsed = JSON.parse(textBlock.text);
       } catch {
+        record("unparseable");
         continue;
       }
 
       const validation = validateJudgeOutput(parsed, sourceText);
       if (validation.ok) {
-        return { kind: "verdict", verdict: validation.verdict, usage };
+        record("ok");
+        return { kind: "verdict", verdict: validation.verdict, usage, attempts };
       }
+      record("schema_invalid");
     }
 
-    return { kind: "invalid", usage };
+    return { kind: "invalid", usage, attempts };
   }
 }

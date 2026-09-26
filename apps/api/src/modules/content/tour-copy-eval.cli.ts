@@ -26,6 +26,14 @@ import {
   type KillSwitchResult,
 } from "./tour-copy-eval.service";
 import type { TourCopyUsage } from "./tour-copy-generator";
+import {
+  countAttempts,
+  emptyRetryStats,
+  flaggedClaimLines,
+  formatRetryStats,
+  retryLines,
+  type JudgeRetryStats,
+} from "./tour-copy-judge-log";
 import { checkTourCopyJudgeStartup, TourCopyJudgeStartupError } from "./tour-copy-judge-startup-check";
 import { CHARS_PER_TOKEN } from "./tour-copy.constants";
 
@@ -186,6 +194,8 @@ interface Totals {
   judgeRefusal: number;
   apiErrors: number;
   usage: TourCopyUsage;
+  /** Judge calls that needed a second model call, and first calls that stopped at `max_tokens`. Logging only. */
+  retries: JudgeRetryStats;
 }
 
 function addUsage(total: TourCopyUsage, usage: TourCopyUsage): void {
@@ -209,6 +219,7 @@ async function runExecute(
     judgeRefusal: 0,
     apiErrors: 0,
     usage: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+    retries: emptyRetryStats(),
   };
   let next = 0;
   let consecutiveApiErrors = 0;
@@ -248,9 +259,17 @@ async function runExecute(
         continue;
       }
       addUsage(totals.usage, outcome.usage);
+      countAttempts(totals.retries, outcome.attempts);
       if (outcome.kind === "judged") totals.judged++;
       else if (outcome.kind === "judge_invalid") totals.judgeInvalid++;
       else totals.judgeRefusal++;
+
+      // Per call detail: a retry, and every claim the judge did not call supported, with its source quote.
+      const detail = [...retryLines(outcome.attempts), ...(outcome.kind === "judged" ? flaggedClaimLines(outcome.claims ?? []) : [])];
+      if (outcome.kind !== "judged" || detail.length > 0) {
+        io.out(`  tour ${row.tourId}: ${outcome.kind === "judged" ? outcome.claimVerdict : outcome.kind}`);
+        detail.forEach((line) => io.out(line));
+      }
     }
   }
 
@@ -269,6 +288,7 @@ async function runExecute(
   io.out(`  same_model: ${sameModelRows}`);
   io.out(`  judge_invalid: ${totals.judgeInvalid}`);
   io.out(`  judge_refusal: ${totals.judgeRefusal}`);
+  io.out(`  ${formatRetryStats(totals.retries)}`);
   io.out(`  API errors: ${totals.apiErrors}`);
   io.out(
     `  tokens: input ${totals.usage.inputTokens}, output ${totals.usage.outputTokens}, ` +

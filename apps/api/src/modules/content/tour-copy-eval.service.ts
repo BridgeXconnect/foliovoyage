@@ -5,7 +5,14 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { getBadPages, getPairStats, decideKillSwitch, type BadPage, type KillSwitchDecision, type PairStats, type PromptModelPair } from "./tour-copy-eval-stats";
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
 import type { TourCopyUsage } from "./tour-copy-generator";
-import { TOUR_COPY_JUDGE, type JudgeContentType, type PageVerdict, type TourCopyJudge } from "./tour-copy-judge";
+import {
+  TOUR_COPY_JUDGE,
+  type JudgeAttempt,
+  type JudgeContentType,
+  type JudgedClaim,
+  type PageVerdict,
+  type TourCopyJudge,
+} from "./tour-copy-judge";
 import { getJudgeRubric } from "./tour-copy-judge-rubric";
 import { isServedCopy } from "./tour-copy-served";
 
@@ -29,10 +36,18 @@ export type JudgeSkipReason =
   | "duplicate";
 
 export type JudgeOneOutcome =
-  | { kind: "judged"; claimVerdict: PageVerdict; leadsWithFact: boolean; usage: TourCopyUsage }
+  | {
+      kind: "judged";
+      claimVerdict: PageVerdict;
+      leadsWithFact: boolean;
+      usage: TourCopyUsage;
+      /** For the run log only, the same claims that are stored on the row. */
+      claims?: JudgedClaim[];
+      attempts?: JudgeAttempt[];
+    }
   | { kind: "skipped"; reason: JudgeSkipReason }
-  | { kind: "judge_invalid"; usage: TourCopyUsage }
-  | { kind: "judge_refusal"; usage: TourCopyUsage };
+  | { kind: "judge_invalid"; usage: TourCopyUsage; attempts?: JudgeAttempt[] }
+  | { kind: "judge_refusal"; usage: TourCopyUsage; attempts?: JudgeAttempt[] };
 
 export interface KillSwitchResult {
   pair: PromptModelPair;
@@ -99,8 +114,8 @@ export class TourCopyEvalService {
       source: tour,
       paragraph: copy.aiSummary as string,
     });
-    if (result.kind === "refusal") return { kind: "judge_refusal", usage: result.usage };
-    if (result.kind === "invalid") return { kind: "judge_invalid", usage: result.usage };
+    if (result.kind === "refusal") return { kind: "judge_refusal", usage: result.usage, attempts: result.attempts };
+    if (result.kind === "invalid") return { kind: "judge_invalid", usage: result.usage, attempts: result.attempts };
 
     const { verdict } = result;
     try {
@@ -129,7 +144,14 @@ export class TourCopyEvalService {
       throw error;
     }
 
-    return { kind: "judged", claimVerdict: verdict.claimVerdict, leadsWithFact: verdict.leadsWithFact, usage: result.usage };
+    return {
+      kind: "judged",
+      claimVerdict: verdict.claimVerdict,
+      leadsWithFact: verdict.leadsWithFact,
+      usage: result.usage,
+      claims: verdict.claims,
+      attempts: result.attempts,
+    };
   }
 
   /**

@@ -209,6 +209,67 @@ describe("tour-copy-eval:run --execute", () => {
     expect(text).toContain("same_model: 1");
   });
 
+  it("prints a flagged page's claims with their quotes, a retry per call, and the retry totals", async () => {
+    const { io: cliIo, out } = io();
+    const outcomes: JudgeOneOutcome[] = [
+      {
+        kind: "judged",
+        claimVerdict: "unsupported",
+        leadsWithFact: true,
+        usage: USAGE,
+        claims: [
+          { text: "not a rushed pace", verdict: "unsupported", evidenceQuote: "" },
+          { text: "a supported claim", verdict: "supported", evidenceQuote: "quote" },
+        ],
+        attempts: [{ outcome: "ok", outputTokens: 200 }],
+      },
+      {
+        kind: "judged",
+        claimVerdict: "clean",
+        leadsWithFact: true,
+        usage: USAGE,
+        claims: [{ text: "a supported claim", verdict: "supported", evidenceQuote: "quote" }],
+        attempts: [
+          { outcome: "max_tokens", outputTokens: 1500 },
+          { outcome: "ok", outputTokens: 300 },
+        ],
+      },
+      { kind: "judged", claimVerdict: "clean", leadsWithFact: true, usage: USAGE, claims: [], attempts: [{ outcome: "ok", outputTokens: 100 }] },
+    ];
+    let index = 0;
+    const { service } = makeService({ judgeOne: async () => outcomes[index++]! });
+
+    const code = await main(["--execute"], VALID_ENV, cliIo, deps(makePlan(servedRows(3)), service));
+
+    expect(code).toBe(0);
+    const text = out.join("\n");
+    expect(text).toContain("tour t000: unsupported\n    unsupported: not a rushed pace\n      evidence: (none, the source does not say it)");
+    expect(text).not.toContain("a supported claim");
+    expect(text).toContain("tour t001: clean\n    judge retry: attempt 1 ended max_tokens (1500 output tokens), attempt 2 ended ok (300 output tokens)");
+    expect(text).not.toContain("tour t002");
+    expect(text).toContain("judge calls retried: 1 of 3, max_tokens stops: 1");
+  });
+
+  it("names a judge_invalid tour and its attempts", async () => {
+    const { io: cliIo, out } = io();
+    const { service } = makeService({
+      judgeOne: async () => ({
+        kind: "judge_invalid",
+        usage: USAGE,
+        attempts: [
+          { outcome: "unparseable", outputTokens: 40 },
+          { outcome: "max_tokens", outputTokens: 1500 },
+        ],
+      }),
+    });
+
+    await main(["--execute"], VALID_ENV, cliIo, deps(makePlan(servedRows(1)), service));
+
+    const text = out.join("\n");
+    expect(text).toContain("tour t000: judge_invalid");
+    expect(text).toContain("judge retry: attempt 1 ended unparseable (40 output tokens), attempt 2 ended max_tokens (1500 output tokens)");
+  });
+
   it("kill switch: a withdrawal prints the bad pages and exits 2 (AC-9)", async () => {
     const { io: cliIo, out } = io();
     const { service } = makeService({
