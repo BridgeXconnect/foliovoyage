@@ -20,7 +20,9 @@
     "experience:promote": "ts-node src/modules/import/promote-experience.cli.ts",
     "research:hub": "ts-node src/modules/research/research.cli.ts",
     "tour-copy:run": "ts-node src/modules/content/tour-copy.cli.ts",
-    "tour-copy-eval:run": "ts-node src/modules/content/tour-copy-eval.cli.ts"
+    "tour-copy-eval:run": "ts-node src/modules/content/tour-copy-eval.cli.ts",
+    "tour-copy-withdraw:run": "ts-node src/modules/content/tour-copy-withdraw.cli.ts",
+    "tour-copy-spotcheck:run": "ts-node src/modules/content/tour-copy-spotcheck.cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
