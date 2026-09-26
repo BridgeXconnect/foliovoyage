@@ -206,6 +206,27 @@ describe("backfill-experience-coordinates CLI", () => {
     }
   });
 
+  it("reports the true number of rows written when writes run concurrently", async () => {
+    const tours = Array.from({ length: 30 }, (_, i) => tour(`H${i}`, ["351"], HANOI_CENTROID));
+    const reader = fakeReader([tours.map((t) => product(t.providerTourId, "LOC-h1"))]);
+    const { store } = fakeStore(tours);
+    const slow = store.updateExperience.bind(store);
+    // Yield so all writers of a batch are in flight together, as with real DB round-trips.
+    store.updateExperience = async (...args) => {
+      await new Promise((resolve) => setImmediate(resolve));
+      return slow(...args);
+    };
+
+    const { out } = await run(["--execute"], {
+      store,
+      reader,
+      resolver: resolverOf({ "LOC-h1": NEAR_HANOI }),
+      disconnect: async () => {},
+    });
+
+    expect(out).toContain("Updated 30 Tour row(s) and 30 Experience row(s)");
+  });
+
   it("rejects unknown arguments", async () => {
     const { code, err } = await run(["--wat"], { disconnect: async () => {} });
     expect(code).toBe(1);
