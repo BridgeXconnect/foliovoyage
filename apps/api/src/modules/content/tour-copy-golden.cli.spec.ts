@@ -275,3 +275,43 @@ describe("--freeze-references", () => {
     expect(loadedData).toBe(false);
   });
 });
+
+describe("tour-copy-golden:run logging", () => {
+  it("prints the judge attempts and the retry totals when a run stops on judge_invalid", async () => {
+    let n = 0;
+    const judge = new FakeJudge(() =>
+      ++n === 3
+        ? {
+            kind: "invalid",
+            usage: ZERO_USAGE,
+            attempts: [
+              { outcome: "max_tokens", outputTokens: 1500 },
+              { outcome: "max_tokens", outputTokens: 1500 },
+            ],
+          }
+        : verdict(cleanVerdict()),
+    );
+    const h = harness({ judge });
+    expect(await h.run(["--execute"])).toBe(1);
+    const errText = h.err.join("\n");
+    expect(errText).toContain("judge attempts: attempt 1 ended max_tokens (1500 output tokens), attempt 2 ended max_tokens (1500 output tokens)");
+    expect(errText).toContain("judge calls retried: 1 of 3, max_tokens stops: 2");
+  });
+
+  it("prints the retry totals and a judge_invalid line at the end of a finished run", async () => {
+    const h = harness();
+    expect(await h.run(["--execute"])).toBe(0);
+    const text = h.out.join("\n");
+    expect(text).toContain("judge_invalid: 0");
+    expect(text).toContain("judge calls retried: 0 of 150, max_tokens stops: 0");
+  });
+
+  it("prints the flagged claim under a flagged page in the normal run output", async () => {
+    const h = harness();
+    await h.run(["--execute", "--part", "a"]);
+    const text = h.out.join("\n");
+    expect(text).toContain("    unsupported: an invented claim");
+    expect(text).toContain("evidence: (none, the source does not say it)");
+  });
+});
+

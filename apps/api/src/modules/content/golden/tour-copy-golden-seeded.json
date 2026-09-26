@@ -1,0 +1,242 @@
+[
+  {
+    "tourId": "cmtng1usy000tlfkbmrlfkzpq",
+    "paragraph": "Nigiri sushi made with tuna and salmon is the centerpiece of this 90 minute Kyoto class, taught step by step by a sushi chef. Beginners are welcome, and the class is held in a restored wooden machiya townhouse. Ingredients and the meal are included.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that the class is held in a restored wooden machiya townhouse. The source never says where it is held."
+  },
+  {
+    "tourId": "cmtnfzf86000slfet1sm31qt4",
+    "paragraph": "Your guide leads you three levels below St. Clement's Basilica to ancient pagan temples, the 1st-century home of St. Clement and a 4th-century basilica with original frescoes. The lowest level is lit only by handheld torches, and an underground river runs through the site. The visit ends in the 12th-century basilica above ground, known for its mosaics.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that the lowest level is lit only by handheld torches. Nothing in the source mentions lighting."
+  },
+  {
+    "tourId": "cmtnhtz940009lf8ou17ypm34",
+    "paragraph": "Entry tickets give you access to the Pantheon, where the open Oculus lets light fall across the marble beneath the dome. The temple was completed under Emperor Hadrian. The visit is self paced, so you can linger under the dome without following a group or a fixed route.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that the Pantheon was completed under Emperor Hadrian. True in general, but not in the source."
+  },
+  {
+    "tourId": "cmtnidnne005xmw1uuwq47fcw",
+    "paragraph": "Dinner on this Kyoto tour is a course meal of more than seven tastings from locally-owned restaurants. You get three drinks, choosing among beer, sake, whiskey or soft drinks, and the last one is served at a rooftop bar. The route takes in Nishiki Market, Pontocho and Kiyamachi.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds a rooftop bar stop for the last drink. The source lists no such stop."
+  },
+  {
+    "tourId": "cmtnhtj5c0009lf7gdpq0yiph",
+    "paragraph": "At Siam Carving Academy, Master Carver Wan (Laong) Hertz leads a 3 hour class in Thai fruit and vegetable carving. You work with cucumbers and tomatoes, learning basic techniques for flowers, leaves and traditional Thai patterns. Every guest takes home a carving knife set as a keepsake.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that every guest takes home a carving knife set. The source lists an introduction pack, snacks and refreshments only."
+  },
+  {
+    "tourId": "cmt06xjuw024qia2cgw6rb455",
+    "paragraph": "Express entry gets you into the Vatican Museums and the Sistine Chapel, with a digital Guide E-BOOK and a Vatican map included. The visit passes the Pine Cone Courtyard and the Gallery of the Tapestries before reaching the Sistine Chapel, where Michelangelo painted the ceiling. The E-BOOK comes in English, Spanish, French, German, Russian and Portuguese.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that Michelangelo painted the Sistine Chapel ceiling. True in general, not in the source."
+  },
+  {
+    "tourId": "cmtnijxar00bcmw2h6avyasyg",
+    "paragraph": "A City Wonders representative helps you skip the line and enter the Colosseum. Once inside, you explore the amphitheater at your own pace, with no tour group deciding when to move on, and you can walk through the underground passages beneath the arena floor. Take as many pictures as you want.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that you can walk through the underground passages beneath the arena floor. The source says nothing about them."
+  },
+  {
+    "tourId": "cmtnf2dmm0008lfcqks2tgl7u",
+    "paragraph": "The route follows Bali's longest river, with rapids, calm pools and waterfalls along the way. From the water you look into dense jungle and can explore hidden waterfall nooks. The trip runs about 180 minutes and ends with a buffet lunch overlooking the river valley.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds a buffet lunch overlooking the river valley. The source has no meal."
+  },
+  {
+    "tourId": "cmtnghy6s000ulfgr1jfuac2y",
+    "paragraph": "Travel west from Bangkok to Kanchanaburi to see the River Kwai and its infamous bridge, which was built by Allied prisoners of war. Guided visits include the Thailand-Burma Railway Center and the War Cemetery, and you ride a train along the Death Railway. A personal guide travels with you in a private vehicle.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that the bridge was built by Allied prisoners of war. True in general, not in the source."
+  },
+  {
+    "tourId": "cmtne6n6q0014lfanzy52bd45",
+    "paragraph": "Emperor Hadrian's villa, built in the 2nd-century, blends Greek, Roman and Egyptian elements. You then visit Villa d'Este, the most complete monument of the Italian Renaissance, and walk its Italian gardens, which are best known for their fountains and a water organ. The tour includes a pickup at your hotel.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Adds that the Villa d'Este gardens are best known for a water organ. General knowledge, not in the source."
+  },
+  {
+    "tourId": "cmt06mqnz01enia2cb6ram4xe",
+    "paragraph": "Aboard the Vicente, this sunset cruise glides along the Tagus River past the 25 de Abril Bridge, Belém Tower, MAAT, Cristo Rei and Praça do Comércio. Snacks are served, with freshly baked pizza on offer, but the open bar is not included and drinks are bought separately. The trip runs 120 minutes.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Says the open bar is not included. The source says the cruise has an open bar."
+  },
+  {
+    "tourId": "cmtnevbgv000vlfy04b5gta0w",
+    "paragraph": "This private Ubud day tour visits the Sacred Monkey Forest Sanctuary and the Tegalalang Rice Terrace, with lunch at D Alas Warung. It continues to Tirta Empul Temple, Batuan Temple and Celuk Village, known for its traditional wood carving, and finishes at Tegenungan Waterfall. An English-speaking driver takes you back to your hotel.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Says Celuk Village is known for wood carving. The source says silver craftsmanship."
+  },
+  {
+    "tourId": "cmtnh69ll000alf0hidm1ujqk",
+    "paragraph": "A private, English-speaking guide accompanies you in a Mercedes-Benz vehicle through the major sights of Lisbon, with a historical explanation at each place. Hotel pickup and drop-off are included, and admission and meals are covered as well. The tour is a good introduction for first-time visitors.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Says admission and meals are included. The source lists admission fees, meals and gratuities as not included."
+  },
+  {
+    "tourId": "cmtnfhn2e0013lf961atmul6q",
+    "paragraph": "This guided hike follows the scenic trail linking the villages of Kurama and Kibune in the forested mountains south of Kyoto, passing Kurama-dera Temple and Kifune-jinja Shrine. The rugged mountain trail has drawn monks, warriors and mystics for centuries, and the route takes in shrines and natural sites believed to hold spiritual energy.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Says the mountains are south of Kyoto. The source says north."
+  },
+  {
+    "tourId": "cmtnepa0k000ilfiqvy9lxtyx",
+    "paragraph": "There is a lot to see from the back of a motorbike on this private Hanoi tour, which stays inside the Old Quarter. Local Hanoian guides explain the history of the thousand-year-old city as you pass lesser known spots and cultural sites, and you also get the chance to taste street food.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": false,
+    "subtle": false,
+    "defect": "Says the tour stays inside the Old Quarter. The source says the motorbikes take you outside it."
+  },
+  {
+    "tourId": "cmtndko7k000clftdrts80pt3",
+    "paragraph": "This one day Ha Long Bay tour includes a cruise of more than 5 hours with kayaking, cave visiting and swimming. A bus picks up and drops off at your hotel, but guests handle check-in and the other arrangements themselves. The guides have at least 5 years of experience.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Says guests handle check-in themselves. The source says the guides do everything, including check-in."
+  },
+  {
+    "tourId": "cmt075q7y02ogia2c1373ozgn",
+    "paragraph": "Jatiluwih Rice Terrace and waterfalls anchor this private driver experience, and you can start any time between 6AM and 10AM. An English and Japanese speaking driver takes you in an air-conditioned vehicle, and the itinerary can be shaped around your preferences. Bottled water and lunch are included, along with visits to three waterfalls on the route.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": true,
+    "defect": "Invented number word: \"three waterfalls\". The source says a waterfall, with no count."
+  },
+  {
+    "tourId": "cmtnef51g0008lfwohu09tln6",
+    "paragraph": "This full day Hanoi tour visits Long Bien Bridge, the Ethnology Museum, Hoa Lo Prison and the Temple of Literature. A professional English speaking guide leads a small group of ten travelers, with a Vietnamese lunch and a visit to a local market along the way.",
+    "claimVerdict": "unsupported",
+    "leadsWithFact": true,
+    "subtle": true,
+    "defect": "Invented number word: \"a small group of ten travelers\". The source says small group with no size."
+  },
+  {
+    "tourId": "cmtnhxqo0000blfjo8c3866jq",
+    "paragraph": "A local guide leads this 3 hour crawl and always takes you to exactly two Kyoto districts, Kawaramachi and Kiyamachi, choosing bars and izakaya that are hard for foreigners to find. The guide helps you order food and drinks at each venue, and photos from the tour are shared afterward.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": true,
+    "defect": "Strengthens \"normally we will guide you two places\" into \"always exactly two\". The paraphrase changes the meaning."
+  },
+  {
+    "tourId": "cmt06mqnt01ekia2c78bdniy6",
+    "paragraph": "Francisco Gomes leads this private day tour from Lisbon through Pena Palace, then the streets of Sintra, before Cabo da Roca, the westernmost point of Europe, and Cascais. The Pena Palace ticket and bottled water are included, and lunch is not. Groups have a minimum size of 8 people.",
+    "claimVerdict": "contradicted",
+    "leadsWithFact": true,
+    "subtle": true,
+    "defect": "Turns \"maximum group size of 8 people\" into a minimum of 8. One word changes the meaning."
+  },
+  {
+    "tourId": "cmtngcxyu0000lf5r24xsbfcd",
+    "paragraph": "This day trip from Hanoi visits Hoa Lu Ancient Capital and takes you on a rowing Tam Coc boat tour along the peaceful Ngo Dong river. It also includes cycling through paddy fields and learning how to make a special dish in the local area.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Every claim restates the source, and it opens on the day trip from Hanoi and Hoa Lu Ancient Capital."
+  },
+  {
+    "tourId": "cmtnhro0m000flf350sm76m4d",
+    "paragraph": "A private vehicle takes you around Kyoto for 10 hours on a default route through Arashiyama Bamboo Grove, Togetsukyo Bridge, Kinkaku-ji, Kiyomizu-dera, Sannenzaka and Ninenzaka, Gion and Fushimi Inari Taisha. The itinerary can be customized when requested at least 24 hours before departure. Admission tickets, meals and drinks are not included.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Opens on the private vehicle for 10 hours. Route, customizing rule and exclusions all match the source."
+  },
+  {
+    "tourId": "cmtndy7t00005lfpui212gipl",
+    "paragraph": "The day starts at Bali Water Sports with Jet Ski, Parasailing and Banana Boat activities, followed by a 2-hour spa and massage treatment at Bali Orchid Spa. It ends with a seafood dinner of fresh grilled dishes at Jimbaran Beach, and a private air-conditioned car handles the transfers.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Opens on Bali Water Sports and its three activities. Each later claim is in the source."
+  },
+  {
+    "tourId": "cmtnieagt008mmw1u1ml3yg38",
+    "paragraph": "Pickup at 8:00 AM from your hotel begins this private, all-inclusive day tour, with the exact time depending on your location. Stops include Tirta Empul Temple at 10:00 AM, the Monkey Forest at 11:00 AM, lunch at 12:00 PM, Kanto Lampo Waterfall at 2:00 PM and Tanah Lot Temple at 3:00 PM.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Opens on the 8:00 AM pickup. Every time and place matches the schedule in the source."
+  },
+  {
+    "tourId": "cmtnffhe0000elf4a6vnu2hbo",
+    "paragraph": "Talad Noi's lanes are the setting for this 150 minute tour with a local guide who shares the history of the area. You visit Holy Rosary Church and Chow Sue Kong Shrine, admire local street art and sample Chinese and Thai street food.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Opens on Talad Noi and the 150 minute duration. Stops and food match the source."
+  },
+  {
+    "tourId": "cmszo3w7900dsgg2b76bkzzki",
+    "paragraph": "Physical SIMs can be picked up 24/7 at Noi Bai International Airport, and eSIMs are sent by WhatsApp or email 1 day before arrival. The plans cover 3, 7 and 10 days with 4G/5G coverage across Vietnam. The SIMs are officially registered, and multilingual support is offered.",
+    "claimVerdict": "clean",
+    "leadsWithFact": true,
+    "subtle": false,
+    "defect": "Clean. Opens on the airport pickup at Noi Bai. No price or refund language."
+  },
+  {
+    "tourId": "cmtni8zfi000bmw18fkak143f",
+    "paragraph": "There is a lot to enjoy on this private street food tour in Hanoi. A friendly local guide collects you from your hotel and takes you into the Old Quarter's hidden alleys and family-run eateries, then through a local market and quiet residential lanes. You eat authentic Vietnamese street food and meet local vendors.",
+    "claimVerdict": "clean",
+    "leadsWithFact": false,
+    "subtle": false,
+    "defect": "Clean, and opens on a general remark rather than a fact. Every claim after it is in the source."
+  },
+  {
+    "tourId": "cmt06rebv01pnia2czy75d6jh",
+    "paragraph": "This private tour is a day full of things to enjoy. It covers Sintra, with its palaces and lush gardens and time to visit one of the palaces, and Óbidos, where you walk old alleys, walls, churches and the castle, and taste the famous ginjinha. The vehicle has air conditioning and bottled water is included, while meals and entrance to monuments are not.",
+    "claimVerdict": "clean",
+    "leadsWithFact": false,
+    "subtle": false,
+    "defect": "Clean, and opens on a mood line. The facts after it match the source."
+  },
+  {
+    "tourId": "cmt06w8mk0217ia2c8xwpaqmp",
+    "paragraph": "Ubud is a wonderful place to spend a day. On this full day tour an English-speaking driver and guide picks you up, and stops include the Monkey Forest, the rice terraces, the Saraswati temple with its original stone carving, a Bali coffee plantation and Tirta Empul Temple.",
+    "claimVerdict": "clean",
+    "leadsWithFact": false,
+    "subtle": false,
+    "defect": "Clean, and opens on a general remark. Stops and inclusions match the source."
+  },
+  {
+    "tourId": "cmtnj23dk00edmw4z4d03w2z4",
+    "paragraph": "There is a lot to look forward to on this day tour from Lisbon. A local Sintra guide leads the tour, with Pena Palace, Regaleira, Cabo and Cascais on the route. A private guide, an air-conditioned vehicle, full transportation, bottled water and Pena Palace tickets are included, while entry to the Moorish Castle is optional.",
+    "claimVerdict": "clean",
+    "leadsWithFact": false,
+    "subtle": false,
+    "defect": "Clean, and opens on a general remark. Guide, route and inclusions match the source."
+  }
+]

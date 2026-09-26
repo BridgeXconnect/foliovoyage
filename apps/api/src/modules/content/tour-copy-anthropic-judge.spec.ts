@@ -154,6 +154,10 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(result).toEqual({
       kind: "invalid",
       usage: { inputTokens: 20, outputTokens: 10, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+      attempts: [
+        { outcome: "schema_invalid", outputTokens: 5 },
+        { outcome: "schema_invalid", outputTokens: 5 },
+      ],
     });
     expect(create).toHaveBeenCalledTimes(2);
   });
@@ -170,6 +174,28 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(create).toHaveBeenCalledTimes(2);
   });
 
+  it("reports a max_tokens retry in the attempts, with the output tokens each call used", async () => {
+    const create = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValueOnce(answer(VALID_INPUT, "max_tokens", usage(100, 1500)))
+      .mockResolvedValueOnce(answer(VALID_INPUT, "end_turn", usage(100, 300)));
+
+    const result = await makeJudge(create).judge(REQUEST);
+
+    expect(result.attempts).toEqual([
+      { outcome: "max_tokens", outputTokens: 1500 },
+      { outcome: "ok", outputTokens: 300 },
+    ]);
+  });
+
+  it("reports a single ok attempt when the first call answers", async () => {
+    const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(answer(VALID_INPUT, "end_turn", usage(100, 50)));
+
+    const result = await makeJudge(create).judge(REQUEST);
+
+    expect(result.attempts).toEqual([{ outcome: "ok", outputTokens: 50 }]);
+  });
+
   it("treats a response with no text block as invalid and retries once", async () => {
     const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({
       stop_reason: "end_turn",
@@ -180,6 +206,7 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     const result = await makeJudge(create).judge(REQUEST);
 
     expect(result.kind).toBe("invalid");
+    expect(result.attempts?.map((attempt) => attempt.outcome)).toEqual(["no_text", "no_text"]);
     expect(create).toHaveBeenCalledTimes(2);
   });
 
@@ -192,6 +219,7 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     const result = await makeJudge(create).judge(REQUEST);
 
     expect(result.kind).toBe("verdict");
+    expect(result.attempts?.map((attempt) => attempt.outcome)).toEqual(["unparseable", "ok"]);
     expect(create).toHaveBeenCalledTimes(2);
   });
 
@@ -207,6 +235,7 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(result).toEqual({
       kind: "refusal",
       usage: { inputTokens: 7, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+      attempts: [{ outcome: "refusal", outputTokens: 0 }],
     });
     expect(create).toHaveBeenCalledTimes(1);
   });
