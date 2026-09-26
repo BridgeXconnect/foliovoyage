@@ -25,7 +25,7 @@ datasource db {
 
 /// A destination city, addressed in the URL as /destinations/:country/:city.
 model City {
-  id            String       @id @default(cuid())
+  id            String                   @id @default(cuid())
   /// URL slug for the city, e.g. "paris".
   slug          String
   /// URL slug for the country, e.g. "france".
@@ -42,7 +42,7 @@ model City {
   /// or null for a hand-authored city with no imported inventory. This is the
   /// key the import linker matches a Tour's `destinationRefs` against to decide
   /// which City an imported Experience belongs to (BRI-164 exact-ref linkage).
-  viatorDestRef String?      @unique
+  viatorDestRef String?                  @unique
   /// City centroid latitude (WGS-84), from Viator's `/destinations` `center`.
   /// Used as the geo fallback when an imported Tour has no resolved coordinates
   /// (BRI-163): the auto-created Experience's required point falls back to this.
@@ -155,104 +155,104 @@ model Experience {
 /// tags, slug, curation status) are intentionally absent — ingest never writes
 /// them (docs/02 §1.3 ownership boundary).
 model Tour {
-  id              String      @id @default(cuid())
+  id                     String      @id @default(cuid())
   /// Source OTA, from the DTO's `provider`. Always "viator" today.
-  provider        String
+  provider               String
   /// Provider's immutable product id, from `provider_tour_id`. Never changes
   /// once set — it is the natural key half that makes re-imports idempotent.
-  providerTourId  String
+  providerTourId         String
   /// Provider-sourced supplier title (backs a NOT NULL column; the validator
   /// quarantines titleless tours upstream, so this is always present here).
-  title           String
+  title                  String
   /// Provider-sourced description; null when the payload omits it.
-  description     String?
+  description            String?
   /// Duration in minutes, or null for variable-duration products.
-  durationMin     Int?
+  durationMin            Int?
   /// Imported aggregate rating (Viator + TripAdvisor), or null when unrated.
-  ratingAvg       Float?
+  ratingAvg              Float?
   /// Imported aggregate review count, or null when unrated.
-  ratingCount     Int?
+  ratingCount            Int?
   /// "From" price in minor units (e.g. cents). Non-null here — the validator
   /// quarantines missing/non-positive prices upstream.
-  priceMinor      BigInt?
+  priceMinor             BigInt?
   /// ISO-4217 currency code, or null when unpriced.
-  currency        String?
+  currency               String?
   /// "From" price converted to the reference currency (USD) in minor units, or
   /// null when unpriced / no FX rate (BRI-XXX). This — not the supplier-currency
   /// `priceMinor` — is what price bands are computed from, so a band is currency-
   /// correct across a multi-currency catalogue. Computed at ingest, never per-request.
   priceReferenceMinor    BigInt?
   /// Reference currency of {@link priceReferenceMinor}; "USD" today.
-  priceReferenceCurrency String?  @default("USD")
+  priceReferenceCurrency String?     @default("USD")
   /// Provider deep link (affiliate params intact), or null when absent.
-  affiliateUrl    String?
+  affiliateUrl           String?
   /// Provider's opaque start-location reference, or null.
-  locationRef     String?
+  locationRef            String?
   /// Resolved start latitude (WGS-84), or null when unresolved (BRI-163: a
   /// null-geo tour is legitimately published, not quarantined).
-  latitude        Float?
+  latitude               Float?
   /// Resolved start longitude (WGS-84), or null when unresolved.
-  longitude       Float?
+  longitude              Float?
   /// Provider cover-image URL (the `isCover` image's mid-size variant), or null
   /// when the payload carries no imagery. Provider-owned content, surfaced on the
   /// linked Experience's card (ST-11). BRI-164.
-  imageUrl        String?
+  imageUrl               String?
   /// Alt text for {@link imageUrl} (the image caption), or null.
-  imageAlt        String?
+  imageAlt               String?
   /// The product's full image gallery — every image the payload lists, with
   /// captions and every resolution variant, versus the single-cover-image
   /// projection ({@link imageUrl}/{@link imageAlt}) above. Provider-owned
   /// content; `[]` when the payload carries no imagery. Task 1 of the
   /// provider-content-capture series (image gallery / inclusions-exclusions /
   /// cancellation policy / reviews-by-source).
-  images          Json        @default("[]")
+  images                 Json        @default("[]")
   /// Inclusions/exclusions checklist items, verbatim from the payload's
   /// `inclusions`/`exclusions` arrays. Raw `description`/`otherDescription`
   /// (used inconsistently per `type`) are collapsed into one `description`.
   /// Empty array when absent. Task 2 of the provider-content-capture series.
-  inclusions      Json        @default("[]")
-  exclusions      Json        @default("[]")
+  inclusions             Json        @default("[]")
+  exclusions             Json        @default("[]")
   /// Cancellation policy (type, refund-by-cutoff tiers, weather/traveler-
   /// count flags), verbatim from the payload's `cancellationPolicy`
   /// object. `null` when the product carries none — distinct from an
   /// empty tier list.
-  cancellationPolicy Json?
+  cancellationPolicy     Json?
   /// Per-source review breakdown (provider name, total count, average
   /// rating, 5-bucket star histogram), verbatim from `reviews.sources`.
   /// `rating_avg`/`rating_count` above remain the blended scalars used
   /// for display/sort; this is the un-blended detail (e.g. Viator vs.
   /// TripAdvisor volume). Empty array when absent.
-  reviewsBySource Json        @default("[]")
+  reviewsBySource        Json        @default("[]")
   /// Provider destination refs this product is filed under, e.g. `["343"]`
   /// (Bangkok). Taken verbatim from the payload's `destinations[].ref`. The
   /// import linker matches these against curated `City.viatorDestRef` to decide
   /// which City an imported Experience belongs to (BRI-164). Empty when absent.
-  destinationRefs String[]    @default([])
+  destinationRefs        String[]    @default([])
   /// Provider category tag IDs, verbatim from the product payload's top-level
   /// `tags` array (category Stage A). Opaque numeric IDs; name/category
   /// resolution via `/products/tags` is a deferred follow-up. Empty when absent.
-  tags            Int[]       @default([])
+  tags                   Int[]       @default([])
   /// FK to the Atlas Experience this Tour was linked to (BRI-164), or null until
   /// the import linker creates/links one. `SetNull` on delete: a Tour outlives
   /// the unlinking of its Experience rather than being cascaded away.
-  experienceId    String?
-  experience      Experience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
+  experienceId           String?
+  experience             Experience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
   /// Provenance: when the raw page was fetched (from the DTO, ST-6 crawl time).
-  fetchedAt       DateTime
+  fetchedAt              DateTime
   /// Provenance: SHA-256 of the normalized content. Lets a re-import detect an
   /// unchanged row without a field-by-field compare.
-  sourceHash      String
+  sourceHash             String
   /// When this row was first written.
-  createdAt       DateTime    @default(now())
+  createdAt              DateTime    @default(now())
   /// When this row was last upserted.
-  updatedAt       DateTime    @updatedAt
+  updatedAt              DateTime    @updatedAt
   /// Soft-delete tombstone: non-null once the tour vanished from a later run.
   /// Read paths filter on `deletedAt: null`; cleared again if the tour returns.
-  deletedAt       DateTime?
+  deletedAt              DateTime?
   /// Generated AI copy for this tour (BRI-154), or null until a generation run
   /// creates one. The importer never reads or writes this relation — re-import
   /// leaves an existing row in place (AC-16).
-  tourCopy        TourCopy?
+  tourCopy               TourCopy?
 
   /// The immutable natural key. Makes upserts idempotent and gives the
   /// soft-delete diff a stable identity to match rows on.
@@ -320,36 +320,36 @@ enum ImportRunStatus {
 /// than being recomputed here. On an aborted run the upsert commits nothing, so
 /// `upserted`/`softDeleted` stay 0 while the earlier stages' counts are retained.
 model ImportRun {
-  id          String          @id @default(cuid())
+  id            String          @id @default(cuid())
   /// Source OTA this run crawled. Always "viator" today.
-  provider    String          @default("viator")
+  provider      String          @default("viator")
   /// How the run was kicked off: "scheduled" (nightly cron) or "manual" (CLI).
-  trigger     String
+  trigger       String
   /// Terminal state; starts `running`, updated once on completion.
-  status      ImportRunStatus @default(running)
+  status        ImportRunStatus @default(running)
   /// Raw products pulled from the provider (ST-6).
-  fetched     Int             @default(0)
+  fetched       Int             @default(0)
   /// Products that normalized to a TourDTO without error (ST-7).
-  normalized  Int             @default(0)
+  normalized    Int             @default(0)
   /// Tours the validator quarantined instead of publishing (ST-8).
-  quarantined Int             @default(0)
+  quarantined   Int             @default(0)
   /// Rows inserted or updated in the live catalogue (ST-9).
-  upserted    Int             @default(0)
+  upserted      Int             @default(0)
   /// Rows soft-deleted this run (active before, absent now) (ST-9).
-  softDeleted Int             @default(0)
+  softDeleted   Int             @default(0)
   /// Last pagination cursor observed. Null on a clean finish; otherwise the
   /// resume point for this run's next segment (BRI-176: a run now spans one
   /// or more segment-worker child processes — see ImportRunService's
   /// docstring). Was write-only before BRI-176 (M1 was fully synchronous, one
   /// process, no resume); now it's the actual handoff between segments.
-  cursor      String?
+  cursor        String?
   /// Last global page number this run reached, across every segment so far
   /// (BRI-176). Threaded into the next segment's `startPage` so R2 archive
   /// keys (`raw/{source}/{date}/{page}.json`) stay unique across the whole
   /// run instead of each segment restarting page numbering at 1 and
   /// overwriting an earlier segment's archives. Null until the first segment
   /// completes at least one page.
-  lastPage    Int?
+  lastPage      Int?
   /// Last non-null pagination cursor this run ever observed, across every
   /// segment (BRI-181) — unlike `cursor` (nulled on a clean finish, the
   /// signal segment-worker uses to know the crawl is fully done), this is
@@ -360,7 +360,7 @@ model ImportRun {
   /// ImportRunService.execute() reads back in to seed a new run's `cursor`
   /// at creation. Null until the first segment of the run observes a page
   /// with a `nextCursor`.
-  lastCursor  String?
+  lastCursor    String?
   /// Immutable snapshot of `cursor`'s value at this run's creation (BRI-184)
   /// -- unlike `cursor` (overwritten by every segment as pagination advances)
   /// and `lastCursor` (updated whenever any segment sees a new cursor, to
@@ -376,11 +376,11 @@ model ImportRun {
   /// attempt that step, guard threshold or not.
   cursorAtStart String?
   /// Human-readable failure/abort message, when status is `failed` or `aborted`.
-  error       String?
+  error         String?
   /// When the run started (row created).
-  startedAt   DateTime        @default(now())
+  startedAt     DateTime        @default(now())
   /// When the run reached a terminal state; null while `running`.
-  finishedAt  DateTime?
+  finishedAt    DateTime?
 
   /// Recent-runs listing scopes by provider, newest first.
   @@index([provider, startedAt])
@@ -482,6 +482,24 @@ enum TourCopyStatus {
   /// Both attempts failed the check, or the model refused. `aiSummary` is
   /// null; provider text keeps being served for the tour.
   failed
+  /// A `published` row pulled by the kill switch or by hand (BRI-201, spec
+  /// 0003). `aiSummary` is kept, never cleared; the read path serves null for
+  /// it, and `tour-copy:run` skips it at the pair (promptVersion, model) that
+  /// was withdrawn.
+  withdrawn
+}
+
+/// Who produced one `TourCopyEval` verdict (BRI-201, spec 0003).
+enum TourCopyEvaluator {
+  judge
+  human
+}
+
+/// Worst claim on a judged page (BRI-201, spec 0003). A human `g` is `clean`.
+enum TourCopyClaimVerdict {
+  clean
+  unsupported
+  contradicted
 }
 
 /// AI-generated tour copy (BRI-154, spec 0002), one row per `Tour`. Written
@@ -492,38 +510,86 @@ enum TourCopyStatus {
 /// current fields, and the tour is still eligible (AC-12); it never mutates
 /// this table.
 model TourCopy {
-  id              String         @id @default(cuid())
+  id               String         @id @default(cuid())
   /// The tour this copy was generated for. Unique: one row per tour, never
   /// more (AC-4). Cascades on tour deletion — copy has no meaning without it.
-  tourId          String         @unique
-  tour            Tour           @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  status          TourCopyStatus
+  tourId           String         @unique
+  tour             Tour           @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  status           TourCopyStatus
   /// The generated paragraph. Null when `failed`; a non-empty, check-passed
   /// string when `published` (AC-4, key invariant).
-  aiSummary       String?
+  aiSummary        String?
   /// `v1:` plus a sha256 hex digest of the five grounding fields (title,
   /// description, durationMin, inclusions, exclusions). The read path
   /// recomputes this from the tour's current fields and serves `aiSummary`
   /// only on a match (AC-3, AC-12).
-  groundingHash   String
+  groundingHash    String
   /// The model id that produced this row (e.g. "claude-sonnet-5"), from
   /// `TOUR_COPY_MODEL` at generation time.
-  model           String
+  model            String
   /// `TOUR_COPY_PROMPT_VERSION` at generation time. A later run regenerates a
   /// `published` row only when `--regenerate-older-than-version N` names a
   /// version above this one (AC-7).
-  promptVersion   Int
+  promptVersion    Int
   /// When this row's generation attempt(s) completed.
-  generatedAt     DateTime
+  generatedAt      DateTime
   /// 1 (first attempt passed, or the model refused) or 2 (one corrective
   /// retry was made).
-  attempts        Int
+  attempts         Int
   /// Reason codes from the closed set in AC-5, plus `refusal` and
   /// `source_too_thin`. Empty when the first attempt passed.
-  failureReasons  String[]       @default([])
+  failureReasons   String[]       @default([])
   /// The run that wrote this row, also sent to the gateway as the `run_id`
   /// request metadata — the durable link between a row and its gateway logs.
-  runId           String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  runId            String
+  /// Set when the kill switch or a manual withdraw moves the row to
+  /// `withdrawn` (BRI-201); null again when the row is restored or regenerated.
+  withdrawnAt      DateTime?
+  /// The eval run id (kill switch) or the `randomUUID` a manual withdraw
+  /// generated. Null whenever `withdrawnAt` is.
+  withdrawnByRunId String?
+  /// `{emDash, contrastiveReveal, clicheOrIntensifier}` counted on the
+  /// published paragraph (spec 0003 AC-4). Null on rows made before it existed.
+  voiceCounts      Json?
+  /// `duration` or `other`, from the paragraph's first sentence (AC-4).
+  openingPattern   String?
+  evals            TourCopyEval[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+/// One judgment of one paragraph (BRI-201, spec 0003), by the judge model or a
+/// human. Shared by both so agreement is a query. Tied to the exact text judged
+/// (`copyGeneratedAt`) and the rubric version used, so a regenerated paragraph
+/// or a changed rubric never inherits an old verdict.
+model TourCopyEval {
+  id              String               @id @default(cuid())
+  tourCopyId      String
+  tourCopy        TourCopy             @relation(fields: [tourCopyId], references: [id], onDelete: Cascade)
+  /// The `generatedAt` of the copy judged.
+  copyGeneratedAt DateTime
+  /// The paragraph judged, kept so the verdict survives regeneration.
+  judgedText      String
+  /// Copied from the `TourCopy` row when judged.
+  promptVersion   Int
+  model           String
+  groundingHash   String
+  evaluator       TourCopyEvaluator
+  /// The judge model id; null for a human.
+  evaluatorModel  String?
+  /// Bumped whenever the rubric text changes. Human rows carry the current
+  /// registry version for `tour_copy`.
+  rubricVersion   Int
+  /// `[{text, verdict, evidenceQuote, downgraded?}]`. A human `b` stores one
+  /// entry holding the note, a human `g` stores `[]`.
+  claims          Json
+  claimVerdict    TourCopyClaimVerdict
+  /// Rubric 2b: does the paragraph open on one specific, checkable fact.
+  leadsWithFact   Boolean
+  /// Groups one CLI run.
+  evalRunId       String
+  createdAt       DateTime             @default(now())
+
+  @@unique([tourCopyId, copyGeneratedAt, evaluator, rubricVersion])
+  @@index([promptVersion, model])
 }

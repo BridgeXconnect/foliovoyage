@@ -169,6 +169,9 @@ describe("TourCopyService.generateOne (integration)", () => {
     const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
     expect(row?.status).toBe("published");
     expect(row?.aiSummary).toBe(PASSING_SUMMARY);
+    // Spec 0003 AC-4: counters and opening pattern are stored on a published row.
+    expect(row?.voiceCounts).toEqual({ emDash: 0, contrastiveReveal: 0, clicheOrIntensifier: 0 });
+    expect(row?.openingPattern).toBe("other");
 
     const destinations = new DestinationService(prisma as unknown as PrismaService);
     const result = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
@@ -349,5 +352,68 @@ describe("TourCopyService.generateOne (integration)", () => {
     const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
     expect(row?.status).toBe("published");
     expect(row?.aiSummary).toBe(PASSING_SUMMARY);
+  });
+
+  it("serves null for a withdrawn row but keeps its text (spec 0003 AC-1)", async () => {
+    const experience = await makeExperience("T10");
+    const tour = await makeTour("T10", { experienceId: experience.id });
+
+    const generator = new FakeGenerator({
+      kind: "text",
+      text: PASSING_SUMMARY,
+      usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+    });
+    await service(generator).generateOne(tour.id, { runId: "run_1", model: "claude-sonnet-5" });
+
+    const destinations = new DestinationService(prisma as unknown as PrismaService);
+    const before = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
+    expect(before.experiences[0].aiSummary).toBe(PASSING_SUMMARY);
+
+    await prisma.tourCopy.update({
+      where: { tourId: tour.id },
+      data: { status: "withdrawn", withdrawnAt: new Date(), withdrawnByRunId: "eval_1" },
+    });
+
+    const after = await destinations.getByCountryAndCity(COUNTRY_SLUG, CITY_SLUG);
+    expect(after.experiences[0].aiSummary).toBeNull();
+    const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
+    expect(row?.aiSummary).toBe(PASSING_SUMMARY);
+  });
+
+  it("skips a withdrawn row at its pair even after the tour changed, and regenerates at another model, clearing the withdrawal (spec 0003 AC-2)", async () => {
+    const experience = await makeExperience("T11");
+    const tour = await makeTour("T11", { experienceId: experience.id });
+
+    const generator = new FakeGenerator({
+      kind: "text",
+      text: PASSING_SUMMARY,
+      usage: { inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+    });
+    await service(generator).generateOne(tour.id, { runId: "run_1", model: "claude-sonnet-5" });
+    await prisma.tourCopy.update({
+      where: { tourId: tour.id },
+      data: { status: "withdrawn", withdrawnAt: new Date(), withdrawnByRunId: "eval_1" },
+    });
+    // Change a grounding field so the stored hash no longer matches.
+    await prisma.tour.update({ where: { id: tour.id }, data: { title: "A brand new title" } });
+
+    const skipped = await service(generator).generateOne(tour.id, {
+      runId: "run_2",
+      model: "claude-sonnet-5",
+    });
+    expect(skipped).toEqual({ kind: "skipped", reason: "withdrawn_current" });
+    expect(generator.calls).toHaveLength(1);
+
+    const regenerated = await service(generator).generateOne(tour.id, {
+      runId: "run_3",
+      model: "claude-haiku-4-5-20251001",
+    });
+    expect(regenerated).toEqual({ kind: "generated", status: "published" });
+
+    const row = await prisma.tourCopy.findUnique({ where: { tourId: tour.id } });
+    expect(row?.status).toBe("published");
+    expect(row?.model).toBe("claude-haiku-4-5-20251001");
+    expect(row?.withdrawnAt).toBeNull();
+    expect(row?.withdrawnByRunId).toBeNull();
   });
 });

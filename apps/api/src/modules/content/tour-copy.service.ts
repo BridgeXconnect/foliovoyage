@@ -1,11 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../prisma/prisma.service";
-import { checkTourCopy } from "./tour-copy-check";
-import { CORRECTIVE_SENTENCES } from "./tour-copy-check.constants";
+import type { VoiceCounterName } from "./tour-copy-check.constants";
 import { evaluateTourCopyEligibility } from "./tour-copy-eligibility";
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
-import { buildTourCopyUserMessage, TOUR_COPY_SYSTEM_PROMPT } from "./tour-copy-prompt";
+import { generateChecked } from "./tour-copy-generate-checked";
+import type { OpeningPattern } from "./tour-copy-opening";
 import { combinedSourceTextLength, MIN_SOURCE_CHARS } from "./tour-copy-source-text";
 import { TOUR_COPY_PROMPT_VERSION } from "./tour-copy.constants";
 import { TOUR_COPY_GENERATOR, type TourCopyGenerator } from "./tour-copy-generator";
@@ -33,7 +34,15 @@ export type TourCopySkipReason =
    * already, and a rerun without one of AC-7's escape hatches would just
    * fail the same way at the same cost.
    */
-  | "failed_current";
+  | "failed_current"
+  /**
+   * A `withdrawn` row (kill switch or manual withdraw, spec 0003 AC-2) at
+   * the current `promptVersion` and the run's model. Skipped whatever its
+   * grounding hash is, so a changed tour cannot republish bad copy at a
+   * pair the judge pulled. A different prompt version or model regenerates
+   * it through the normal path.
+   */
+  | "withdrawn_current";
 
 export type TourCopyOutcome =
   | { kind: "skipped"; reason: TourCopySkipReason }
@@ -95,7 +104,7 @@ export class TourCopyService {
         ratingCount: true,
         deletedAt: true,
         experience: { select: { status: true } },
-        tourCopy: { select: { status: true, groundingHash: true, promptVersion: true } },
+        tourCopy: { select: { status: true, groundingHash: true, promptVersion: true, model: true } },
       },
     });
     if (!tour) return { kind: "skipped", reason: "not_found" };
@@ -116,6 +125,16 @@ export class TourCopyService {
 
     if (tour.tourCopy) {
       const hashMatches = tour.tourCopy.groundingHash === groundingHash;
+
+      // Spec 0003 AC-2, withdrawn: skip at the same prompt version and model,
+      // whatever the hash is. Anything else falls through and regenerates.
+      if (
+        tour.tourCopy.status === "withdrawn" &&
+        tour.tourCopy.promptVersion === TOUR_COPY_PROMPT_VERSION &&
+        tour.tourCopy.model === options.model
+      ) {
+        return { kind: "skipped", reason: "withdrawn_current" };
+      }
 
       // AC-7, published: skip a row already serving the current text, unless
       // --regenerate-older-than-version names a version above its promptVersion.
@@ -139,98 +158,40 @@ export class TourCopyService {
       }
     }
 
-    const firstAttempt = await this.generator.generate({
+    const generation = await generateChecked(this.generator, tour, {
       runId: options.runId,
       tourId: tour.id,
       groundingHash,
-      attempt: 1,
-      systemPrompt: TOUR_COPY_SYSTEM_PROMPT,
-      userMessage: buildTourCopyUserMessage(tour),
     });
 
-    if (firstAttempt.kind === "refusal") {
+    if (generation.status === "failed") {
       await this.saveRow(tour.id, {
         status: "failed",
         aiSummary: null,
         groundingHash,
         model: options.model,
-        attempts: 1,
-        failureReasons: ["refusal"],
+        attempts: generation.attempts,
+        failureReasons: generation.failureReasons,
         runId: options.runId,
+        voiceCounts: null,
+        openingPattern: null,
       });
       return { kind: "generated", status: "failed" };
     }
 
-    const firstCheck = checkTourCopy({ candidate: firstAttempt.text, source: tour });
-    if (firstCheck.passed) {
-      await this.saveRow(tour.id, {
-        status: "published",
-        aiSummary: firstAttempt.text,
-        groundingHash,
-        model: options.model,
-        attempts: 1,
-        failureReasons: [],
-        runId: options.runId,
-      });
-      return { kind: "generated", status: "published" };
-    }
-
-    // AC-6: exactly one corrective retry, holding one fixed sentence per
-    // failed reason code (in the check's closed-set order).
-    const correctiveMessage = firstCheck.reasons.map((reason) => CORRECTIVE_SENTENCES[reason]).join(" ");
-    const secondAttempt = await this.generator.generate({
-      runId: options.runId,
-      tourId: tour.id,
-      groundingHash,
-      attempt: 2,
-      systemPrompt: TOUR_COPY_SYSTEM_PROMPT,
-      userMessage: correctiveMessage,
-    });
-
-    if (secondAttempt.kind === "refusal") {
-      // No check ran on a refusal, same as attempt 1 (AC-13): the reason the
-      // row failed is the refusal itself, not whatever the first attempt's
-      // check found.
-      await this.saveRow(tour.id, {
-        status: "failed",
-        aiSummary: null,
-        groundingHash,
-        model: options.model,
-        attempts: 2,
-        failureReasons: ["refusal"],
-        runId: options.runId,
-      });
-      return { kind: "generated", status: "failed" };
-    }
-
-    const secondCheck = checkTourCopy({ candidate: secondAttempt.text, source: tour });
-    if (secondCheck.passed) {
-      // AC-6: failureReasons keeps the first attempt's codes even though
-      // this row ends up published.
-      await this.saveRow(tour.id, {
-        status: "published",
-        aiSummary: secondAttempt.text,
-        groundingHash,
-        model: options.model,
-        attempts: 2,
-        failureReasons: firstCheck.reasons,
-        runId: options.runId,
-      });
-      return { kind: "generated", status: "published" };
-    }
-
-    // No further retry regardless of outcome (AC-6): the retry's own check
-    // result is what the failed row records — it's what's currently wrong.
     await this.saveRow(tour.id, {
-      status: "failed",
-      aiSummary: null,
+      status: "published",
+      aiSummary: generation.text,
       groundingHash,
       model: options.model,
-      attempts: 2,
-      failureReasons: secondCheck.reasons,
+      attempts: generation.attempts,
+      failureReasons: generation.failureReasons,
       runId: options.runId,
+      // Spec 0003 AC-4: stored on every published row, null on a failed one.
+      voiceCounts: generation.voiceCounts,
+      openingPattern: generation.openingPattern,
     });
-    return { kind: "generated", status: "failed" };
+    return { kind: "generated", status: "published" };
   }
 
   private async saveRow(
@@ -243,6 +204,8 @@ export class TourCopyService {
       attempts: number;
       failureReasons: string[];
       runId: string;
+      voiceCounts: Record<VoiceCounterName, number> | null;
+      openingPattern: OpeningPattern | null;
     },
   ): Promise<void> {
     const generatedAt = new Date();
@@ -256,6 +219,11 @@ export class TourCopyService {
       attempts: data.attempts,
       failureReasons: data.failureReasons,
       runId: data.runId,
+      voiceCounts: data.voiceCounts ?? Prisma.DbNull,
+      openingPattern: data.openingPattern,
+      // Spec 0003 AC-2: regenerating a withdrawn row returns it to service.
+      withdrawnAt: null,
+      withdrawnByRunId: null,
     };
     // AC-4: regenerating overwrites the existing row rather than adding a
     // second one — `tourId` is unique, so upsert is the natural fit.

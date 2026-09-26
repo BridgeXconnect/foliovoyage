@@ -32,6 +32,7 @@ import {
   type VoiceCounterName,
 } from "./tour-copy-check.constants";
 import type { TourCopyGroundingInput } from "./tour-copy-grounding-hash";
+import { numberValueSet, readNumbers } from "./tour-copy-numbers";
 import { checklistText } from "./tour-copy-source-text";
 
 export interface TourCopyCheckInput {
@@ -80,7 +81,7 @@ function extractDigitRuns(text: string): string[] {
  * "1.5" hours when the remainder is a half hour) — never a raw substring
  * match against the stored integer, which would reject the happy path.
  */
-function allowedDigitRuns(source: TourCopyGroundingInput, sourceText: string): Set<string> {
+function allowedDigitRuns(source: TourCopyGroundingInput, sourceText: string, includeHalfHourFraction = true): Set<string> {
   const allowed = new Set(extractDigitRuns(sourceText));
   if (source.durationMin != null) {
     const total = source.durationMin;
@@ -89,13 +90,28 @@ function allowedDigitRuns(source: TourCopyGroundingInput, sourceText: string): S
     const minutes = total % 60;
     if (hours > 0) allowed.add(String(hours));
     if (minutes !== 0) allowed.add(String(minutes));
-    if (minutes === 30) allowed.add("5");
+    if (includeHalfHourFraction && minutes === 30) allowed.add("5");
   }
   return allowed;
 }
 
 function hasUnsourcedDigitRun(candidate: string, allowed: Set<string>): boolean {
   return extractDigitRuns(candidate).some((run) => !allowed.has(run));
+}
+
+/**
+ * AC-3 (spec 0003): a spelled out number is unsourced unless its value is in
+ * the source as digits (commas removed, `1,200` is 1200), as a spelled number
+ * with the same value, or is one of the unit renderings of `durationMin`.
+ * The half hour "5" from "1.5 hours" is not accepted for a word: "five" is not
+ * how a 90 minute tour is written.
+ */
+function hasUnsourcedSpelledNumber(candidate: string, source: TourCopyGroundingInput, sourceText: string): boolean {
+  const allowed = allowedDigitRuns(source, sourceText, false);
+  for (const value of numberValueSet(sourceText)) allowed.add(value);
+  return readNumbers(candidate)
+    .filter((reading) => reading.spelled)
+    .some((reading) => !allowed.has(String(reading.value)));
 }
 
 /** A month name is allowed only when the same month name is in the source (AC-5c). */
@@ -113,17 +129,28 @@ function hasUnsourcedMonth(candidateLower: string, sourceTextLower: string): boo
  * does match the shape, so it is excluded by checking the word immediately
  * before the punctuation against {@link SENTENCE_ABBREVIATIONS}.
  */
-function countSentences(text: string): number {
+function sentenceBoundaryEnds(text: string): number[] {
   const boundaryPattern = /\b([A-Za-z]+)[.!?]\s+(?=[A-Z])/g;
-  let boundaries = 0;
+  const ends: number[] = [];
   let match: RegExpExecArray | null;
   while ((match = boundaryPattern.exec(text)) !== null) {
     const word = match[1].toLowerCase();
     if (!(SENTENCE_ABBREVIATIONS as readonly string[]).includes(word)) {
-      boundaries++;
+      // The punctuation mark itself is the last character of the sentence.
+      ends.push(match.index + match[1].length + 1);
     }
   }
-  return boundaries + 1;
+  return ends;
+}
+
+function countSentences(text: string): number {
+  return sentenceBoundaryEnds(text).length + 1;
+}
+
+/** The first sentence, split the same way {@link countSentences} counts them (AC-4). */
+export function firstSentence(text: string): string {
+  const [end] = sentenceBoundaryEnds(text);
+  return (end === undefined ? text : text.slice(0, end)).trim();
 }
 
 function countWords(text: string): number {
@@ -190,7 +217,11 @@ export function checkTourCopy(input: TourCopyCheckInput): TourCopyCheckResult {
   if (hasCancellationLanguage(candidate)) reasons.push("cancellation_language");
 
   const allowedDigits = allowedDigitRuns(source, sourceText);
-  if (hasUnsourcedDigitRun(candidate, allowedDigits) || hasUnsourcedMonth(candidateLower, sourceTextLower)) {
+  if (
+    hasUnsourcedDigitRun(candidate, allowedDigits) ||
+    hasUnsourcedSpelledNumber(candidate, source, sourceText) ||
+    hasUnsourcedMonth(candidateLower, sourceTextLower)
+  ) {
     reasons.push("unsourced_number");
   }
 

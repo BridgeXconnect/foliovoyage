@@ -168,7 +168,7 @@ export const CORRECTIVE_SENTENCES: Record<TourCopyCheckReasonCode, string> = {
   cancellation_language:
     "Your last answer mentioned cancellation, refund, or availability. Rewrite it with no cancellation, refund, or availability language of any kind.",
   unsourced_number:
-    "Your last answer contained a number that is not in the tour data. Rewrite it using only facts from the tour data.",
+    "Your last answer contained a number written as digits or as words that is not in the tour data. Rewrite it using only facts from the tour data.",
   sentence_count: `Your last answer was not ${CHECK_MIN_SENTENCES} to ${CHECK_MAX_SENTENCES} sentences. Rewrite it as ${CHECK_MIN_SENTENCES} to ${CHECK_MAX_SENTENCES} sentences.`,
   word_count: `Your last answer was not ${CHECK_MIN_WORDS} to ${CHECK_MAX_WORDS} words. Rewrite it to be ${CHECK_MIN_WORDS} to ${CHECK_MAX_WORDS} words.`,
   low_overlap:

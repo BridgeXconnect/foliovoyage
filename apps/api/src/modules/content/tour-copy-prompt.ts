@@ -73,7 +73,7 @@ Use only the tour data given to you between ${DATA_BLOCK_START} and ${DATA_BLOCK
 
 Hard limits, checked mechanically after you answer:
 - ${CHECK_MIN_SENTENCES} to ${CHECK_MAX_SENTENCES} sentences, ${CHECK_MIN_WORDS} to ${CHECK_MAX_WORDS} words total.
-- No number, month name, or year that is not written in the tour data. Do not invent or infer a number, even a plausible one.
+- No number, month name, or year that is not written in the tour data, whether you write it as digits or as words ("three", "twenty five", "two hundred", "a dozen"). Do not invent or infer a number, even a plausible one. Only "one" and ordinals like "first" are free.
 - No price, cost, currency, discount, or affordability language of any kind: not ${PRICE_WORDS.join(", ")}; not a currency code like ${PRICE_CODES.join(", ")}; not a currency symbol like ${PRICE_SYMBOLS.join(" ")}.
 - No cancellation, refund, reschedule, or availability language of any kind: not ${CANCELLATION_PHRASES.join(", ")}.
 - Plain prose only: no headings, no bullet points, no markdown, no quotation marks around the whole thing.

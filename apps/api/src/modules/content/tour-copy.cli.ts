@@ -7,6 +7,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { evaluateTourCopyEligibility, MIN_RATING, MIN_REVIEW_COUNT } from "./tour-copy-eligibility";
 import { computeGroundingHash } from "./tour-copy-grounding-hash";
 import { buildTourCopyUserMessage, TOUR_COPY_SYSTEM_PROMPT } from "./tour-copy-prompt";
+import { summarizePublishedCopy, type PublishedCopyStats } from "./tour-copy-run-summary";
 import { combinedSourceTextLength, MIN_SOURCE_CHARS } from "./tour-copy-source-text";
 import { checkTourCopyStartup, TourCopyStartupError } from "./tour-copy-startup-check";
 import { AnthropicTourCopyGenerator } from "./tour-copy-anthropic-generator";
@@ -44,7 +45,7 @@ export interface CandidateTour {
   ratingCount: number | null;
   deletedAt: Date | null;
   experience: { status: string } | null;
-  tourCopy: { status: string; groundingHash: string; promptVersion: number } | null;
+  tourCopy: { status: string; groundingHash: string; promptVersion: number; model: string } | null;
 }
 
 export interface TourCopyServiceLike {
@@ -57,6 +58,16 @@ export interface CliDeps {
   candidates?: () => AsyncIterable<CandidateTour>;
   /** Injectable for tests; defaults to a real {@link TourCopyService}. */
   service?: TourCopyServiceLike;
+  /**
+   * Injectable for tests; defaults to a real count of `withdrawn` rows at the
+   * pair (spec 0003 AC-2). Only the pair this run is itself running.
+   */
+  withdrawnCount?: (pair: { promptVersion: number; model: string }) => Promise<number>;
+  /**
+   * Injectable for tests; defaults to reading the published rows this run
+   * stored, for the voice counter and opening pattern lines (spec 0003 AC-4).
+   */
+  publishedRows?: (runId: string) => Promise<PublishedCopyStats[]>;
   disconnect?: () => Promise<void>;
 }
 
@@ -134,7 +145,7 @@ type Classification =
 
 function classifyCandidate(
   tour: CandidateTour,
-  options: { retryFailed: boolean; regenerateOlderThanVersion?: number },
+  options: { retryFailed: boolean; regenerateOlderThanVersion?: number; model: string },
 ): Classification {
   if (tour.deletedAt !== null) return { kind: "skip", reason: "deleted" };
   if (tour.experience?.status !== "published") {
@@ -153,6 +164,15 @@ function classifyCandidate(
 
   if (tour.tourCopy) {
     const hashMatches = tour.tourCopy.groundingHash === groundingHash;
+
+    // Same rule as the service (spec 0003 AC-2), so dry run counts match.
+    if (
+      tour.tourCopy.status === "withdrawn" &&
+      tour.tourCopy.promptVersion === TOUR_COPY_PROMPT_VERSION &&
+      tour.tourCopy.model === options.model
+    ) {
+      return { kind: "skip", reason: "withdrawn_current" };
+    }
 
     if (tour.tourCopy.status === "published" && hashMatches) {
       const stalePromptVersion =
@@ -198,7 +218,7 @@ async function* iterateCandidates(prisma: PrismaService): AsyncIterable<Candidat
         ratingCount: true,
         deletedAt: true,
         experience: { select: { status: true } },
-        tourCopy: { select: { status: true, groundingHash: true, promptVersion: true } },
+        tourCopy: { select: { status: true, groundingHash: true, promptVersion: true, model: true } },
       },
     });
     if (page.length === 0) return;
@@ -213,7 +233,7 @@ function formatSkipCounts(skipCounts: Map<TourCopySkipReason, number>): string[]
 
 async function runDryRun(
   candidates: AsyncIterable<CandidateTour>,
-  options: { limit: number; retryFailed: boolean; regenerateOlderThanVersion?: number },
+  options: { limit: number; retryFailed: boolean; regenerateOlderThanVersion?: number; model: string },
   io: CliIo,
 ): Promise<number> {
   let wouldGenerate = 0;
@@ -252,6 +272,7 @@ interface ExecuteOptions {
   model: string;
   retryFailed: boolean;
   regenerateOlderThanVersion?: number;
+  publishedRows: (runId: string) => Promise<PublishedCopyStats[]>;
 }
 
 function formatCfAigHeaders(headers: Headers | undefined): string[] {
@@ -346,6 +367,7 @@ async function runExecute(
   formatSkipCounts(skipCounts).forEach(io.out);
   if (apiErrorCount > 0) io.out(`  API errors: ${apiErrorCount}`);
   if (lastTourId !== undefined) io.out(`  last Tour.id reached: ${lastTourId}`);
+  if (published > 0) summarizePublishedCopy(await options.publishedRows(options.runId)).forEach(io.out);
 
   if (abortMessage !== undefined) {
     io.err(abortMessage);
@@ -387,6 +409,37 @@ export async function main(
     throw error;
   }
 
+  const needsPrisma =
+    deps.candidates === undefined ||
+    deps.service === undefined ||
+    deps.withdrawnCount === undefined ||
+    deps.publishedRows === undefined;
+  const prisma = needsPrisma ? new PrismaService() : undefined;
+  const disconnect = deps.disconnect ?? (prisma !== undefined ? () => prisma.$disconnect() : undefined);
+
+  // Spec 0003 AC-2: refuse to run at a pair with withdrawn rows, in dry run
+  // and --execute alike, before any model call. Looks only at this run's own
+  // pair, never at another withdrawn pair.
+  const pair = { promptVersion: TOUR_COPY_PROMPT_VERSION, model: startupConfig.model };
+  const withdrawnCount =
+    deps.withdrawnCount ??
+    ((p: { promptVersion: number; model: string }) =>
+      prisma!.tourCopy.count({ where: { status: "withdrawn", ...p } }));
+  try {
+    const withdrawn = await withdrawnCount(pair);
+    if (withdrawn > 0) {
+      io.err(
+        `Refusing to run: ${withdrawn} withdrawn row${withdrawn === 1 ? "" : "s"} at prompt version ${pair.promptVersion} and model ${pair.model}. ` +
+          "Restore the pair with tour-copy-withdraw:run --restore, or change the prompt version or the model.",
+      );
+      await disconnect?.();
+      return 1;
+    }
+  } catch (error) {
+    await disconnect?.();
+    throw error;
+  }
+
   const maxTours = parsedEnv.data.TOUR_COPY_MAX_TOURS;
   const concurrency = parsedEnv.data.TOUR_COPY_CONCURRENCY;
 
@@ -419,13 +472,9 @@ export async function main(
     io.out(`  --regenerate-older-than-version: ${parsedArgs.regenerateOlderThanVersion}`);
   }
 
-  const needsPrisma = deps.candidates === undefined || deps.service === undefined;
-  const prisma = needsPrisma ? new PrismaService() : undefined;
-
   const candidatesFn = deps.candidates ?? (() => iterateCandidates(prisma!));
   const service =
     deps.service ?? new TourCopyService(prisma!, new AnthropicTourCopyGenerator(startupConfig));
-  const disconnect = deps.disconnect ?? (prisma !== undefined ? () => prisma.$disconnect() : undefined);
 
   try {
     if (!parsedArgs.execute) {
@@ -435,6 +484,7 @@ export async function main(
           limit,
           retryFailed: parsedArgs.retryFailed,
           regenerateOlderThanVersion: parsedArgs.regenerateOlderThanVersion,
+          model: startupConfig.model,
         },
         io,
       );
@@ -449,6 +499,13 @@ export async function main(
         model: startupConfig.model,
         retryFailed: parsedArgs.retryFailed,
         regenerateOlderThanVersion: parsedArgs.regenerateOlderThanVersion,
+        publishedRows:
+          deps.publishedRows ??
+          ((id: string) =>
+            prisma!.tourCopy.findMany({
+              where: { runId: id, status: "published" },
+              select: { voiceCounts: true, openingPattern: true },
+            }) as Promise<PublishedCopyStats[]>),
       },
       io,
     );

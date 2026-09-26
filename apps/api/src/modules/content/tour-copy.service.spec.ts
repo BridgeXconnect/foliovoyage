@@ -34,7 +34,7 @@ const TOUR = {
   ratingCount: 20,
   deletedAt: null,
   experience: { status: "published" },
-  tourCopy: null as { status: string; groundingHash: string; promptVersion: number } | null,
+  tourCopy: null as { status: string; groundingHash: string; promptVersion: number; model: string } | null,
 };
 
 /** Passes the real check outright: 2-4 sentences, 30-100 words, >=8 overlap words, no banned language. */
@@ -154,7 +154,7 @@ describe("TourCopyService.generateOne", () => {
     it("skips a tour whose published row already matches the current hash", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const generate = jest.fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>();
 
@@ -170,7 +170,7 @@ describe("TourCopyService.generateOne", () => {
     it("regenerates a published row whose hash no longer matches", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "published", groundingHash: "v1:stale", promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "published", groundingHash: "v1:stale", promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
       const generate = jest
@@ -189,7 +189,7 @@ describe("TourCopyService.generateOne", () => {
     it("regenerates a published row whose promptVersion is below --regenerate-older-than-version, even though the hash matches", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "published", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
       const generate = jest
@@ -209,7 +209,7 @@ describe("TourCopyService.generateOne", () => {
     it("skips a failed row whose hash and promptVersion are both current, without --retry-failed", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const generate = jest.fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>();
 
@@ -225,7 +225,7 @@ describe("TourCopyService.generateOne", () => {
     it("retries a failed row whose promptVersion is stale, even without --retry-failed", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION - 1 },
+        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION - 1, model: "claude-sonnet-5" },
       });
       const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
       const generate = jest
@@ -244,7 +244,7 @@ describe("TourCopyService.generateOne", () => {
     it("retries a failed row whose hash and promptVersion are current when --retry-failed is passed", async () => {
       const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue({
         ...TOUR,
-        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION },
+        tourCopy: { status: "failed", groundingHash: CURRENT_HASH, promptVersion: TOUR_COPY_PROMPT_VERSION, model: "claude-sonnet-5" },
       });
       const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
       const generate = jest
@@ -259,6 +259,71 @@ describe("TourCopyService.generateOne", () => {
 
       expect(outcome).toEqual({ kind: "generated", status: "published" });
       expect(generate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("withdrawn rows (spec 0003 AC-2)", () => {
+    function withdrawnRow(overrides: Partial<{ groundingHash: string; promptVersion: number; model: string }> = {}) {
+      return {
+        ...TOUR,
+        tourCopy: {
+          status: "withdrawn",
+          groundingHash: CURRENT_HASH,
+          promptVersion: TOUR_COPY_PROMPT_VERSION,
+          model: "claude-sonnet-5",
+          ...overrides,
+        },
+      };
+    }
+
+    it("skips a withdrawn row at the current prompt version and model as withdrawn_current", async () => {
+      const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(withdrawnRow());
+      const generate = jest.fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>();
+
+      const outcome = await makeService(findUnique, jest.fn(), generate).generateOne("tour_1", {
+        runId: "run_1",
+        model: "claude-sonnet-5",
+      });
+
+      expect(outcome).toEqual({ kind: "skipped", reason: "withdrawn_current" });
+      expect(generate).not.toHaveBeenCalled();
+    });
+
+    it("still skips it when the tour's grounding hash has changed", async () => {
+      const findUnique = jest
+        .fn<(a: unknown) => Promise<unknown>>()
+        .mockResolvedValue(withdrawnRow({ groundingHash: "v1:stale" }));
+      const generate = jest.fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>();
+
+      const outcome = await makeService(findUnique, jest.fn(), generate).generateOne("tour_1", {
+        runId: "run_1",
+        model: "claude-sonnet-5",
+        retryFailed: true,
+      });
+
+      expect(outcome).toEqual({ kind: "skipped", reason: "withdrawn_current" });
+      expect(generate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["an older prompt version", { promptVersion: TOUR_COPY_PROMPT_VERSION - 1 }],
+      ["a different model", { model: "claude-haiku-4-5-20251001" }],
+    ])("regenerates a withdrawn row from %s and clears its withdrawal fields", async (_label, overrides) => {
+      const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(withdrawnRow(overrides));
+      const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
+      const generate = jest
+        .fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>()
+        .mockResolvedValue({ kind: "text", text: PASSING_SUMMARY, usage: USAGE });
+
+      const outcome = await makeService(findUnique, upsert, generate).generateOne("tour_1", {
+        runId: "run_1",
+        model: "claude-sonnet-5",
+      });
+
+      expect(outcome).toEqual({ kind: "generated", status: "published" });
+      const args = upsert.mock.calls[0]![0] as { update: Record<string, unknown> };
+      expect(args.update.withdrawnAt).toBeNull();
+      expect(args.update.withdrawnByRunId).toBeNull();
     });
   });
 
@@ -296,6 +361,38 @@ describe("TourCopyService.generateOne", () => {
         failureReasons: [],
         runId: "run_1",
       });
+    });
+
+    it("stores voiceCounts and openingPattern on a published row (spec 0003 AC-4)", async () => {
+      const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(TOUR);
+      const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
+      const generate = jest
+        .fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>()
+        .mockResolvedValue({ kind: "text", text: PASSING_SUMMARY, usage: USAGE });
+
+      await makeService(findUnique, upsert, generate).generateOne("tour_1", { runId: "run_1", model: "claude-sonnet-5" });
+
+      const args = upsert.mock.calls[0][0] as { create: Record<string, unknown>; update: Record<string, unknown> };
+      for (const data of [args.create, args.update]) {
+        expect(data).toMatchObject({
+          voiceCounts: { emDash: 0, contrastiveReveal: 0, clicheOrIntensifier: 0 },
+          openingPattern: "other",
+        });
+      }
+    });
+
+    it("stores no voiceCounts or openingPattern on a failed row (spec 0003 AC-4)", async () => {
+      const findUnique = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(TOUR);
+      const upsert = jest.fn<(a: unknown) => Promise<unknown>>().mockResolvedValue(undefined);
+      const generate = jest
+        .fn<(r: TourCopyGenerationRequest) => Promise<TourCopyGenerationResult>>()
+        .mockResolvedValue({ kind: "refusal", usage: USAGE });
+
+      await makeService(findUnique, upsert, generate).generateOne("tour_1", { runId: "run_1", model: "claude-sonnet-5" });
+
+      const args = upsert.mock.calls[0][0] as { create: Record<string, unknown> };
+      expect(args.create.openingPattern).toBeNull();
+      expect(args.create.voiceCounts).toBeDefined(); // Prisma.DbNull, written as a database null
     });
 
     it("retries once when the first attempt fails the check, and stores published with attempts 2 when the retry passes", async () => {

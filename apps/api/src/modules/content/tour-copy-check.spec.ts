@@ -191,6 +191,84 @@ describe("checkTourCopy", () => {
     });
   });
 
+  describe("unsourced_number: spelled out numbers (spec 0003 AC-3)", () => {
+    const base = buildCandidate({ totalWords: 43, sentences: 3, sourceWordCount: 10 });
+    const withPhrase = (phrase: string) => base.replace("castle", phrase);
+    const sourceWith = (extra: string): TourCopyGroundingInput => ({
+      ...SOURCE,
+      description: `${SOURCE.description} ${extra}`,
+    });
+
+    it.each(["three", "twenty", "forty", "hundred", "thousand", "million", "dozen"])(
+      "blocks the unsourced word %s, and only that",
+      (word) => {
+        const result = check(withPhrase(word));
+        expect(result.reasons).toEqual(["unsourced_number"]);
+      },
+    );
+
+    it.each(["twenty five", "twenty-five", "two hundred", "three thousand", "two dozen", "ninety nine"])(
+      "blocks the unsourced compound %s",
+      (phrase) => {
+        expect(check(withPhrase(phrase)).reasons).toContain("unsourced_number");
+      },
+    );
+
+    it("reads a compound as one value: 'twenty five' passes when the source says 25", () => {
+      expect(check(withPhrase("twenty five"), sourceWith("Groups of 25.")).reasons).not.toContain("unsourced_number");
+    });
+
+    it("does not accept the parts of a compound: 'twenty five' fails when the source only says 20 and 5", () => {
+      expect(check(withPhrase("twenty five"), sourceWith("Ages 20 and 5.")).reasons).toContain("unsourced_number");
+    });
+
+    it("passes a word whose value is in the source as the same word", () => {
+      expect(check(withPhrase("seven"), sourceWith("Seven stops.")).reasons).not.toContain("unsourced_number");
+    });
+
+    it("passes a word whose value is in the source as digits", () => {
+      expect(check(withPhrase("twelve"), sourceWith("Groups of up to 12.")).reasons).not.toContain("unsourced_number");
+    });
+
+    it("compares source digits after removing commas: 'twelve hundred' passes for 1,200", () => {
+      expect(check(withPhrase("twelve hundred"), sourceWith("Covers 1,200 metres.")).reasons).not.toContain(
+        "unsourced_number",
+      );
+    });
+
+    it("treats a hyphen as a space in the candidate and the source", () => {
+      expect(check(withPhrase("twenty-five"), sourceWith("Twenty five guests.")).reasons).not.toContain("unsourced_number");
+    });
+
+    it("accepts a spelled duration that matches durationMin in some unit", () => {
+      // 90 minutes: "ninety" minutes, or the "thirty" of an hour and thirty minutes (no "five", see below).
+      expect(check(withPhrase("ninety")).reasons).not.toContain("unsourced_number");
+      expect(check(withPhrase("thirty")).reasons).not.toContain("unsourced_number");
+      const twoHours: TourCopyGroundingInput = { ...SOURCE, durationMin: 120 };
+      expect(check(withPhrase("two"), twoHours).reasons).not.toContain("unsourced_number");
+    });
+
+    it("does not accept the half hour fraction as a word: 'five' fails for a 90 minute tour", () => {
+      expect(check(withPhrase("five")).reasons).toContain("unsourced_number");
+    });
+
+    it.each(["one", "first", "second", "third", "hundreds", "thousands", "tenth"])(
+      "does not check %s",
+      (word) => {
+        expect(check(withPhrase(word)).reasons).not.toContain("unsourced_number");
+      },
+    );
+
+    it("still checks a word inside a longer word list without treating the neighbours as one number", () => {
+      // "two three" is two numbers, so a source with only "two" is not enough.
+      expect(check(withPhrase("two three"), sourceWith("Two stops.")).reasons).toContain("unsourced_number");
+    });
+
+    it("rewords the corrective sentence to cover words", () => {
+      expect(CORRECTIVE_SENTENCES.unsourced_number).toContain("a number written as digits or as words");
+    });
+  });
+
   describe("sentence_count / word_count (AC-5d)", () => {
     it("blocks too few sentences", () => {
       const candidate = buildCandidate({ totalWords: 43, sentences: 1, sourceWordCount: 10 });

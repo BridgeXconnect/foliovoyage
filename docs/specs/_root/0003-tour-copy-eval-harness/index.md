@@ -1,7 +1,7 @@
 # 0003. Sampled evaluation and kill switch for AI tour copy
 
 **Date**: 2026-09-25
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
