@@ -154,6 +154,41 @@ describe("ExperienceLinker.linkRun", () => {
     expect(exp!.longitude).toBe(BANGKOK.centroidLng);
   });
 
+  it("falls back to the Bali sub-region centre when a Bali tour has no geo (BRI-218)", async () => {
+    await resetCity("bali");
+    await makeTour("BALI-UBUD", { destinationRefs: ["5467"] }); // Ubud
+
+    await linker().linkRun(PROVIDER);
+
+    const exp = await prisma.experience.findUnique({
+      where: {
+        sourceProvider_sourceProviderTourId: {
+          sourceProvider: PROVIDER,
+          sourceProviderTourId: "BALI-UBUD",
+        },
+      },
+    });
+    expect(exp!.latitude).toBeCloseTo(-8.5192680019, 6); // Ubud centre, not the island centroid
+    expect(exp!.longitude).toBeCloseTo(115.2632979979, 6);
+  });
+
+  it("does not use a sub-region fallback for a non-Bali tour: it gets the city centroid (BRI-218)", async () => {
+    await makeTour("BKK-1"); // Bangkok, no geo
+
+    await linker().linkRun(PROVIDER);
+
+    const exp = await prisma.experience.findUnique({
+      where: {
+        sourceProvider_sourceProviderTourId: {
+          sourceProvider: PROVIDER,
+          sourceProviderTourId: "BKK-1",
+        },
+      },
+    });
+    expect(exp!.latitude).toBe(BANGKOK.centroidLat);
+    expect(exp!.longitude).toBe(BANGKOK.centroidLng);
+  });
+
   it("is idempotent — a re-run creates no duplicate and links nothing new", async () => {
     await makeTour("T3", { latitude: 13.7, longitude: 100.5 });
 

@@ -1,6 +1,10 @@
 import { Logger } from "@nestjs/common";
 
 import type { ViatorClient } from "./clients/viator.client";
+import {
+  extractLocationCandidates,
+  type LocationCandidate,
+} from "./location-candidates";
 import type { LocationResolver } from "./location-resolver";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
@@ -319,6 +323,7 @@ export class ImportPipeline {
       //    field (defence-in-depth); one bad product must not sink the whole
       //    nightly run, so it's skipped-and-logged rather than aborting.
       const pageDtos: TourDTO[] = [];
+      const candidatesByTourId = new Map<string, LocationCandidate[]>();
       for (const raw of page.products) {
         const scope = decideIngestScope(raw);
         if (!scope.ingest) {
@@ -337,8 +342,14 @@ export class ImportPipeline {
         }
 
         try {
-          pageDtos.push(
-            normalizeViatorProduct(raw, { fetchedAt: options.fetchedAt }),
+          const dto = normalizeViatorProduct(raw, {
+            fetchedAt: options.fetchedAt,
+          });
+          pageDtos.push(dto);
+          // BRI-218: every location ref the payload carries, in priority order.
+          candidatesByTourId.set(
+            dto.provider_tour_id,
+            extractLocationCandidates(raw),
           );
           counts.normalized += 1;
         } catch (error) {
@@ -352,7 +363,10 @@ export class ImportPipeline {
         // 3. Resolve start-location references to coordinates for this page
         //    (cached across runs and across pages within this run — see
         //    LocationResolver's persistent cache).
-        const located = await this.resolver.attachLocations(pageDtos);
+        const located = await this.resolver.attachLocations(
+          pageDtos,
+          candidatesByTourId,
+        );
 
         // 3b. Resolve the "from" price per product from
         //     `/availability/schedules` (BRI-165), for this page's survivors

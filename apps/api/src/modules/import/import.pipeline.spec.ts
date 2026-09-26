@@ -208,6 +208,41 @@ describe("ImportPipeline", () => {
     expect(batchCalls[1].map((t) => t.provider_tour_id)).toEqual(["C"]);
   });
 
+  it("hands the location resolver every survivor's priority-ordered ref candidates (BRI-218)", async () => {
+    const loc = (ref: string) => ({ location: { ref } });
+    const client = fakeClient([
+      [
+        rawProduct("A", {
+          itinerary: { itineraryItems: [{ pointOfInterestLocation: loc("LOC-poi") }] },
+          logistics: { start: [loc("LOC-start")] },
+        }),
+      ],
+    ]);
+    const seen: Array<ReadonlyMap<string, unknown> | undefined> = [];
+    const spyResolver = {
+      attachLocations: async (
+        tours: TourDTO[],
+        candidates?: ReadonlyMap<string, unknown>,
+      ): Promise<TourDTO[]> => {
+        seen.push(candidates);
+        return tours.map((t) => ({ ...t }));
+      },
+    } as unknown as LocationResolver;
+    const { service: upsert } = fakeUpsert();
+
+    const pipeline = new ImportPipeline(client, spyResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    await pipeline.runSegment(new ImportRunCounts(), {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: NEVER_STOPS_EARLY,
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.get("A")).toEqual([
+      { source: "poi", ref: "LOC-poi" },
+      { source: "start", ref: "LOC-start" },
+    ]);
+  });
+
   it("counts a quarantined tour and keeps it out of its page's upsert batch", async () => {
     // "B" resolves to no price → quarantined by the real validator (MISSING_PRICE).
     const client = fakeClient([[rawProduct("A"), rawProduct("B")]]);

@@ -25,6 +25,18 @@
  * Hero images are real Viator product cover images (links, not editorial copy).
  */
 
+/** A Viator taxonomy sub-destination of a curated region, with its `center`. */
+export interface SubRegion {
+  /** The Viator destination ref, e.g. `"5467"` (Ubud). */
+  readonly ref: string;
+  /** Display name, for logs and tests. */
+  readonly name: string;
+  /** Taxonomy `center` latitude (WGS-84). */
+  readonly lat: number;
+  /** Taxonomy `center` longitude (WGS-84). */
+  readonly lng: number;
+}
+
 /** One curated destination and the Viator refs that map inventory to it. */
 export interface CuratedCity {
   /** URL slug for the city, e.g. `"bangkok"`. */
@@ -50,6 +62,14 @@ export interface CuratedCity {
   readonly centroidLat: number;
   /** City centroid longitude (WGS-84). */
   readonly centroidLng: number;
+  /**
+   * Taxonomy sub-destinations with their own `center` (BRI-218). Present only
+   * where the city is a *region* whose single centroid is too coarse to anchor
+   * or fall back to — today just Bali (island-wide centroid sits ~30 km median
+   * from where its tours actually are; a sub-region centre is ~5 km). Keyed by
+   * the Viator destination ref a tour carries in `destinationRefs`.
+   */
+  readonly subRegions?: readonly SubRegion[];
   /** Absolute hero image URL (a real Viator product cover image). */
   readonly heroImageUrl: string;
   /** Hero image alt text. */
@@ -149,6 +169,20 @@ export const CURATED_CITIES: readonly CuratedCity[] = [
     ],
     centroidLat: -8.4095178,
     centroidLng: 115.188916,
+    // Taxonomy `center`s from `GET /destinations`, captured 2026-09-27 (BRI-218).
+    subRegions: [
+      { ref: "5467", name: "Ubud", lat: -8.5192680019, lng: 115.2632979979 },
+      { ref: "22287", name: "Nusa Dua", lat: -8.819412, lng: 115.222332 },
+      { ref: "22290", name: "Kuta", lat: -8.7238, lng: 115.17523 },
+      { ref: "23621", name: "Nusa Lembongan", lat: -8.677027, lng: 115.457999 },
+      { ref: "34198", name: "Seminyak", lat: -8.68877, lng: 115.161267 },
+      { ref: "35681", name: "Jimbaran", lat: -8.781787, lng: 115.165214 },
+      { ref: "35829", name: "Tanjung Benoa", lat: -8.770584, lng: 115.22163 },
+      { ref: "42862", name: "Candidasa", lat: -8.4993763, lng: 115.5652961 },
+      { ref: "51549", name: "Pemuteran", lat: -8.16358, lng: 114.63049 },
+      { ref: "60447", name: "Tulamben", lat: -8.3100791691174, lng: 115.580092087574 },
+      { ref: "60448", name: "Nusa Penida", lat: -8.7238535721829, lng: 115.545021410152 },
+    ],
     heroImageUrl:
       "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/32/d4/cf/0f/caption.jpg",
     heroImageAlt: "Temples and rice terraces in Bali, Indonesia",

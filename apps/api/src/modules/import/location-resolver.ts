@@ -2,7 +2,9 @@ import { Logger } from "@nestjs/common";
 import { z } from "zod";
 
 import type { AllowlistFetch } from "./http/allowlist-fetch";
+import type { LocationCandidate } from "./location-candidates";
 import type { TourDTO } from "./normalizer";
+import { pickTourPosition, type PositionBasis } from "./position";
 
 /**
  * Location resolver (ST-7b / BRI-163).
@@ -164,26 +166,68 @@ export class LocationResolver {
   }
 
   /**
-   * Attach resolved coordinates to a batch of tours. Reads each tour's
-   * {@link TourDTO.location_ref}, resolves the whole set in one pass (shared
-   * cache + batched requests), and returns new DTOs with `latitude`/`longitude`
-   * filled in. Tours with no reference, or whose reference does not resolve,
-   * come back with coordinates left `null`. Input DTOs are not mutated.
+   * Attach resolved coordinates to a batch of tours.
+   *
+   * Without `candidatesByTourId` (legacy behaviour) only each tour's
+   * {@link TourDTO.location_ref} is resolved. With it (BRI-218) every tour listed
+   * gets the first usable position from its priority-ordered candidates — POI,
+   * pickup, start, end — via {@link pickTourPosition}, including the near-city
+   * sanity check; a tour absent from the map falls back to `location_ref` alone.
+   * The whole page's refs are resolved in one pass (shared cache + batched
+   * requests). Tours with no usable position come back with coordinates left
+   * `null`; `location_ref` is never changed, so `source_hash` is unaffected.
+   * Input DTOs are not mutated.
    */
-  async attachLocations(tours: TourDTO[]): Promise<TourDTO[]> {
-    const refs = tours
-      .map((t) => t.location_ref)
-      .filter((r): r is string => r !== null);
+  async attachLocations(
+    tours: TourDTO[],
+    candidatesByTourId?: ReadonlyMap<string, readonly LocationCandidate[]>,
+  ): Promise<TourDTO[]> {
+    const refs = new Set<string>();
+    for (const tour of tours) {
+      const candidates = candidatesByTourId?.get(tour.provider_tour_id);
+      if (candidates) {
+        for (const c of candidates) refs.add(c.ref);
+      } else if (tour.location_ref !== null) {
+        refs.add(tour.location_ref);
+      }
+    }
 
-    const resolved = await this.resolve(refs);
+    const resolved = await this.resolve([...refs]);
+    const bySource = new Map<PositionBasis | "none", number>();
 
-    return tours.map((tour) => {
-      const loc = tour.location_ref
-        ? resolved.get(tour.location_ref)
-        : undefined;
-      if (!loc) return { ...tour };
-      return { ...tour, latitude: loc.latitude, longitude: loc.longitude };
+    const out = tours.map((tour) => {
+      const candidates = candidatesByTourId?.get(tour.provider_tour_id);
+      if (!candidates) {
+        const loc = tour.location_ref
+          ? resolved.get(tour.location_ref)
+          : undefined;
+        if (!loc) return { ...tour };
+        return { ...tour, latitude: loc.latitude, longitude: loc.longitude };
+      }
+      const position = pickTourPosition({
+        candidates,
+        destinationRefs: tour.destination_refs,
+        resolved,
+      });
+      bySource.set(
+        position?.basis ?? "none",
+        (bySource.get(position?.basis ?? "none") ?? 0) + 1,
+      );
+      if (!position) return { ...tour };
+      return {
+        ...tour,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      };
     });
+
+    if (candidatesByTourId && bySource.size > 0) {
+      this.logger.log(
+        `Positions for ${tours.length} tour(s): ` +
+          [...bySource.entries()].map(([k, v]) => `${k}=${v}`).join(", "),
+      );
+    }
+    return out;
   }
 
   /** POST one ≤500 batch to `/locations/bulk` and parse the resolved rows. */

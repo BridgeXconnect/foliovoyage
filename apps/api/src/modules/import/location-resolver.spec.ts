@@ -376,3 +376,105 @@ describe("LocationResolver — SSRF enforcement", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+describe("LocationResolver — attachLocations with priority-ordered candidates (BRI-218)", () => {
+  const FETCHED_AT = "2026-09-27T00:00:00.000Z";
+  const loc = (reference: string, latitude: number, longitude: number): ResolvedLocation => ({
+    reference,
+    latitude,
+    longitude,
+    name: null,
+  });
+
+  /** A Hanoi tour (curated ref 351) whose only start ref is the unresolvable one. */
+  function hanoiTour(code: string) {
+    return normalizeViatorProduct(
+      {
+        productCode: code,
+        title: `Tour ${code}`,
+        destinations: [{ ref: "351", primary: true }],
+        logistics: { start: [{ location: { ref: "LOC-start-google" } }] },
+      },
+      { fetchedAt: FETCHED_AT },
+    );
+  }
+
+  it("positions a tour from its POI when the start ref does not resolve", async () => {
+    const { fetchImpl } = bulkFetch();
+    // Cache holds the POI; the start ref is absent, and the fake API is asked for
+    // it but this stub returns a center for everything — so seed both and make the
+    // start ref's coordinates obviously distinct.
+    const cache = new FakeCache().seed(
+      loc("LOC-poi", 21.03, 105.85),
+      loc("LOC-start-google", 0, 0),
+    );
+    const { resolver } = makeResolver(fetchImpl, cache);
+    const tour = hanoiTour("H1");
+
+    const [out] = await resolver.attachLocations([tour], new Map([
+      ["H1", [
+        { source: "poi" as const, ref: "LOC-poi" },
+        { source: "start" as const, ref: "LOC-start-google" },
+      ]],
+    ]));
+
+    expect([out.latitude, out.longitude]).toEqual([21.03, 105.85]);
+    // The hashed location_ref is untouched, so source_hash is unaffected.
+    expect(out.location_ref).toBe("LOC-start-google");
+    expect(out.source_hash).toBe(tour.source_hash);
+  });
+
+  it("skips a POI outside the 40 km radius and falls to the next source", async () => {
+    const { fetchImpl } = bulkFetch();
+    const cache = new FakeCache().seed(
+      loc("LOC-far", 20.95, 107.08),
+      loc("LOC-hotel", 21.04, 105.86),
+    );
+    const { resolver } = makeResolver(fetchImpl, cache);
+
+    const [out] = await resolver.attachLocations([hanoiTour("H2")], new Map([
+      ["H2", [
+        { source: "poi" as const, ref: "LOC-far" },
+        { source: "pickup" as const, ref: "LOC-hotel" },
+      ]],
+    ]));
+
+    expect([out.latitude, out.longitude]).toEqual([21.04, 105.86]);
+  });
+
+  it("leaves coordinates null when no candidate is usable (the linker then falls back)", async () => {
+    const { fetchImpl } = bulkFetch();
+    const cache = new FakeCache().seed(loc("LOC-far", 20.95, 107.08));
+    const { resolver } = makeResolver(fetchImpl, cache);
+
+    const [out] = await resolver.attachLocations([hanoiTour("H3")], new Map([
+      ["H3", [{ source: "poi" as const, ref: "LOC-far" }]],
+    ]));
+
+    expect(out.latitude).toBeNull();
+    expect(out.longitude).toBeNull();
+  });
+
+  it("resolves every page's candidate refs in one deduped pass", async () => {
+    const { fetchImpl, bodies } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    await resolver.attachLocations([hanoiTour("A"), hanoiTour("B")], new Map([
+      ["A", [{ source: "poi" as const, ref: "LOC-1" }, { source: "pickup" as const, ref: "LOC-2" }]],
+      ["B", [{ source: "poi" as const, ref: "LOC-1" }]],
+    ]));
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toEqual(["LOC-1", "LOC-2"]);
+  });
+
+  it("still uses location_ref alone for a tour absent from the candidates map", async () => {
+    const { fetchImpl } = bulkFetch();
+    const { resolver } = makeResolver(fetchImpl);
+
+    const [out] = await resolver.attachLocations([hanoiTour("H4")], new Map());
+
+    // bulkFetch echoes a center for LOC-start-google.
+    expect(out.latitude).toBe(10);
+  });
+});
