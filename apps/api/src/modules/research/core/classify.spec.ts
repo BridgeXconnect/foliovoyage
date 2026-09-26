@@ -5,7 +5,7 @@ import { describe, expect, it } from "@jest/globals";
 import { classifyDomain, judgeFamilies, judgeQuery, normalizeDomain, organicTop, type OrganicResult } from "./classify";
 import { loadRule } from "./rule";
 
-const rule = loadRule(path.resolve(__dirname, "../../../../../docs/research/bri-206/rule.md"));
+const rule = loadRule(path.resolve(__dirname, "../../../../../../docs/research/bri-206/rule.md"));
 const cls = (domain: string, url = `https://${domain}/x`) => classifyDomain(domain, url, rule);
 
 describe("normalizeDomain", () => {

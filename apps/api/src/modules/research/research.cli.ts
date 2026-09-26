@@ -2,13 +2,13 @@ import * as path from "node:path";
 
 import { envSchema } from "../../config/env.validation";
 import type { FetchLike } from "../import/http/allowlist-fetch";
-import { CandidatesError, type CatalogSource, runCandidates } from "./candidates.stage";
-import type { CatalogReader } from "./catalog-reader";
-import { ClassifyError, runClassify } from "./classify.stage";
-import { DemandError, runDemand } from "./demand.stage";
-import { type GitRunner, RuleError, checkRuleGate, describeRuleCommit, loadRule } from "./rule";
-import { SearchProviderClient, MissingCredentialsError, ProviderError } from "./search-provider.client";
-import { SerpError, runSerp } from "./serp.stage";
+import { CandidatesError, type CatalogSource, runCandidates } from "./stages/candidates.stage";
+import type { CatalogReader } from "./stages/catalog-reader";
+import { ClassifyError, runClassify } from "./stages/classify.stage";
+import { DemandError, runDemand } from "./stages/demand.stage";
+import { type GitRunner, RuleError, checkRuleGate, describeRuleCommit, loadRule } from "./core/rule";
+import { SearchProviderClient, MissingCredentialsError, ProviderError } from "./providers/search-provider.client";
+import { SerpError, runSerp } from "./stages/serp.stage";
 import {
   Ledger,
   MONTH_CEILING_USD,
@@ -18,8 +18,8 @@ import {
   formatUsd,
   resolveRunCap,
   toMicros,
-} from "./spend-guard";
-import { ViatorCatalog, ViatorCatalogError } from "./viator-catalog";
+} from "./pricing/spend-guard";
+import { ViatorCatalog, ViatorCatalogError } from "./core/viator-catalog";
 
 /**
  * Hub page research CLI (BRI-206).
@@ -147,7 +147,7 @@ async function runCandidatesStage(
   if (reader === undefined) {
     // Loaded here so the `spend` command never needs the Prisma client or a database.
     const { PrismaClient } = await import("@prisma/client");
-    const { PrismaCatalogReader } = await import("./catalog-reader");
+    const { PrismaCatalogReader } = await import("./stages/catalog-reader");
     const prisma = new PrismaClient();
     reader = new PrismaCatalogReader(prisma);
     disconnect = () => prisma.$disconnect();

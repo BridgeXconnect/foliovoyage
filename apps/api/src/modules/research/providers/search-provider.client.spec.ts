@@ -4,8 +4,8 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 
-import type { FetchLike } from "../import/http/allowlist-fetch";
-import { KEYWORD_OVERVIEW_ENDPOINT, SERP_ORGANIC_ENDPOINT } from "./price-table";
+import type { FetchLike } from "../../import/http/allowlist-fetch";
+import { KEYWORD_OVERVIEW_ENDPOINT, SERP_ORGANIC_ENDPOINT } from "../pricing/price-table";
 import {
   CacheCorruptError,
   MissingCredentialsError,
@@ -14,7 +14,7 @@ import {
   cacheKeyFor,
   canonicalJson,
 } from "./search-provider.client";
-import { Ledger, SpendGuard, SpendRefusedError } from "./spend-guard";
+import { Ledger, SpendGuard, SpendRefusedError } from "../pricing/spend-guard";
 
 const NOW = new Date("2026-09-20T12:00:00.000Z");
 const LOGIN = "login-secret-abc";

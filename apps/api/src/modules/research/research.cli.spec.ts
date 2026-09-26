@@ -4,9 +4,20 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 
-import { main } from "./research.cli";
+import { RESEARCH_DATA_DIR, main } from "./research.cli";
 
 const NOW = new Date("2026-09-20T12:00:00.000Z");
+
+describe("research:hub data location", () => {
+  // The spend ledger lives under this directory and is derived from __dirname.
+  // If the CLI is ever moved, this silently relocates the ledger and the
+  // monthly spend accounting restarts at $0, so pin it to apps/api/research-data.
+  it("stays at apps/api/research-data", () => {
+    expect(RESEARCH_DATA_DIR).toBe(path.resolve(__dirname, "../../..", "research-data"));
+    expect(path.relative(path.resolve(__dirname, "../../.."), RESEARCH_DATA_DIR)).toBe("research-data");
+    expect(path.basename(path.resolve(__dirname, "../../.."))).toBe("api");
+  });
+});
 
 describe("research:hub CLI", () => {
   let dir: string;

@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
-import type { TagRow, TourRow } from "./candidates";
+import type { TagRow, TourRow } from "../core/candidates";
 
 /**
  * Read only access to the Tour rows the candidate stage ranks (BRI-206, spec

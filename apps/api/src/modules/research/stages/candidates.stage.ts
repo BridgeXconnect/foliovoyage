@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { CURATED_CITIES } from "../import/curated-cities";
+import { CURATED_CITIES } from "../../import/curated-cities";
 import {
   type AttractionMode,
   type CandidateRow,
@@ -17,9 +17,9 @@ import {
   cityFigures,
   rankAttractions,
   rankTags,
-} from "./candidates";
+} from "../core/candidates";
 import type { CatalogReader } from "./catalog-reader";
-import type { Attraction } from "./viator-catalog";
+import type { Attraction } from "../core/viator-catalog";
 
 /** What the stage needs from the Viator side, so tests can hand in a fake. */
 export interface CatalogSource {
