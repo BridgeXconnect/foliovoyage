@@ -127,10 +127,10 @@ A separate judge command (Claude Opus 5.5, a different model from the Sonnet 5 w
 **Done when:** the judge has scored a sample of published copy through the gateway with verdicts stored, a pair over the bad claim limit is withdrawn and can be restored, and the golden set has passed with its stamp committed and enforced by a test.
 - [x] Design it (spec): [0003](../../specs/_root/0003-tour-copy-eval-harness/index.md)
 - [ ] Build it: `/develop sampled evaluation and kill switch for AI tour copy`
-  - [ ] Table, withdrawn read path and skip rule, then a thin thread on a fake judge with the kill switch (AC-1, AC-2, AC-7, AC-8, AC-9)
-  - [ ] Stronger inline check, prompt version 4 and the extracted generate loop (AC-3, AC-4, AC-18)
-  - [ ] Judge rubric, env config and the Anthropic judge adapter through the gateway (AC-5, AC-6, AC-12, AC-17, AC-19)
-  - [ ] Sample selection, withdraw and restore, and the spot check commands (AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-19)
+  - [x] Table, withdrawn read path and skip rule, then a thin thread on a fake judge with the kill switch (AC-1, AC-2, AC-7, AC-8, AC-9)
+  - [x] Stronger inline check, prompt version 4 and the extracted generate loop (AC-3, AC-4, AC-18)
+  - [x] Judge rubric, env config and the Anthropic judge adapter through the gateway (AC-5, AC-6, AC-12, AC-17, AC-19)
+  - [x] Sample selection, withdraw and restore, and the spot check commands (AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-19)
   - [ ] Golden data and command, then Roy's calibration and the committed stamp (AC-5, AC-9, AC-14, AC-15, AC-16)
 - [ ] Verify it: `/check verify sampled evaluation and kill switch for AI tour copy`
 
