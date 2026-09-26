@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { checkTourCopy } from "./tour-copy-check";
 import { TOUR_COPY_JUDGE_MODEL_DEFAULT } from "./tour-copy-eval.constants";
 import type { TourCopyGroundingInput } from "./tour-copy-grounding-hash";
-import { RECORD_VERDICT_TOOL } from "./tour-copy-judge-result";
+import { JUDGE_OUTPUT_FORMAT } from "./tour-copy-judge-result";
 import { getJudgeRubric } from "./tour-copy-judge-rubric";
 import { TOUR_COPY_SYSTEM_PROMPT } from "./tour-copy-prompt";
 import { TOUR_COPY_MODEL_DEFAULT } from "./tour-copy.constants";
@@ -196,7 +196,7 @@ const sha256 = (text: string): string => createHash("sha256").update(text).diges
 
 /**
  * The stamp key (AC-16): sha256 of the generator system prompt, the judge
- * system prompt, the `record_verdict` tool schema, the rubric version, both
+ * system prompt, the judge output format schema, the rubric version, both
  * default models, and the hash of each golden file as canonical JSON. Editing
  * any of them changes the key, so CI fails until the golden run is repeated.
  * Each part is length prefixed so no two different inputs join to one string.
@@ -206,7 +206,7 @@ export function computeGoldenStampKey(data: { tours: unknown; seeded: unknown })
   const parts = [
     TOUR_COPY_SYSTEM_PROMPT,
     rubric.systemPrompt,
-    canonicalJson(RECORD_VERDICT_TOOL),
+    canonicalJson(JUDGE_OUTPUT_FORMAT),
     String(rubric.version),
     TOUR_COPY_MODEL_DEFAULT,
     TOUR_COPY_JUDGE_MODEL_DEFAULT,

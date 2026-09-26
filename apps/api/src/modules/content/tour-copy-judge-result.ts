@@ -1,8 +1,8 @@
 import type { JudgedClaim, JudgeClaimVerdict, JudgeVerdict, PageVerdict } from "./tour-copy-judge";
 
 /**
- * Pure validation of the judge's `record_verdict` tool input (BRI-201 / spec
- * 0003, AC-6). No model, DB or clock access. The judge's own words are never
+ * Pure validation of the judge's structured answer (BRI-201 / spec 0003,
+ * AC-6). No model, DB or clock access. The judge's own words are never
  * trusted as evidence: a quote that is not found in the source fields is
  * checked here, in code, and the claim is downgraded when it is not.
  */
@@ -10,15 +10,16 @@ import type { JudgedClaim, JudgeClaimVerdict, JudgeVerdict, PageVerdict } from "
 const CLAIM_VERDICTS: readonly JudgeClaimVerdict[] = ["supported", "unsupported", "contradicted"];
 
 /**
- * The single tool the judge is forced to call (AC-5). Part of the golden
- * stamp key (AC-16), so editing it fails CI until the golden run is repeated.
+ * The JSON schema the judge's answer is constrained to, through the API's
+ * structured outputs (`output_config.format`, AC-5). Part of the golden stamp
+ * key (AC-16), so editing it fails CI until the golden run is repeated.
  * `evidence_quote` is required but may be empty for an `unsupported` claim.
+ * Structured outputs need `additionalProperties: false` on every object and
+ * allow `minItems` of 0 or 1 only, so the schema stays inside that.
  */
-export const RECORD_VERDICT_TOOL = {
-  name: "record_verdict",
-  description:
-    "Record your verdict on the paragraph: every factual claim it makes with a verdict and a quote from the tour data, and whether it opens on one specific, checkable fact.",
-  input_schema: {
+export const JUDGE_OUTPUT_FORMAT = {
+  type: "json_schema" as const,
+  schema: {
     type: "object" as const,
     properties: {
       claims: {
@@ -42,6 +43,7 @@ export const RECORD_VERDICT_TOOL = {
             },
           },
           required: ["text", "verdict", "evidence_quote"],
+          additionalProperties: false,
         },
       },
       leads_with_fact: {
@@ -49,11 +51,12 @@ export const RECORD_VERDICT_TOOL = {
         description: "True when the first sentence opens on one specific fact from the tour data a reader could verify.",
       },
       lead_fact: {
-        type: ["string", "null"],
+        anyOf: [{ type: "string" }, { type: "null" }],
         description: "That opening fact in a few words, or null when leads_with_fact is false.",
       },
     },
     required: ["claims", "leads_with_fact", "lead_fact"],
+    additionalProperties: false,
   },
 };
 
@@ -69,13 +72,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Validate the tool input, downgrade unfounded quotes, and derive the page
+ * Validate the parsed answer, downgrade unfounded quotes, and derive the page
  * verdict. `sourceText` is the source fields exactly as the judge was shown
  * them. Returns `{ok: false}` for any shape problem, which the adapter turns
  * into the one retry and then `judge_invalid`.
  */
-export function validateJudgeToolInput(raw: unknown, sourceText: string): JudgeValidation {
-  if (!isRecord(raw)) return { ok: false, reason: "tool input is not an object" };
+export function validateJudgeOutput(raw: unknown, sourceText: string): JudgeValidation {
+  if (!isRecord(raw)) return { ok: false, reason: "verdict is not an object" };
 
   const { claims: rawClaims, leads_with_fact: leadsWithFact, lead_fact: leadFact } = raw;
 

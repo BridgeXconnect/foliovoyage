@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { AnthropicTourCopyJudge } from "./tour-copy-anthropic-judge";
 import type { JudgeRequest } from "./tour-copy-judge";
+import { JUDGE_OUTPUT_FORMAT } from "./tour-copy-judge-result";
 import { getJudgeRubric, judgeSourceText } from "./tour-copy-judge-rubric";
 import type { TourCopyJudgeStartupConfig } from "./tour-copy-judge-startup-check";
 
@@ -51,10 +52,11 @@ const VALID_INPUT = {
   lead_fact: "longtail boat",
 };
 
-function toolUse(input: unknown, stopReason = "tool_use", u = usage(100, 50)) {
+/** A structured output response: the JSON comes back as a text block. */
+function answer(input: unknown, stopReason = "end_turn", u = usage(100, 50)) {
   return {
     stop_reason: stopReason,
-    content: [{ type: "tool_use", id: "tu_1", name: "record_verdict", input }],
+    content: [{ type: "text", text: typeof input === "string" ? input : JSON.stringify(input) }],
     usage: u,
   };
 }
@@ -68,9 +70,9 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(makeJudge(jest.fn<(...args: unknown[]) => Promise<unknown>>()).model).toBe("claude-opus-5-5");
   });
 
-  it("sends the forced tool call request and maps a valid verdict (AC-5)", async () => {
+  it("sends the structured output request and maps a valid verdict (AC-5)", async () => {
     const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(
-      toolUse(VALID_INPUT, "tool_use", usage(120, 80, 30, 5)),
+      answer(VALID_INPUT, "end_turn", usage(120, 80, 30, 5)),
     );
 
     const result = await makeJudge(create).judge(REQUEST);
@@ -92,10 +94,11 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(params).toMatchObject({
       model: "claude-opus-5-5",
       max_tokens: 1500,
-      thinking: { type: "disabled" },
-      tool_choice: { type: "tool", name: "record_verdict" },
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low", format: JUDGE_OUTPUT_FORMAT },
     });
-    expect((params.tools as { name: string }[]).map((tool) => tool.name)).toEqual(["record_verdict"]);
+    // Opus 5.5 rejects a forced tool choice and disabled thinking, so neither is sent.
+    for (const key of ["tools", "tool_choice"]) expect(params).not.toHaveProperty(key);
     expect(params.system).toEqual([
       { type: "text", text: getJudgeRubric("tour_copy").systemPrompt, cache_control: { type: "ephemeral" } },
     ]);
@@ -118,11 +121,11 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     });
   });
 
-  it("retries once on an invalid tool input, with the same input, and sums the usage (AC-6)", async () => {
+  it("retries once on an invalid answer, with the same input, and sums the usage (AC-6)", async () => {
     const create = jest
       .fn<(...args: unknown[]) => Promise<unknown>>()
-      .mockResolvedValueOnce(toolUse({ claims: [] }, "tool_use", usage(100, 40, 10, 0)))
-      .mockResolvedValueOnce(toolUse(VALID_INPUT, "tool_use", usage(100, 60, 0, 10)));
+      .mockResolvedValueOnce(answer({ claims: [] }, "end_turn", usage(100, 40, 10, 0)))
+      .mockResolvedValueOnce(answer(VALID_INPUT, "end_turn", usage(100, 60, 0, 10)));
 
     const result = await makeJudge(create).judge(REQUEST);
 
@@ -144,7 +147,7 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
   it("returns invalid after a second invalid result, with no third call", async () => {
     const create = jest
       .fn<(...args: unknown[]) => Promise<unknown>>()
-      .mockResolvedValue(toolUse({ claims: "nope" }, "tool_use", usage(10, 5)));
+      .mockResolvedValue(answer({ claims: "nope" }, "end_turn", usage(10, 5)));
 
     const result = await makeJudge(create).judge(REQUEST);
 
@@ -155,11 +158,11 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(create).toHaveBeenCalledTimes(2);
   });
 
-  it("treats a max_tokens stop as invalid even when the cut off input parses, and retries once", async () => {
+  it("treats a max_tokens stop as invalid even when the cut off answer parses, and retries once", async () => {
     const create = jest
       .fn<(...args: unknown[]) => Promise<unknown>>()
-      .mockResolvedValueOnce(toolUse(VALID_INPUT, "max_tokens"))
-      .mockResolvedValueOnce(toolUse(VALID_INPUT, "tool_use"));
+      .mockResolvedValueOnce(answer(VALID_INPUT, "max_tokens"))
+      .mockResolvedValueOnce(answer(VALID_INPUT, "end_turn"));
 
     const result = await makeJudge(create).judge(REQUEST);
 
@@ -167,16 +170,28 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
     expect(create).toHaveBeenCalledTimes(2);
   });
 
-  it("treats a response with no tool call as invalid and retries once", async () => {
+  it("treats a response with no text block as invalid and retries once", async () => {
     const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({
       stop_reason: "end_turn",
-      content: [{ type: "text", text: "I think it is fine." }],
+      content: [],
       usage: usage(10, 5),
     });
 
     const result = await makeJudge(create).judge(REQUEST);
 
     expect(result.kind).toBe("invalid");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats text that is not JSON as invalid, retries once, and can recover", async () => {
+    const create = jest
+      .fn<(...args: unknown[]) => Promise<unknown>>()
+      .mockResolvedValueOnce(answer("I think it is fine."))
+      .mockResolvedValueOnce(answer(VALID_INPUT));
+
+    const result = await makeJudge(create).judge(REQUEST);
+
+    expect(result.kind).toBe("verdict");
     expect(create).toHaveBeenCalledTimes(2);
   });
 
@@ -198,7 +213,7 @@ describe("AnthropicTourCopyJudge.judge (spec 0003 AC-5, AC-6)", () => {
 
   it("downgrades a claim whose quote is not in the source (AC-6)", async () => {
     const create = jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(
-      toolUse({
+      answer({
         claims: [{ text: "hotel pickup", verdict: "supported", evidence_quote: "free hotel pickup included" }],
         leads_with_fact: false,
         lead_fact: null,

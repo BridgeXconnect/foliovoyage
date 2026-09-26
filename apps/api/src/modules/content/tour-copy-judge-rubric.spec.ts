@@ -14,7 +14,7 @@ describe("getJudgeRubric (spec 0003 AC-17)", () => {
   it("returns a versioned rubric for tour_copy", () => {
     const rubric = getJudgeRubric("tour_copy");
     expect(rubric.version).toBeGreaterThanOrEqual(1);
-    expect(rubric.systemPrompt).toContain("record_verdict");
+    expect(rubric.systemPrompt).toContain("JSON");
   });
 
   it.each(["guide", "collection", "nonsense"])("throws for the unregistered content type %s", (contentType) => {
