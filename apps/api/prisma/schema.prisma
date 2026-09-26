@@ -93,9 +93,10 @@ model Experience {
   status       String @default("draft")
   /// Experience point latitude (WGS-84). NOT NULL by design: an Experience
   /// always has a location. For an auto-created one it is the linked Tour's
-  /// resolved latitude, falling back to the parent City's centroid when the Tour
-  /// has none (BRI-163). The linker fails loudly if neither is available rather
-  /// than writing a null.
+  /// resolved latitude, falling back to the tour's Bali sub-region centre
+  /// (BRI-218), then the parent City's centroid when the Tour has none (BRI-163).
+  /// The linker fails loudly if none is available rather than writing a null.
+  /// Set only at creation; `backfill-experience-coordinates.cli.ts` re-derives it.
   latitude     Float
   /// Experience point longitude (WGS-84); see {@link latitude}.
   longitude    Float
@@ -188,8 +189,10 @@ model Tour {
   affiliateUrl           String?
   /// Provider's opaque start-location reference, or null.
   locationRef            String?
-  /// Resolved start latitude (WGS-84), or null when unresolved (BRI-163: a
-  /// null-geo tour is legitimately published, not quarantined).
+  /// Resolved latitude (WGS-84), or null when unresolved (BRI-163: a null-geo
+  /// tour is legitimately published, not quarantined). BRI-218: the first usable
+  /// of itinerary POI → traveler pickup → start → end (see `position.ts`), within
+  /// 40 km of the city; not always the start point.
   latitude               Float?
   /// Resolved start longitude (WGS-84), or null when unresolved.
   longitude              Float?

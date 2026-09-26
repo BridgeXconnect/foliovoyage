@@ -6,6 +6,7 @@ import {
   curatedCityForRefs,
   type CuratedCity,
 } from "./curated-cities";
+import { resolveExperiencePosition } from "./position";
 
 /**
  * Experience linker (BRI-164 / ST-11).
@@ -25,9 +26,9 @@ import {
  *    everything else is left unlinked and never reaches the site. Curation holds
  *    at the import layer, not just in copy.
  * 2. **Geo is never null.** `Experience.latitude/longitude` are NOT NULL. The
- *    linker uses the tour's own resolved coordinates, falling back to the parent
- *    City's centroid (BRI-163) when the tour has none. If **neither** is
- *    available it throws {@link ExperienceGeoUnavailableError} — a loud, specific
+ *    linker uses the tour's own resolved coordinates, falling back to the tour's
+ *    Bali sub-region centre (BRI-218), then the parent City's centroid (BRI-163).
+ *    If **none** is available it throws {@link ExperienceGeoUnavailableError} — a loud, specific
  *    failure rather than a silent null or an opaque DB constraint violation.
  * 3. **Idempotent and race-safe.** Creation is keyed on the source tour's
  *    `(provider, providerTourId)` via a unique constraint on Experience, and the
@@ -158,22 +159,31 @@ export class ExperienceLinker {
         continue;
       }
 
-      // Geo: the tour's own coordinates, else the city centroid (BRI-163).
-      // Each source is an atomic *pair* — never mix a tour coordinate with a city
-      // one. A half-geo tour (lat but no lng, or vice versa) is malformed; taking
-      // its present half and coalescing the other from the centroid would
-      // fabricate a point that is neither the tour's nor the city's location
-      // (silent corruption). Use the tour pair only when both coords are present;
-      // otherwise fall back to the city centroid pair.
-      const hasTourGeo = tour.latitude !== null && tour.longitude !== null;
-      const latitude = hasTourGeo ? tour.latitude : city.centroidLat;
-      const longitude = hasTourGeo ? tour.longitude : city.centroidLng;
-      if (latitude === null || longitude === null) {
+      // Geo (BRI-163, BRI-218): the tour's own resolved coordinates, else the
+      // tour's Bali sub-region centre, else the city centroid. The tour pair is
+      // used only when *both* halves are present — a half-geo tour is malformed,
+      // and coalescing the missing half from a centroid would fabricate a point
+      // that is neither the tour's nor the city's. `resolveExperiencePosition`
+      // is shared with the backfill so the two can never disagree.
+      const hasCentroid = city.centroidLat !== null && city.centroidLng !== null;
+      const position = resolveExperiencePosition({
+        tourLatitude: tour.latitude,
+        tourLongitude: tour.longitude,
+        city: {
+          curated,
+          centroid: hasCentroid
+            ? { latitude: city.centroidLat!, longitude: city.centroidLng! }
+            : null,
+        },
+        destinationRefs: tour.destinationRefs,
+      });
+      if (!position) {
         // Fail loudly — never write a null/spliced location or trip an opaque
-        // NOT NULL. Reached when the tour has no complete pair and the city has
-        // no complete centroid to fall back to.
+        // NOT NULL. Reached when the tour has no complete pair and neither a
+        // sub-region nor a complete city centroid to fall back to.
         throw new ExperienceGeoUnavailableError(tour.providerTourId, city.slug);
       }
+      const { latitude, longitude } = position;
 
       const { experienceId, wasCreated } = await this.findOrCreateExperience({
         provider: tour.provider,
