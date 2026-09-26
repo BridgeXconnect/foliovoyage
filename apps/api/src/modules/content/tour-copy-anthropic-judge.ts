@@ -4,7 +4,7 @@ import { JUDGE_MAX_TOKENS, JUDGE_REQUEST_TIMEOUT_MS } from "./tour-copy-eval.con
 import type { JudgeRequest, JudgeResult, TourCopyJudge } from "./tour-copy-judge";
 import type { TourCopyUsage } from "./tour-copy-generator";
 import { buildJudgeUserMessage, getJudgeRubric, judgeSourceText } from "./tour-copy-judge-rubric";
-import { RECORD_VERDICT_TOOL, validateJudgeToolInput } from "./tour-copy-judge-result";
+import { JUDGE_OUTPUT_FORMAT, validateJudgeOutput } from "./tour-copy-judge-result";
 import type { TourCopyJudgeStartupConfig } from "./tour-copy-judge-startup-check";
 
 /**
@@ -14,16 +14,17 @@ import type { TourCopyJudgeStartupConfig } from "./tour-copy-judge-startup-check
  * `AnthropicTourCopyGenerator`: `apiKey` is `null` and `x-api-key` is nulled
  * out so the gateway substitutes its stored key.
  *
- * The model is forced to call `record_verdict` once, with thinking disabled
- * and no sampling parameters. An invalid result, including a `max_tokens`
- * stop, is retried once with the same input (AC-6); a second invalid result
- * is `invalid`. A `refusal` stop is never retried. Errors from the SDK (a 429
+ * The answer shape is guaranteed by structured outputs
+ * (`output_config.format`), not by a forced tool: Opus 5.5 rejects both
+ * `thinking: disabled` and a forced `tool_choice`, so thinking is adaptive at
+ * low effort and the JSON comes back as a text block. No sampling parameters
+ * are sent. An invalid result, including a `max_tokens` stop or text that does
+ * not parse, is retried once with the same input (AC-6); a second invalid
+ * result is `invalid`. A `refusal` stop is never retried. Errors from the SDK (a 429
  * that survived its own retries, a timeout, a 5xx) are not caught here: they
  * reach the caller as a rejected promise, which is where the circuit breaker
  * and the 429 stop live (AC-12).
  */
-
-const TOOL_NAME = RECORD_VERDICT_TOOL.name;
 
 const ZERO_USAGE: TourCopyUsage = {
   inputTokens: 0,
@@ -82,10 +83,9 @@ export class AnthropicTourCopyJudge implements TourCopyJudge {
         {
           model: this.model,
           max_tokens: JUDGE_MAX_TOKENS,
-          thinking: { type: "disabled" },
+          thinking: { type: "adaptive" },
+          output_config: { effort: "low", format: JUDGE_OUTPUT_FORMAT },
           system: [{ type: "text", text: rubric.systemPrompt, cache_control: { type: "ephemeral" } }],
-          tools: [RECORD_VERDICT_TOOL],
-          tool_choice: { type: "tool", name: TOOL_NAME },
           messages: [{ role: "user", content: userMessage }],
         },
         {
@@ -108,15 +108,20 @@ export class AnthropicTourCopyJudge implements TourCopyJudge {
         return { kind: "refusal", usage };
       }
 
-      // A `max_tokens` stop means the tool input may be cut off, so it is invalid whatever it parses to.
+      // A `max_tokens` stop means the JSON may be cut off, so it is invalid whatever it parses to.
       if (message.stop_reason === "max_tokens") continue;
 
-      const toolUse = message.content.find(
-        (block): block is Anthropic.ToolUseBlock => block.type === "tool_use" && block.name === TOOL_NAME,
-      );
-      if (!toolUse) continue;
+      const textBlock = message.content.find((block): block is Anthropic.TextBlock => block.type === "text");
+      if (!textBlock) continue;
 
-      const validation = validateJudgeToolInput(toolUse.input, sourceText);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(textBlock.text);
+      } catch {
+        continue;
+      }
+
+      const validation = validateJudgeOutput(parsed, sourceText);
       if (validation.ok) {
         return { kind: "verdict", verdict: validation.verdict, usage };
       }
