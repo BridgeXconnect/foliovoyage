@@ -175,6 +175,37 @@ describe("backfill-experience-coordinates CLI", () => {
     expect(out).toContain("without 1");
   });
 
+  it("--city writes only that city's rows, leaving every other city untouched", async () => {
+    const { tours, reader, resolver } = setup();
+    const { store, updateTour, updateExperience } = fakeStore(tours);
+
+    const { code, out } = await run(["--execute", "--city", "bali"], { store, reader, resolver, disconnect: async () => {} });
+
+    expect(code).toBe(0);
+    expect(out).toContain("Restricted to bali: 1 of 3 tour(s).");
+    // Only B1 (Bali): Hanoi's H1 would otherwise have moved, but must not.
+    expect(updateTour).not.toHaveBeenCalled();
+    expect(updateExperience).toHaveBeenCalledTimes(1);
+    expect(updateExperience.mock.calls[0][0]).toBe("exp-B1");
+    expect(tours.find((t) => t.id === "H1")!.experience).toEqual({ id: "exp-H1", ...HANOI_CENTROID });
+  });
+
+  it("--city only scans payloads for that city's tours", async () => {
+    const { tours, reader, resolver } = setup();
+    const { store } = fakeStore(tours);
+    const { out } = await run(["--city", "hanoi"], { store, reader, resolver, disconnect: async () => {} });
+    expect(out).toContain("Restricted to hanoi: 2 of 3 tour(s).");
+    expect(out).toContain("Found archived payloads for 2 of 2 tours");
+  });
+
+  it("--city rejects an unknown or missing slug", async () => {
+    for (const argv of [["--city", "atlantis"], ["--city"]]) {
+      const { code, err } = await run(argv, { disconnect: async () => {} });
+      expect(code).toBe(1);
+      expect(err).toContain("--city needs one of:");
+    }
+  });
+
   it("rejects unknown arguments", async () => {
     const { code, err } = await run(["--wat"], { disconnect: async () => {} });
     expect(code).toBe(1);
