@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { NotFoundException } from "@nestjs/common";
+import { destinationResponseSchema } from "@folio/shared";
 
 import type { PrismaService } from "../prisma/prisma.service";
 import { DestinationService, priceBandFromMinor } from "./destination.service";
@@ -101,6 +102,11 @@ describe("DestinationService", () => {
       ],
       pagination: { page: 1, pageSize: 12, total: 2, totalPages: 1 },
     });
+
+    // Contract check (BRI-214): what the service returns must satisfy the same
+    // schema `apps/web` parses the response with, so an API-side change that
+    // the web can't read fails here, in CI, before deploy.
+    expect(destinationResponseSchema.safeParse(result).success).toBe(true);
 
     // Only published experiences are read, for this city, paginated.
     expect(experienceCount).toHaveBeenCalledWith({

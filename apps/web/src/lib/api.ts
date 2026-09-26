@@ -8,41 +8,34 @@
  * paginated.
  */
 
+import {
+  destinationResponseSchema,
+  type DestinationResponse,
+  type ExperienceResponse,
+  type PaginationMeta,
+} from "@folio/shared";
+
 /** Base URL of the API. Server-side only; defaults to the local dev port. */
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
 
-export type PriceBand = "$" | "$$" | "$$$" | "$$$$";
+export type { PriceBand } from "@folio/shared";
 
-export interface ApiExperience {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string | null;
-  imageAlt: string | null;
-  editorRating: number | null;
-  priceBand: PriceBand | null;
-  tags: string[];
-  /** Present only once a live booking link is attached; absent → "coming soon". */
-  affiliateUrl?: string;
-  provider?: string;
-}
+/**
+ * The API's wire contract lives in `@folio/shared` (BRI-214) and is enforced at
+ * runtime in {@link fetchDestination}. These aliases keep the names the
+ * components already use.
+ */
+export type ApiExperience = ExperienceResponse;
+export type ApiPagination = PaginationMeta;
+export type ApiDestination = DestinationResponse;
 
-export interface ApiPagination {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface ApiDestination {
-  city: string;
-  citySlug: string;
-  country: string;
-  countrySlug: string;
-  heroImageUrl: string;
-  heroImageAlt: string;
-  experiences: ApiExperience[];
-  pagination: ApiPagination;
+/** One line per schema issue, `path: message`, for a readable error. */
+function summarizeIssues(
+  issues: readonly { path: readonly PropertyKey[]; message: string }[],
+): string {
+  return issues
+    .map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`)
+    .join("; ");
 }
 
 /** Options for a paginated destination fetch. */
@@ -83,5 +76,13 @@ export async function fetchDestination(
     );
   }
 
-  return (await res.json()) as ApiDestination;
+  const parsed = destinationResponseSchema.safeParse(await res.json());
+  if (!parsed.success) {
+    // The API answered 200 with a body that no longer matches the shared
+    // contract. Fail loudly rather than render from a shape we half-guess.
+    throw new Error(
+      `Unexpected response for destination ${countrySlug}/${citySlug}: ${summarizeIssues(parsed.error.issues)}`,
+    );
+  }
+  return parsed.data;
 }
