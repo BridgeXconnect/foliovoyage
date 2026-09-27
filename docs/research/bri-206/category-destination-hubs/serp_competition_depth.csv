@@ -1,0 +1,253 @@
+query,source_market,ads_present,local_pack_present,ai_overview_present,shopping_unit_present,first_organic_position
+things to do in bangkok,US,yes,no,no,no,2
+things to do in bangkok,UK,no,no,yes,no,2
+things to do in bangkok,AU,no,no,yes,no,2
+bangkok tours,US,no,no,yes,no,1
+bangkok tours,UK,no,no,yes,no,2
+bangkok tours,AU,no,no,yes,no,2
+best tours in bangkok,US,no,no,no,no,
+best tours in bangkok,UK,no,no,no,no,
+best tours in bangkok,AU,no,no,no,no,
+food tours in bangkok,US,no,no,no,no,
+food tours in bangkok,UK,no,no,no,no,
+food tours in bangkok,AU,no,no,no,no,
+bangkok food tour,US,no,yes,no,no,2
+bangkok food tour,UK,no,yes,no,no,2
+bangkok food tour,AU,no,yes,no,no,2
+walking tours in bangkok,US,no,no,no,no,
+walking tours in bangkok,UK,no,no,no,no,
+walking tours in bangkok,AU,no,no,no,no,
+day trips from bangkok,US,no,no,yes,no,2
+day trips from bangkok,UK,no,no,yes,no,2
+day trips from bangkok,AU,no,no,yes,no,2
+bangkok day trips,US,no,no,yes,no,2
+bangkok day trips,UK,yes,no,yes,no,2
+bangkok day trips,AU,no,no,yes,no,2
+cooking class bangkok,US,no,yes,no,no,2
+cooking class bangkok,UK,no,yes,no,no,2
+cooking class bangkok,AU,no,yes,no,no,2
+bangkok night tours,US,no,no,no,no,
+bangkok night tours,UK,no,no,no,no,
+bangkok night tours,AU,no,no,no,no,
+boat tours in bangkok,US,no,no,no,no,
+boat tours in bangkok,UK,no,no,no,no,
+boat tours in bangkok,AU,no,no,no,no,
+bike tours in bangkok,US,no,no,no,no,
+bike tours in bangkok,UK,no,no,no,no,
+bike tours in bangkok,AU,no,no,no,no,
+bangkok street food tour,US,no,yes,no,no,2
+bangkok street food tour,UK,no,no,no,no,
+bangkok street food tour,AU,no,yes,no,no,1
+best time to visit bangkok,US,no,no,yes,no,2
+best time to visit bangkok,UK,no,no,yes,no,2
+best time to visit bangkok,AU,no,no,no,no,2
+things to do in kyoto,US,no,no,yes,no,2
+things to do in kyoto,UK,no,no,yes,no,2
+things to do in kyoto,AU,no,no,yes,no,1
+kyoto tours,US,yes,no,yes,no,3
+kyoto tours,UK,no,no,yes,no,1
+kyoto tours,AU,yes,no,yes,no,2
+best tours in kyoto,US,no,no,no,no,
+best tours in kyoto,UK,no,no,no,no,
+best tours in kyoto,AU,no,no,no,no,
+food tours in kyoto,US,no,yes,yes,no,2
+food tours in kyoto,UK,no,no,no,no,
+food tours in kyoto,AU,no,no,no,no,
+kyoto food tour,US,no,yes,no,no,1
+kyoto food tour,UK,no,no,no,no,1
+kyoto food tour,AU,no,yes,no,no,1
+walking tours in kyoto,US,no,no,no,no,
+walking tours in kyoto,UK,no,no,no,no,
+walking tours in kyoto,AU,no,no,no,no,
+day trips from kyoto,US,no,no,yes,no,2
+day trips from kyoto,UK,no,no,yes,no,2
+day trips from kyoto,AU,no,no,yes,no,2
+kyoto day trips,US,no,no,yes,no,2
+kyoto day trips,UK,no,no,no,no,1
+kyoto day trips,AU,no,no,yes,no,2
+cooking class kyoto,US,no,yes,no,no,2
+cooking class kyoto,UK,no,no,no,no,
+cooking class kyoto,AU,no,yes,no,no,2
+kyoto night tours,US,no,yes,yes,no,2
+kyoto night tours,UK,no,no,no,no,
+kyoto night tours,AU,no,no,no,no,
+boat tours in kyoto,US,,,,,
+boat tours in kyoto,UK,,,,,
+boat tours in kyoto,AU,,,,,
+bike tours in kyoto,US,no,no,no,no,
+bike tours in kyoto,UK,no,no,no,no,
+bike tours in kyoto,AU,no,no,no,no,
+kyoto street food tour,US,no,no,no,no,
+kyoto street food tour,UK,no,no,no,no,
+kyoto street food tour,AU,no,no,no,no,
+best time to visit kyoto,US,no,no,yes,no,2
+best time to visit kyoto,UK,no,no,yes,no,3
+best time to visit kyoto,AU,no,no,no,no,
+things to do in lisbon,US,no,no,yes,no,2
+things to do in lisbon,UK,no,no,yes,no,3
+things to do in lisbon,AU,no,no,yes,no,2
+lisbon tours,US,no,no,yes,no,2
+lisbon tours,UK,no,no,yes,no,2
+lisbon tours,AU,no,no,yes,no,2
+best tours in lisbon,US,no,yes,yes,no,3
+best tours in lisbon,UK,no,no,no,no,
+best tours in lisbon,AU,no,no,no,no,
+food tours in lisbon,US,no,yes,no,no,2
+food tours in lisbon,UK,no,no,no,no,
+food tours in lisbon,AU,no,no,no,no,
+lisbon food tour,US,no,yes,no,no,2
+lisbon food tour,UK,no,yes,no,no,2
+lisbon food tour,AU,no,yes,no,no,2
+walking tours in lisbon,US,no,yes,no,no,2
+walking tours in lisbon,UK,no,no,no,no,
+walking tours in lisbon,AU,no,no,no,no,
+day trips from lisbon,US,no,no,yes,no,2
+day trips from lisbon,UK,no,no,no,no,1
+day trips from lisbon,AU,no,no,yes,no,3
+lisbon day trips,US,no,no,yes,no,2
+lisbon day trips,UK,no,no,no,no,1
+lisbon day trips,AU,no,no,yes,no,2
+cooking class lisbon,US,no,yes,no,no,2
+cooking class lisbon,UK,yes,yes,no,no,2
+cooking class lisbon,AU,no,no,no,no,
+lisbon night tours,US,no,no,no,no,
+lisbon night tours,UK,no,no,no,no,
+lisbon night tours,AU,no,no,no,no,
+boat tours in lisbon,US,no,yes,no,no,2
+boat tours in lisbon,UK,no,yes,no,no,3
+boat tours in lisbon,AU,no,no,no,no,
+bike tours in lisbon,US,no,yes,no,no,2
+bike tours in lisbon,UK,no,no,no,no,
+bike tours in lisbon,AU,no,no,no,no,
+lisbon street food tour,US,no,no,no,no,
+lisbon street food tour,UK,,,,,
+lisbon street food tour,AU,no,no,no,no,
+best time to visit lisbon,US,no,no,yes,no,2
+best time to visit lisbon,UK,no,no,yes,no,3
+best time to visit lisbon,AU,no,no,no,no,
+things to do in rome,US,yes,no,yes,no,3
+things to do in rome,UK,yes,no,yes,no,3
+things to do in rome,AU,no,no,yes,no,2
+rome tours,US,no,no,yes,no,2
+rome tours,UK,yes,no,yes,no,1
+rome tours,AU,no,no,yes,no,2
+best tours in rome,US,no,no,yes,no,2
+best tours in rome,UK,no,no,yes,no,2
+best tours in rome,AU,no,no,yes,no,2
+food tours in rome,US,no,yes,no,no,2
+food tours in rome,UK,no,no,no,no,
+food tours in rome,AU,no,yes,no,no,2
+rome food tour,US,no,yes,no,no,2
+rome food tour,UK,no,yes,no,no,2
+rome food tour,AU,yes,yes,no,no,2
+walking tours in rome,US,yes,yes,no,no,3
+walking tours in rome,UK,no,no,no,no,
+walking tours in rome,AU,no,no,no,no,
+day trips from rome,US,no,no,yes,no,1
+day trips from rome,UK,no,no,yes,no,2
+day trips from rome,AU,no,no,yes,no,2
+rome day trips,US,yes,no,yes,no,2
+rome day trips,UK,no,no,yes,no,2
+rome day trips,AU,no,no,yes,no,2
+cooking class rome,US,no,yes,no,no,2
+cooking class rome,UK,no,yes,no,no,2
+cooking class rome,AU,yes,yes,no,no,2
+rome night tours,US,no,no,yes,no,2
+rome night tours,UK,no,no,no,no,
+rome night tours,AU,no,no,no,no,
+boat tours in rome,US,yes,no,yes,no,2
+boat tours in rome,UK,no,no,no,no,
+boat tours in rome,AU,no,no,no,no,
+bike tours in rome,US,yes,yes,no,no,3
+bike tours in rome,UK,no,no,no,no,
+bike tours in rome,AU,no,no,no,no,
+rome street food tour,US,no,no,yes,no,2
+rome street food tour,UK,no,no,no,no,
+rome street food tour,AU,no,no,no,no,
+best time to visit rome,US,no,no,yes,no,2
+best time to visit rome,UK,no,no,yes,no,3
+best time to visit rome,AU,no,no,yes,no,3
+things to do in hanoi,US,no,no,yes,no,2
+things to do in hanoi,UK,no,no,yes,no,2
+things to do in hanoi,AU,no,no,yes,no,2
+hanoi tours,US,no,no,yes,no,2
+hanoi tours,UK,no,no,no,no,2
+hanoi tours,AU,no,no,yes,no,1
+best tours in hanoi,US,no,no,no,no,
+best tours in hanoi,UK,no,no,no,no,
+best tours in hanoi,AU,no,no,no,no,
+food tours in hanoi,US,no,no,no,no,1
+food tours in hanoi,UK,no,no,no,no,
+food tours in hanoi,AU,no,no,no,no,
+hanoi food tour,US,no,no,no,no,1
+hanoi food tour,UK,no,no,no,no,1
+hanoi food tour,AU,no,no,no,no,1
+walking tours in hanoi,US,no,no,no,no,
+walking tours in hanoi,UK,no,no,no,no,
+walking tours in hanoi,AU,no,no,no,no,
+day trips from hanoi,US,no,no,no,no,1
+day trips from hanoi,UK,no,no,yes,no,2
+day trips from hanoi,AU,no,no,yes,no,2
+hanoi day trips,US,no,no,yes,no,2
+hanoi day trips,UK,yes,no,yes,no,2
+hanoi day trips,AU,no,no,yes,no,2
+cooking class hanoi,US,no,yes,no,no,2
+cooking class hanoi,UK,no,no,no,no,
+cooking class hanoi,AU,no,yes,no,no,2
+hanoi night tours,US,no,no,no,no,
+hanoi night tours,UK,,,,,
+hanoi night tours,AU,no,no,no,no,
+boat tours in hanoi,US,,,,,
+boat tours in hanoi,UK,,,,,
+boat tours in hanoi,AU,,,,,
+bike tours in hanoi,US,no,no,no,no,
+bike tours in hanoi,UK,no,no,no,no,
+bike tours in hanoi,AU,no,no,no,no,
+hanoi street food tour,US,no,no,no,no,1
+hanoi street food tour,UK,no,no,no,no,1
+hanoi street food tour,AU,no,no,no,no,1
+best time to visit hanoi,US,no,no,yes,no,2
+best time to visit hanoi,UK,no,no,yes,no,3
+best time to visit hanoi,AU,no,no,yes,no,3
+things to do in bali,US,no,no,yes,no,2
+things to do in bali,UK,no,no,yes,no,2
+things to do in bali,AU,no,no,yes,no,2
+bali tours,US,no,no,yes,no,2
+bali tours,UK,no,no,no,no,1
+bali tours,AU,no,no,yes,no,2
+best tours in bali,US,yes,yes,yes,no,3
+best tours in bali,UK,no,no,no,no,
+best tours in bali,AU,no,no,no,no,
+food tours in bali,US,no,no,no,no,
+food tours in bali,UK,no,no,no,no,
+food tours in bali,AU,no,no,no,no,
+bali food tour,US,no,no,no,no,
+bali food tour,UK,no,no,no,no,
+bali food tour,AU,no,yes,no,no,1
+walking tours in bali,US,,,,,
+walking tours in bali,UK,,,,,
+walking tours in bali,AU,no,no,no,no,
+day trips from bali,US,no,no,yes,no,2
+day trips from bali,UK,no,no,no,no,
+day trips from bali,AU,no,no,no,no,
+bali day trips,US,no,yes,yes,no,2
+bali day trips,UK,no,yes,no,no,1
+bali day trips,AU,no,no,yes,no,2
+cooking class bali,US,no,yes,no,no,2
+cooking class bali,UK,no,no,no,no,
+cooking class bali,AU,no,yes,no,no,2
+bali night tours,US,no,no,no,no,
+bali night tours,UK,no,no,no,no,
+bali night tours,AU,no,no,no,no,
+boat tours in bali,US,no,no,no,no,
+boat tours in bali,UK,no,no,no,no,
+boat tours in bali,AU,no,no,no,no,
+bike tours in bali,US,no,no,no,no,
+bike tours in bali,UK,no,no,no,no,
+bike tours in bali,AU,no,no,no,no,
+bali street food tour,US,no,no,no,no,
+bali street food tour,UK,no,no,no,no,
+bali street food tour,AU,no,no,no,no,
+best time to visit bali,US,no,no,yes,no,2
+best time to visit bali,UK,no,no,yes,no,3
+best time to visit bali,AU,no,no,yes,no,2
