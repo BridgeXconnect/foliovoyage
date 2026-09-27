@@ -1,0 +1,253 @@
+query,page_type,city,source_market,search_volume,keyword_difficulty,search_intent,serp_features,ai_overview_present,ai_overview_cited_domains
+things to do in bangkok,destination_hub,bangkok,US,6600,46,informational,Sitelinks;Video;Image;Ads top;Ads bottom;People also ask;Indented;Discussions and forums,no,
+things to do in bangkok,destination_hub,bangkok,UK,3600,27,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,tripadvisor.co.uk;lonelyplanet.com;northabroad.com
+things to do in bangkok,destination_hub,bangkok,AU,2900,42,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,lonelyplanet.com;youtube.com;northabroad.com
+bangkok tours,destination_hub,bangkok,US,720,37,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,getyourguide.com;takemetour.com;youtube.com;goaheadtours.com
+bangkok tours,destination_hub,bangkok,UK,260,25,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,getyourguide.com;tripadvisor.co.uk;intrepidtravel.com
+bangkok tours,destination_hub,bangkok,AU,320,22,commercial,Reviews;People also ask;Indented;AI Overview,yes,klook.com;globus.com.au;tourradar.com;urbanadventures.com;instagram.com
+best tours in bangkok,destination_hub,bangkok,US,20,,,,no,
+best tours in bangkok,destination_hub,bangkok,UK,20,,,,no,
+best tours in bangkok,destination_hub,bangkok,AU,20,,,,no,
+food tours in bangkok,category_hub,bangkok,US,10,,,,no,
+food tours in bangkok,category_hub,bangkok,UK,10,,,,no,
+food tours in bangkok,category_hub,bangkok,AU,0,,,,no,
+bangkok food tour,category_hub,bangkok,US,320,23,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+bangkok food tour,category_hub,bangkok,UK,90,20,commercial,Local pack;Sitelinks;Reviews;Video;Image;Video carousel;People also ask;Indented,no,
+bangkok food tour,category_hub,bangkok,AU,110,23,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+walking tours in bangkok,category_hub,bangkok,US,0,,,,no,
+walking tours in bangkok,category_hub,bangkok,UK,30,,,,no,
+walking tours in bangkok,category_hub,bangkok,AU,0,,,,no,
+day trips from bangkok,category_hub,bangkok,US,1000,28,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,travelagewest.com;waywardwayfarer.com;worldwidewendy.be;lonelyplanet.com
+day trips from bangkok,category_hub,bangkok,UK,320,20,informational;commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,klook.com;viator.com;reddit.com;tripadvisor.co.uk
+day trips from bangkok,category_hub,bangkok,AU,210,20,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,tripadvisor.com;viator.com;getyourguide.com;lonelyplanet.com
+bangkok day trips,category_hub,bangkok,US,170,27,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,viator.com;getyourguide.com;klook.com;tripadvisor.com
+bangkok day trips,category_hub,bangkok,UK,170,21,informational;commercial,Sitelinks;Reviews;Video;Ads bottom;People also ask;Indented;AI Overview,yes,tripadvisor.co.uk;klook.com;worldwidewendy.be;lonelyplanet.com
+bangkok day trips,category_hub,bangkok,AU,140,20,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,lonelyplanet.com;pelago.com;tripadvisor.com;tourscanner.com;travelagewest.com
+cooking class bangkok,category_hub,bangkok,US,260,19,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented;Application,no,
+cooking class bangkok,category_hub,bangkok,UK,140,37,commercial,Local pack;Reviews;Video;Image;Video carousel;Indented,no,
+cooking class bangkok,category_hub,bangkok,AU,110,28,commercial,Local pack;Sitelinks;Video;Indented,no,
+bangkok night tours,category_hub,bangkok,US,10,,,,no,
+bangkok night tours,category_hub,bangkok,UK,0,,,,no,
+bangkok night tours,category_hub,bangkok,AU,0,,,,no,
+boat tours in bangkok,category_hub,bangkok,US,10,,,,no,
+boat tours in bangkok,category_hub,bangkok,UK,0,,,,no,
+boat tours in bangkok,category_hub,bangkok,AU,0,,,,no,
+bike tours in bangkok,category_hub,bangkok,US,0,,,,no,
+bike tours in bangkok,category_hub,bangkok,UK,0,,,,no,
+bike tours in bangkok,category_hub,bangkok,AU,0,,,,no,
+bangkok street food tour,category_hub,bangkok,US,90,15,commercial,Local pack;Reviews;Video;Video carousel;People also ask;Indented,no,
+bangkok street food tour,category_hub,bangkok,UK,30,,,,no,
+bangkok street food tour,category_hub,bangkok,AU,50,17,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+best time to visit bangkok,seasonal_destination,bangkok,US,1300,29,commercial,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,usnews.com;solitairebangkok.com;lonelyplanet.com
+best time to visit bangkok,seasonal_destination,bangkok,UK,590,25,commercial,Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,makemytrip.com;kuoni.co.uk;solitairebangkok.com;instagram.com
+best time to visit bangkok,seasonal_destination,bangkok,AU,590,30,informational;commercial,Reviews;Video;Featured snippet;People also ask;Indented,no,
+things to do in kyoto,destination_hub,kyoto,US,9900,32,informational,Reviews;Video;Image;People also ask;Indented;Discussions and forums;AI Overview,yes,japan-guide.com;wherearethosemorgans.com;youtube.com;tripadvisor.com;whatsupcourtney.com
+things to do in kyoto,destination_hub,kyoto,UK,2400,26,informational,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,weareglobaltravellers.com;wherearethosemorgans.com;neverendingvoyage.com
+things to do in kyoto,destination_hub,kyoto,AU,4400,33,informational,Sitelinks;Image;Indented;AI Overview,yes,
+kyoto tours,destination_hub,kyoto,US,1000,37,informational,Sitelinks;Reviews;Video;Ads top;Ads bottom;Video carousel;People also ask;Indented;AI Overview,yes,contexttravel.com;youtube.com;toursinkyoto.com;matcha-jp.com;instagram.com
+kyoto tours,destination_hub,kyoto,UK,210,31,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,toursinkyoto.com;walkjapan.com;japantravel.com;dangerous-business.com;tripadvisor.co.uk
+kyoto tours,destination_hub,kyoto,AU,210,29,commercial,Reviews;Video;Image;Ads bottom;Video carousel;People also ask;Indented;AI Overview,yes,walkjapan.com;klook.com;youtube.com;getyourguide.com
+best tours in kyoto,destination_hub,kyoto,US,20,,,,no,
+best tours in kyoto,destination_hub,kyoto,UK,20,,,,no,
+best tours in kyoto,destination_hub,kyoto,AU,20,,,,no,
+food tours in kyoto,category_hub,kyoto,US,40,29,commercial,Local pack;Reviews;Video;Indented;AI Overview,yes,tripadvisor.com;ninjafoodtours.com;viator.com;secretfoodtours.com;forbes.com
+food tours in kyoto,category_hub,kyoto,UK,0,,,,no,
+food tours in kyoto,category_hub,kyoto,AU,0,,,,no,
+kyoto food tour,category_hub,kyoto,US,390,33,commercial,Local pack;Sitelinks;Reviews;Video;Indented,no,
+kyoto food tour,category_hub,kyoto,UK,90,28,commercial,Knowledge panel;Video;Image;Video carousel;Indented,no,
+kyoto food tour,category_hub,kyoto,AU,170,26,commercial,Local pack;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+walking tours in kyoto,category_hub,kyoto,US,10,,,,no,
+walking tours in kyoto,category_hub,kyoto,UK,10,,,,no,
+walking tours in kyoto,category_hub,kyoto,AU,10,,,,no,
+day trips from kyoto,category_hub,kyoto,US,1300,22,informational,Sitelinks;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,reddit.com;travelcaffeine.com
+day trips from kyoto,category_hub,kyoto,UK,320,18,informational,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,reddit.com;youtube.com;insidekyoto.com
+day trips from kyoto,category_hub,kyoto,AU,390,17,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;Discussions and forums;AI Overview,yes,neverendingvoyage.com;2aussietravellers.com;pelago.com;viator.com
+kyoto day trips,category_hub,kyoto,US,260,20,informational,Sitelinks;Video;Image;People also ask;Indented;AI Overview,yes,lonelyplanet.com;michelin.com;thegirlwithabigbag.com;youtube.com;theroyaltourblog.com
+kyoto day trips,category_hub,kyoto,UK,90,20,informational;commercial,Sitelinks;Video;Image;Video carousel;Indented,no,
+kyoto day trips,category_hub,kyoto,AU,170,20,informational,Sitelinks;Video;Image;People also ask;Indented;AI Overview,yes,pelago.com;neverendingvoyage.com;2aussietravellers.com;insidekyoto.com;thegirlwithabigbag.com
+cooking class kyoto,category_hub,kyoto,US,40,17,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+cooking class kyoto,category_hub,kyoto,UK,10,,,,no,
+cooking class kyoto,category_hub,kyoto,AU,50,19,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+kyoto night tours,category_hub,kyoto,US,70,24,commercial,Local pack;Reviews;Video;People also ask;Indented;AI Overview,yes,getyourguide.com;viator.com;contexttravel.com;sunrise-tours.jp;kyotolocalized.com
+kyoto night tours,category_hub,kyoto,UK,10,,,,no,
+kyoto night tours,category_hub,kyoto,AU,10,,,,no,
+boat tours in kyoto,category_hub,kyoto,US,,,,,,
+boat tours in kyoto,category_hub,kyoto,UK,,,,,,
+boat tours in kyoto,category_hub,kyoto,AU,,,,,,
+bike tours in kyoto,category_hub,kyoto,US,0,,,,no,
+bike tours in kyoto,category_hub,kyoto,UK,10,,,,no,
+bike tours in kyoto,category_hub,kyoto,AU,40,,,,no,
+kyoto street food tour,category_hub,kyoto,US,0,,,,no,
+kyoto street food tour,category_hub,kyoto,UK,0,,,,no,
+kyoto street food tour,category_hub,kyoto,AU,0,,,,no,
+best time to visit kyoto,seasonal_destination,kyoto,US,590,19,commercial,Sitelinks;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,reddit.com;usnews.com;insidekyoto.com
+best time to visit kyoto,seasonal_destination,kyoto,UK,90,20,commercial,Video;Video carousel;People also ask;Indented;Application;Discussions and forums;AI Overview,yes,lonelyplanet.com;reddit.com;insidekyoto.com
+best time to visit kyoto,seasonal_destination,kyoto,AU,40,,,,no,
+things to do in lisbon,destination_hub,lisbon,US,12100,23,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,sugarandstamps.com;reddit.com;hallaroundtheworld.com;48hoursineurope.com
+things to do in lisbon,destination_hub,lisbon,UK,9900,25,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,geekyexplorer.com;48hoursineurope.com;thetravelexpert.ie;visitportugal.com;careergappers.com
+things to do in lisbon,destination_hub,lisbon,AU,1000,28,informational;commercial,Reviews;Video;People also ask;Indented;AI Overview,yes,hallaroundtheworld.com;48hoursineurope.com;weareglobaltravellers.com
+lisbon tours,destination_hub,lisbon,US,1600,39,informational,Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,viator.com;getyourguide.com;tripadvisor.com
+lisbon tours,destination_hub,lisbon,UK,390,28,commercial,Reviews;Video;Video carousel;People also ask;Indented;AI Overview,yes,getyourguide.com;localtuktuk.com;tripadvisor.co.uk;projectexpedition.com;viator.com
+lisbon tours,destination_hub,lisbon,AU,320,27,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,yellowcabtttours.pt;seaandseetours.com;viator.com;hungrypursuit.com
+best tours in lisbon,destination_hub,lisbon,US,90,37,commercial,Local pack;Reviews;People also ask;Indented;Discussions and forums;AI Overview,yes,getyourguide.com;insidelisbon.com
+best tours in lisbon,destination_hub,lisbon,UK,20,,,,no,
+best tours in lisbon,destination_hub,lisbon,AU,20,,,,no,
+food tours in lisbon,category_hub,lisbon,US,90,33,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+food tours in lisbon,category_hub,lisbon,UK,20,,,,no,
+food tours in lisbon,category_hub,lisbon,AU,10,,,,no,
+lisbon food tour,category_hub,lisbon,US,1000,35,commercial,Local pack;Sitelinks;Reviews;Video;Indented,no,
+lisbon food tour,category_hub,lisbon,UK,320,34,commercial,Local pack;Sitelinks;Reviews;Video;People also ask;Indented,no,
+lisbon food tour,category_hub,lisbon,AU,90,25,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented,no,
+walking tours in lisbon,category_hub,lisbon,US,140,35,commercial,Local pack;Reviews;Video;Video carousel;People also ask;Indented;Discussions and forums,no,
+walking tours in lisbon,category_hub,lisbon,UK,20,,,,no,
+walking tours in lisbon,category_hub,lisbon,AU,0,,,,no,
+day trips from lisbon,category_hub,lisbon,US,2400,13,informational,Sitelinks;Reviews;Video;Image;Video carousel;People also ask;Indented;Discussions and forums;AI Overview,yes,parquesdesintra.pt;regaleira.pt;piriquita.pt;my-travelmonkey.com;oladaniela.com
+day trips from lisbon,category_hub,lisbon,UK,720,28,informational;commercial,Sitelinks;Reviews;Video;Featured snippet;Image;People also ask;Indented;Application,no,
+day trips from lisbon,category_hub,lisbon,AU,210,9,informational;commercial,Reviews;Video;People also ask;Indented;AI Overview,yes,reddit.com;happytowander.com;lonelyplanet.com
+lisbon day trips,category_hub,lisbon,US,880,9,informational;commercial,Video;Image;People also ask;Indented;AI Overview,yes,reddit.com;youtube.com
+lisbon day trips,category_hub,lisbon,UK,390,14,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;Application,no,
+lisbon day trips,category_hub,lisbon,AU,140,18,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented;Application;AI Overview,yes,lonelyplanet.com;my-travelmonkey.com;migratingmiss.com;theemptynestexplorers.com;cooldestinations.com
+cooking class lisbon,category_hub,lisbon,US,260,27,commercial,Local pack;Sitelinks;Reviews;Video;Image;Indented,no,
+cooking class lisbon,category_hub,lisbon,UK,90,22,commercial,Local pack;Sitelinks;Reviews;Video;Image;Ads bottom;Indented,no,
+cooking class lisbon,category_hub,lisbon,AU,20,,,,no,
+lisbon night tours,category_hub,lisbon,US,10,,,,no,
+lisbon night tours,category_hub,lisbon,UK,0,,,,no,
+lisbon night tours,category_hub,lisbon,AU,0,,,,no,
+boat tours in lisbon,category_hub,lisbon,US,260,19,commercial,Local pack;Sitelinks;Reviews;Video;Video carousel;People also ask;Indented,no,
+boat tours in lisbon,category_hub,lisbon,UK,170,19,commercial,Local pack;Sitelinks;Reviews;Video;Video carousel;People also ask;Indented,no,
+boat tours in lisbon,category_hub,lisbon,AU,0,,,,no,
+bike tours in lisbon,category_hub,lisbon,US,50,25,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+bike tours in lisbon,category_hub,lisbon,UK,20,,,,no,
+bike tours in lisbon,category_hub,lisbon,AU,0,,,,no,
+lisbon street food tour,category_hub,lisbon,US,0,,,,no,
+lisbon street food tour,category_hub,lisbon,UK,,,,,,
+lisbon street food tour,category_hub,lisbon,AU,0,,,,no,
+best time to visit lisbon,seasonal_destination,lisbon,US,1300,35,commercial,Reviews;Video;People also ask;Indented;AI Overview,yes,usnews.com;royalcaribbean.com;gowithguide.com;lonelyplanet.com;tripnly.com
+best time to visit lisbon,seasonal_destination,lisbon,UK,480,30,commercial,Reviews;Video;People also ask;Indented;Application;Discussions and forums;AI Overview,yes,tripadvisor.co.uk;lonelyplanet.com;ricksteves.com
+best time to visit lisbon,seasonal_destination,lisbon,AU,20,,,,no,
+things to do in rome,destination_hub,rome,US,14800,36,informational,Sitelinks;Reviews;Video;Image;Ads top;People also ask;Indented;AI Overview,yes,viator.com;tripadvisor.com;compassroam.com
+things to do in rome,destination_hub,rome,UK,12100,36,informational;commercial,Sitelinks;Reviews;Video;Image;Ads bottom;Video carousel;People also ask;Indented;AI Overview,yes,tripadvisor.co.uk;adventurouskate.com;youshouldgohere.com
+things to do in rome,destination_hub,rome,AU,1900,37,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,tripadvisor.com.au;adventurouskate.com;hudsonandemily.com;wherearethosemorgans.com;youtube.com
+rome tours,destination_hub,rome,US,4400,47,informational;commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,theromanguy.com;viator.com;tripadvisor.com;wheninrometours.com;ricksteves.com
+rome tours,destination_hub,rome,UK,1300,33,commercial,Reviews;Video;Ads bottom;Video carousel;People also ask;Indented;AI Overview,yes,citywonders.com;theromanguy.com;rome.net;viator.com;tourscanner.com
+rome tours,destination_hub,rome,AU,720,34,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,getyourguide.com;journeyofdoing.com;youtube.com
+best tours in rome,destination_hub,rome,US,720,13,commercial,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,thetourguy.com;youtube.com;ricksteves.com;atastefortravel.ca;klook.com
+best tours in rome,destination_hub,rome,UK,140,41,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,theromanguy.com;citywonders.com;getyourguide.com;tripadvisor.co.uk
+best tours in rome,destination_hub,rome,AU,70,38,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,reddit.com;theromanguy.com;livelikeitstheweekend.com
+food tours in rome,category_hub,rome,US,320,30,commercial,Local pack;Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums,no,
+food tours in rome,category_hub,rome,UK,70,,,,no,
+food tours in rome,category_hub,rome,AU,50,21,commercial,Local pack;Sitelinks;Reviews;Video;People also ask;Indented,no,
+rome food tour,category_hub,rome,US,1000,30,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+rome food tour,category_hub,rome,UK,480,41,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Application,no,
+rome food tour,category_hub,rome,AU,90,38,commercial,Local pack;Sitelinks;Reviews;Video;Image;Ads bottom;Indented,no,
+walking tours in rome,category_hub,rome,US,140,35,commercial,Local pack;Sitelinks;Reviews;Video;Ads top;Ads bottom;Video carousel;People also ask;Indented,no,
+walking tours in rome,category_hub,rome,UK,20,,,,no,
+walking tours in rome,category_hub,rome,AU,20,,,,no,
+day trips from rome,category_hub,rome,US,5400,28,informational,Sitelinks;Reviews;Video;Image;Video carousel;People also ask;Indented;Discussions and forums;AI Overview,yes,
+day trips from rome,category_hub,rome,UK,1300,28,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,lastminute.com;savoringitaly.com;getyourguide.com;lonelyplanet.com
+day trips from rome,category_hub,rome,AU,720,24,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,lonelyplanet.com;guruwalk.com;enjoyrome.com;viator.com;romewise.com
+rome day trips,category_hub,rome,US,1000,29,informational,Reviews;Video;Image;Ads bottom;People also ask;Indented;Discussions and forums;AI Overview,yes,reddit.com;ricksteves.com;lifepart2andbeyond.com
+rome day trips,category_hub,rome,UK,480,19,informational,Video;Image;People also ask;Indented;AI Overview,yes,reddit.com;substack.com;ricksteves.com;oldworlditalian.com
+rome day trips,category_hub,rome,AU,210,33,informational;commercial,Reviews;People also ask;Indented;AI Overview,yes,lonelyplanet.com;lifepart2andbeyond.com;citywonders.com;travelandleisure.com
+cooking class rome,category_hub,rome,US,1000,42,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Application,no,
+cooking class rome,category_hub,rome,UK,390,24,commercial,Local pack;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+cooking class rome,category_hub,rome,AU,210,24,commercial,Local pack;Reviews;Video;Image;Ads bottom;People also ask;Indented;Application,no,
+rome night tours,category_hub,rome,US,140,22,commercial,Knowledge panel;Reviews;Video;Image;Indented;Discussions and forums;AI Overview,yes,bigbustours.com;getyourguide.com;viator.com;youtube.com;tripadvisor.com
+rome night tours,category_hub,rome,UK,30,,,,no,
+rome night tours,category_hub,rome,AU,10,,,,no,
+boat tours in rome,category_hub,rome,US,30,19,commercial,Knowledge panel;Sitelinks;Reviews;Video;Video carousel;People also ask;Indented;Ads middle;AI Overview,yes,romeboat.com;getyourguide.com;tripadvisor.com;turismoroma.it;vretreats.com
+boat tours in rome,category_hub,rome,UK,0,,,,no,
+boat tours in rome,category_hub,rome,AU,0,,,,no,
+bike tours in rome,category_hub,rome,US,90,22,commercial,Local pack;Sitelinks;Reviews;Video;Image;Ads top;Video carousel;People also ask;Indented;Discussions and forums;Ads middle,no,
+bike tours in rome,category_hub,rome,UK,20,,,,no,
+bike tours in rome,category_hub,rome,AU,10,,,,no,
+rome street food tour,category_hub,rome,US,110,20,informational;commercial,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,doeatbetterexperience.com;viator.com;tripadvisor.com;youtube.com
+rome street food tour,category_hub,rome,UK,20,,,,no,
+rome street food tour,category_hub,rome,AU,20,,,,no,
+best time to visit rome,seasonal_destination,rome,US,2900,36,commercial,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,ricksteves.com;instagram.com;celebritycruises.com;royalcaribbean.com;reddit.com
+best time to visit rome,seasonal_destination,rome,UK,1600,28,commercial,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,tui.co.uk;trailfinders.com;instagram.com
+best time to visit rome,seasonal_destination,rome,AU,140,33,commercial,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,tickets-rome.com;celebritycruises.com;trailfinders.com;worldtraveltoucan.com;checkinaway.com
+things to do in hanoi,destination_hub,hanoi,US,3600,25,informational,Sitelinks;Reviews;Video;Image;Indented;Discussions and forums;AI Overview,yes,recyourtrip.com;moving-jack.com;roowanders.com;travelswithingrid.com;travellikeanna.com
+things to do in hanoi,destination_hub,hanoi,UK,2400,25,informational,Sitelinks;Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,travellikeanna.com;recyourtrip.com;backpackbob.com;facebook.com
+things to do in hanoi,destination_hub,hanoi,AU,2900,24,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,littlegreybox.net;reddit.com;recyourtrip.com;roowanders.com
+hanoi tours,destination_hub,hanoi,US,590,37,informational;commercial,Image pack;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,projectexpedition.com;getyourguide.com;tripadvisor.com
+hanoi tours,destination_hub,hanoi,UK,260,28,informational,Image pack;Reviews;Video;People also ask;Indented,no,
+hanoi tours,destination_hub,hanoi,AU,260,25,commercial,Reviews;Video;Image;People also ask;Indented;AI Overview,yes,getyourguide.com;wendywutours.com.au;youtube.com
+best tours in hanoi,destination_hub,hanoi,US,20,,,,no,
+best tours in hanoi,destination_hub,hanoi,UK,20,,,,no,
+best tours in hanoi,destination_hub,hanoi,AU,20,,,,no,
+food tours in hanoi,category_hub,hanoi,US,30,16,commercial,Knowledge panel;Sitelinks;Reviews;Video;People also ask;Indented,no,
+food tours in hanoi,category_hub,hanoi,UK,20,,,,no,
+food tours in hanoi,category_hub,hanoi,AU,20,,,,no,
+hanoi food tour,category_hub,hanoi,US,320,13,informational,Knowledge panel;Sitelinks;Reviews;Video;Image;People also ask;Indented;Application,no,
+hanoi food tour,category_hub,hanoi,UK,170,19,informational,Knowledge panel;Reviews;Video;People also ask;Indented;Application,no,
+hanoi food tour,category_hub,hanoi,AU,260,20,informational,Knowledge panel;Sitelinks;Reviews;Video;People also ask;Indented;Application,no,
+walking tours in hanoi,category_hub,hanoi,US,0,,,,no,
+walking tours in hanoi,category_hub,hanoi,UK,10,,,,no,
+walking tours in hanoi,category_hub,hanoi,AU,0,,,,no,
+day trips from hanoi,category_hub,hanoi,US,590,29,informational;commercial,Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+day trips from hanoi,category_hub,hanoi,UK,320,21,informational,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,reddit.com;fionatravelsfromasia.com;viator.com
+day trips from hanoi,category_hub,hanoi,AU,390,25,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,tripadvisor.ca;viator.com;kkday.com;asiakingtravel.com;bhayacruises.com
+hanoi day trips,category_hub,hanoi,US,170,23,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,xspaceimmersive.com;fionatravelsfromasia.com;thegirlwithabigbag.com;excursionmania.com
+hanoi day trips,category_hub,hanoi,UK,140,22,commercial,Reviews;Video;Image;Ads bottom;Video carousel;People also ask;Indented;Ads middle;AI Overview,yes,viator.com;klook.com;tripadvisor.co.uk;fionatravelsfromasia.com
+hanoi day trips,category_hub,hanoi,AU,210,18,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,reddit.com;tripadvisor.com.au;helenabradbury.com;vietnam.travel
+cooking class hanoi,category_hub,hanoi,US,50,31,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Application;Discussions and forums,no,
+cooking class hanoi,category_hub,hanoi,UK,20,,,,no,
+cooking class hanoi,category_hub,hanoi,AU,70,20,commercial,Local pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Discussions and forums,no,
+hanoi night tours,category_hub,hanoi,US,0,,,,no,
+hanoi night tours,category_hub,hanoi,UK,,,,,,
+hanoi night tours,category_hub,hanoi,AU,0,,,,no,
+boat tours in hanoi,category_hub,hanoi,US,,,,,,
+boat tours in hanoi,category_hub,hanoi,UK,,,,,,
+boat tours in hanoi,category_hub,hanoi,AU,,,,,,
+bike tours in hanoi,category_hub,hanoi,US,0,,,,no,
+bike tours in hanoi,category_hub,hanoi,UK,0,,,,no,
+bike tours in hanoi,category_hub,hanoi,AU,10,,,,no,
+hanoi street food tour,category_hub,hanoi,US,390,21,informational,Knowledge panel;Image pack;Sitelinks;Reviews;Video;Image;People also ask;Indented;Application,no,
+hanoi street food tour,category_hub,hanoi,UK,170,21,informational;transactional,Knowledge panel;Image pack;Reviews;Video;Image;People also ask;Indented;Application,no,
+hanoi street food tour,category_hub,hanoi,AU,320,22,informational,Knowledge panel;Image pack;Reviews;Video;Image;People also ask;Indented;Application,no,
+best time to visit hanoi,seasonal_destination,hanoi,US,480,18,commercial,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,reddit.com;vietnam.travel;gowithguide.com;bestpricetravel.com
+best time to visit hanoi,seasonal_destination,hanoi,UK,390,22,commercial,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,vietnamtravel.com;tui.co.uk;vietnam.travel;youtube.com;facebook.com
+best time to visit hanoi,seasonal_destination,hanoi,AU,480,22,commercial,Sitelinks;Reviews;Video;People also ask;Indented;Discussions and forums;AI Overview,yes,reddit.com;vietnam.travel;gowithguide.com;facebook.com;getyourguide.com
+things to do in bali,destination_hub,bali,US,6600,33,informational,Sitelinks;Reviews;Image;People also ask;Indented;AI Overview,yes,tripadvisor.com;reddit.com;laurenslighthouse.com;getyourguide.com;worldadventuredivers.com
+things to do in bali,destination_hub,bali,UK,2900,23,informational,Sitelinks;Reviews;Video;Image;People also ask;Indented;AI Overview,yes,youtube.com;lonelyplanet.com;hayesandjarvis.co.uk
+things to do in bali,destination_hub,bali,AU,6600,31,informational,Video;Image;People also ask;Indented;AI Overview,yes,thewonderlusters.com;youtube.com;tiktok.com;tripadvisor.com.au
+bali tours,destination_hub,bali,US,1000,42,informational,Reviews;Video;People also ask;Indented;AI Overview,yes,getyourguide.com;youtube.com;tourradar.com;balibucketlisttours.com;tripadvisor.com
+bali tours,destination_hub,bali,UK,880,22,commercial,Reviews;Video;Image;Video carousel;People also ask;Indented,no,
+bali tours,destination_hub,bali,AU,1600,37,commercial,Reviews;Video;People also ask;Indented;AI Overview,yes,getyourguide.com;virginaustralia.com;tripadvisor.com.au;gadventures.com;homeiswhereyourbagis.com
+best tours in bali,destination_hub,bali,US,40,42,commercial,Local pack;Reviews;Video;Ads top;Ads bottom;People also ask;Indented;AI Overview,yes,klook.com;getyourguide.com;viator.com;baligoldentour.com;youtube.com
+best tours in bali,destination_hub,bali,UK,20,,,,no,
+best tours in bali,destination_hub,bali,AU,40,,,,no,
+food tours in bali,category_hub,bali,US,0,,,,no,
+food tours in bali,category_hub,bali,UK,10,,,,no,
+food tours in bali,category_hub,bali,AU,0,,,,no,
+bali food tour,category_hub,bali,US,30,,,,no,
+bali food tour,category_hub,bali,UK,20,,,,no,
+bali food tour,category_hub,bali,AU,90,19,commercial,Local pack;Reviews;Video;Image;People also ask;Indented,no,
+walking tours in bali,category_hub,bali,US,,,,,,
+walking tours in bali,category_hub,bali,UK,,,,,,
+walking tours in bali,category_hub,bali,AU,10,,,,no,
+day trips from bali,category_hub,bali,US,40,9,informational,Sitelinks;Reviews;Video;People also ask;Indented;Application;AI Overview,yes,thegonegoat.com;viator.com;thetravelauthor.com;facebook.com
+day trips from bali,category_hub,bali,UK,30,,,,no,
+day trips from bali,category_hub,bali,AU,30,,,,no,
+bali day trips,category_hub,bali,US,110,21,informational,Local pack;Sitelinks;Reviews;Video;Image;Video carousel;People also ask;Indented;AI Overview,yes,tripadvisor.co.nz;getyourguide.com;baligoldentour.com;viator.com
+bali day trips,category_hub,bali,UK,140,23,commercial,Local pack;Sitelinks;Reviews;Video;People also ask;Indented,no,
+bali day trips,category_hub,bali,AU,480,17,informational,Reviews;Video;People also ask;Indented;AI Overview,yes,tripadvisor.com.au;facebook.com;christravelblog.com;klook.com
+cooking class bali,category_hub,bali,US,140,30,commercial,Local pack;Reviews;Video;People also ask;Indented,no,
+cooking class bali,category_hub,bali,UK,40,,,,no,
+cooking class bali,category_hub,bali,AU,320,33,commercial,Local pack;Reviews;Video;People also ask;Indented,no,
+bali night tours,category_hub,bali,US,0,,,,no,
+bali night tours,category_hub,bali,UK,0,,,,no,
+bali night tours,category_hub,bali,AU,20,,,,no,
+boat tours in bali,category_hub,bali,US,0,,,,no,
+boat tours in bali,category_hub,bali,UK,0,,,,no,
+boat tours in bali,category_hub,bali,AU,10,,,,no,
+bike tours in bali,category_hub,bali,US,0,,,,no,
+bike tours in bali,category_hub,bali,UK,0,,,,no,
+bike tours in bali,category_hub,bali,AU,30,,,,no,
+bali street food tour,category_hub,bali,US,20,,,,no,
+bali street food tour,category_hub,bali,UK,20,,,,no,
+bali street food tour,category_hub,bali,AU,20,,,,no,
+best time to visit bali,seasonal_destination,bali,US,9900,40,informational,Video;Video carousel;People also ask;Indented;Discussions and forums;AI Overview,yes,bali.com;cntraveler.com;usnews.com
+best time to visit bali,seasonal_destination,bali,UK,6600,28,commercial,Sitelinks;Reviews;Video;People also ask;Indented;AI Overview,yes,reddit.com;tui.co.uk;roughguides.com;vfsevisa.id
+best time to visit bali,seasonal_destination,bali,AU,8100,25,commercial,Sitelinks;Video;Video carousel;People also ask;Indented;Discussions and forums;AI Overview,yes,virginaustralia.com;cntraveler.com;bali.com;vfsevisa.id

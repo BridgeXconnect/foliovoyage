@@ -1,0 +1,253 @@
+query,city,page_type,source_market,small_site_count_of_10,verdict
+things to do in bangkok,bangkok,destination_hub,US,4,Pursue
+things to do in bangkok,bangkok,destination_hub,UK,5,Pursue
+things to do in bangkok,bangkok,destination_hub,AU,4,Pursue
+bangkok tours,bangkok,destination_hub,US,3,Pursue
+bangkok tours,bangkok,destination_hub,UK,4,Pursue
+bangkok tours,bangkok,destination_hub,AU,3,Pursue
+best tours in bangkok,bangkok,destination_hub,US,,no_data
+best tours in bangkok,bangkok,destination_hub,UK,,no_data
+best tours in bangkok,bangkok,destination_hub,AU,,no_data
+food tours in bangkok,bangkok,category_hub,US,,no_data
+food tours in bangkok,bangkok,category_hub,UK,,no_data
+food tours in bangkok,bangkok,category_hub,AU,,no_data
+bangkok food tour,bangkok,category_hub,US,7,Pursue
+bangkok food tour,bangkok,category_hub,UK,8,Pursue
+bangkok food tour,bangkok,category_hub,AU,7,Pursue
+walking tours in bangkok,bangkok,category_hub,US,,no_data
+walking tours in bangkok,bangkok,category_hub,UK,,no_data
+walking tours in bangkok,bangkok,category_hub,AU,,no_data
+day trips from bangkok,bangkok,category_hub,US,3,Pursue
+day trips from bangkok,bangkok,category_hub,UK,3,Pursue
+day trips from bangkok,bangkok,category_hub,AU,3,Pursue
+bangkok day trips,bangkok,category_hub,US,3,Pursue
+bangkok day trips,bangkok,category_hub,UK,3,Pursue
+bangkok day trips,bangkok,category_hub,AU,3,Pursue
+cooking class bangkok,bangkok,category_hub,US,6,Pursue
+cooking class bangkok,bangkok,category_hub,UK,8,Pursue
+cooking class bangkok,bangkok,category_hub,AU,6,Pursue
+bangkok night tours,bangkok,category_hub,US,,no_data
+bangkok night tours,bangkok,category_hub,UK,,no_data
+bangkok night tours,bangkok,category_hub,AU,,no_data
+boat tours in bangkok,bangkok,category_hub,US,,no_data
+boat tours in bangkok,bangkok,category_hub,UK,,no_data
+boat tours in bangkok,bangkok,category_hub,AU,,no_data
+bike tours in bangkok,bangkok,category_hub,US,,no_data
+bike tours in bangkok,bangkok,category_hub,UK,,no_data
+bike tours in bangkok,bangkok,category_hub,AU,,no_data
+bangkok street food tour,bangkok,category_hub,US,7,Pursue
+bangkok street food tour,bangkok,category_hub,UK,,no_data
+bangkok street food tour,bangkok,category_hub,AU,7,Pursue
+best time to visit bangkok,bangkok,seasonal_destination,US,3,Pursue
+best time to visit bangkok,bangkok,seasonal_destination,UK,4,Pursue
+best time to visit bangkok,bangkok,seasonal_destination,AU,5,Pursue
+things to do in kyoto,kyoto,destination_hub,US,7,Pursue
+things to do in kyoto,kyoto,destination_hub,UK,6,Pursue
+things to do in kyoto,kyoto,destination_hub,AU,6,Pursue
+kyoto tours,kyoto,destination_hub,US,4,Pursue
+kyoto tours,kyoto,destination_hub,UK,4,Pursue
+kyoto tours,kyoto,destination_hub,AU,4,Pursue
+best tours in kyoto,kyoto,destination_hub,US,,no_data
+best tours in kyoto,kyoto,destination_hub,UK,,no_data
+best tours in kyoto,kyoto,destination_hub,AU,,no_data
+food tours in kyoto,kyoto,category_hub,US,4,Pursue
+food tours in kyoto,kyoto,category_hub,UK,,no_data
+food tours in kyoto,kyoto,category_hub,AU,,no_data
+kyoto food tour,kyoto,category_hub,US,4,Pursue
+kyoto food tour,kyoto,category_hub,UK,4,Pursue
+kyoto food tour,kyoto,category_hub,AU,4,Pursue
+walking tours in kyoto,kyoto,category_hub,US,,no_data
+walking tours in kyoto,kyoto,category_hub,UK,,no_data
+walking tours in kyoto,kyoto,category_hub,AU,,no_data
+day trips from kyoto,kyoto,category_hub,US,5,Pursue
+day trips from kyoto,kyoto,category_hub,UK,5,Pursue
+day trips from kyoto,kyoto,category_hub,AU,4,Pursue
+kyoto day trips,kyoto,category_hub,US,5,Pursue
+kyoto day trips,kyoto,category_hub,UK,4,Pursue
+kyoto day trips,kyoto,category_hub,AU,5,Pursue
+cooking class kyoto,kyoto,category_hub,US,7,Pursue
+cooking class kyoto,kyoto,category_hub,UK,,no_data
+cooking class kyoto,kyoto,category_hub,AU,7,Pursue
+kyoto night tours,kyoto,category_hub,US,5,Pursue
+kyoto night tours,kyoto,category_hub,UK,,no_data
+kyoto night tours,kyoto,category_hub,AU,,no_data
+boat tours in kyoto,kyoto,category_hub,US,,no_data
+boat tours in kyoto,kyoto,category_hub,UK,,no_data
+boat tours in kyoto,kyoto,category_hub,AU,,no_data
+bike tours in kyoto,kyoto,category_hub,US,,no_data
+bike tours in kyoto,kyoto,category_hub,UK,,no_data
+bike tours in kyoto,kyoto,category_hub,AU,,no_data
+kyoto street food tour,kyoto,category_hub,US,,no_data
+kyoto street food tour,kyoto,category_hub,UK,,no_data
+kyoto street food tour,kyoto,category_hub,AU,,no_data
+best time to visit kyoto,kyoto,seasonal_destination,US,4,Pursue
+best time to visit kyoto,kyoto,seasonal_destination,UK,5,Pursue
+best time to visit kyoto,kyoto,seasonal_destination,AU,,no_data
+things to do in lisbon,lisbon,destination_hub,US,7,Pursue
+things to do in lisbon,lisbon,destination_hub,UK,9,Pursue
+things to do in lisbon,lisbon,destination_hub,AU,7,Pursue
+lisbon tours,lisbon,destination_hub,US,4,Pursue
+lisbon tours,lisbon,destination_hub,UK,4,Pursue
+lisbon tours,lisbon,destination_hub,AU,4,Pursue
+best tours in lisbon,lisbon,destination_hub,US,4,Pursue
+best tours in lisbon,lisbon,destination_hub,UK,,no_data
+best tours in lisbon,lisbon,destination_hub,AU,,no_data
+food tours in lisbon,lisbon,category_hub,US,7,Pursue
+food tours in lisbon,lisbon,category_hub,UK,,no_data
+food tours in lisbon,lisbon,category_hub,AU,,no_data
+lisbon food tour,lisbon,category_hub,US,6,Pursue
+lisbon food tour,lisbon,category_hub,UK,8,Pursue
+lisbon food tour,lisbon,category_hub,AU,6,Pursue
+walking tours in lisbon,lisbon,category_hub,US,7,Pursue
+walking tours in lisbon,lisbon,category_hub,UK,,no_data
+walking tours in lisbon,lisbon,category_hub,AU,,no_data
+day trips from lisbon,lisbon,category_hub,US,9,Pursue
+day trips from lisbon,lisbon,category_hub,UK,6,Pursue
+day trips from lisbon,lisbon,category_hub,AU,6,Pursue
+lisbon day trips,lisbon,category_hub,US,6,Pursue
+lisbon day trips,lisbon,category_hub,UK,6,Pursue
+lisbon day trips,lisbon,category_hub,AU,5,Pursue
+cooking class lisbon,lisbon,category_hub,US,4,Pursue
+cooking class lisbon,lisbon,category_hub,UK,6,Pursue
+cooking class lisbon,lisbon,category_hub,AU,,no_data
+lisbon night tours,lisbon,category_hub,US,,no_data
+lisbon night tours,lisbon,category_hub,UK,,no_data
+lisbon night tours,lisbon,category_hub,AU,,no_data
+boat tours in lisbon,lisbon,category_hub,US,5,Pursue
+boat tours in lisbon,lisbon,category_hub,UK,9,Pursue
+boat tours in lisbon,lisbon,category_hub,AU,,no_data
+bike tours in lisbon,lisbon,category_hub,US,6,Pursue
+bike tours in lisbon,lisbon,category_hub,UK,,no_data
+bike tours in lisbon,lisbon,category_hub,AU,,no_data
+lisbon street food tour,lisbon,category_hub,US,,no_data
+lisbon street food tour,lisbon,category_hub,UK,,no_data
+lisbon street food tour,lisbon,category_hub,AU,,no_data
+best time to visit lisbon,lisbon,seasonal_destination,US,3,Pursue
+best time to visit lisbon,lisbon,seasonal_destination,UK,2,Skip
+best time to visit lisbon,lisbon,seasonal_destination,AU,,no_data
+things to do in rome,rome,destination_hub,US,7,Pursue
+things to do in rome,rome,destination_hub,UK,9,Pursue
+things to do in rome,rome,destination_hub,AU,6,Pursue
+rome tours,rome,destination_hub,US,6,Pursue
+rome tours,rome,destination_hub,UK,4,Pursue
+rome tours,rome,destination_hub,AU,4,Pursue
+best tours in rome,rome,destination_hub,US,6,Pursue
+best tours in rome,rome,destination_hub,UK,6,Pursue
+best tours in rome,rome,destination_hub,AU,7,Pursue
+food tours in rome,rome,category_hub,US,7,Pursue
+food tours in rome,rome,category_hub,UK,,no_data
+food tours in rome,rome,category_hub,AU,7,Pursue
+rome food tour,rome,category_hub,US,7,Pursue
+rome food tour,rome,category_hub,UK,9,Pursue
+rome food tour,rome,category_hub,AU,8,Pursue
+walking tours in rome,rome,category_hub,US,8,Pursue
+walking tours in rome,rome,category_hub,UK,,no_data
+walking tours in rome,rome,category_hub,AU,,no_data
+day trips from rome,rome,category_hub,US,4,Pursue
+day trips from rome,rome,category_hub,UK,4,Pursue
+day trips from rome,rome,category_hub,AU,5,Pursue
+rome day trips,rome,category_hub,US,6,Pursue
+rome day trips,rome,category_hub,UK,5,Pursue
+rome day trips,rome,category_hub,AU,4,Pursue
+cooking class rome,rome,category_hub,US,6,Pursue
+cooking class rome,rome,category_hub,UK,6,Pursue
+cooking class rome,rome,category_hub,AU,6,Pursue
+rome night tours,rome,category_hub,US,4,Pursue
+rome night tours,rome,category_hub,UK,,no_data
+rome night tours,rome,category_hub,AU,,no_data
+boat tours in rome,rome,category_hub,US,3,Pursue
+boat tours in rome,rome,category_hub,UK,,no_data
+boat tours in rome,rome,category_hub,AU,,no_data
+bike tours in rome,rome,category_hub,US,6,Pursue
+bike tours in rome,rome,category_hub,UK,,no_data
+bike tours in rome,rome,category_hub,AU,,no_data
+rome street food tour,rome,category_hub,US,6,Pursue
+rome street food tour,rome,category_hub,UK,,no_data
+rome street food tour,rome,category_hub,AU,,no_data
+best time to visit rome,rome,seasonal_destination,US,2,Skip
+best time to visit rome,rome,seasonal_destination,UK,2,Skip
+best time to visit rome,rome,seasonal_destination,AU,2,Skip
+things to do in hanoi,hanoi,destination_hub,US,7,Pursue
+things to do in hanoi,hanoi,destination_hub,UK,5,Pursue
+things to do in hanoi,hanoi,destination_hub,AU,5,Pursue
+hanoi tours,hanoi,destination_hub,US,4,Pursue
+hanoi tours,hanoi,destination_hub,UK,4,Pursue
+hanoi tours,hanoi,destination_hub,AU,3,Pursue
+best tours in hanoi,hanoi,destination_hub,US,,no_data
+best tours in hanoi,hanoi,destination_hub,UK,,no_data
+best tours in hanoi,hanoi,destination_hub,AU,,no_data
+food tours in hanoi,hanoi,category_hub,US,6,Pursue
+food tours in hanoi,hanoi,category_hub,UK,,no_data
+food tours in hanoi,hanoi,category_hub,AU,,no_data
+hanoi food tour,hanoi,category_hub,US,6,Pursue
+hanoi food tour,hanoi,category_hub,UK,7,Pursue
+hanoi food tour,hanoi,category_hub,AU,7,Pursue
+walking tours in hanoi,hanoi,category_hub,US,,no_data
+walking tours in hanoi,hanoi,category_hub,UK,,no_data
+walking tours in hanoi,hanoi,category_hub,AU,,no_data
+day trips from hanoi,hanoi,category_hub,US,3,Pursue
+day trips from hanoi,hanoi,category_hub,UK,3,Pursue
+day trips from hanoi,hanoi,category_hub,AU,3,Pursue
+hanoi day trips,hanoi,category_hub,US,5,Pursue
+hanoi day trips,hanoi,category_hub,UK,3,Pursue
+hanoi day trips,hanoi,category_hub,AU,2,Skip
+cooking class hanoi,hanoi,category_hub,US,3,Pursue
+cooking class hanoi,hanoi,category_hub,UK,,no_data
+cooking class hanoi,hanoi,category_hub,AU,5,Pursue
+hanoi night tours,hanoi,category_hub,US,,no_data
+hanoi night tours,hanoi,category_hub,UK,,no_data
+hanoi night tours,hanoi,category_hub,AU,,no_data
+boat tours in hanoi,hanoi,category_hub,US,,no_data
+boat tours in hanoi,hanoi,category_hub,UK,,no_data
+boat tours in hanoi,hanoi,category_hub,AU,,no_data
+bike tours in hanoi,hanoi,category_hub,US,,no_data
+bike tours in hanoi,hanoi,category_hub,UK,,no_data
+bike tours in hanoi,hanoi,category_hub,AU,,no_data
+hanoi street food tour,hanoi,category_hub,US,8,Pursue
+hanoi street food tour,hanoi,category_hub,UK,7,Pursue
+hanoi street food tour,hanoi,category_hub,AU,6,Pursue
+best time to visit hanoi,hanoi,seasonal_destination,US,4,Pursue
+best time to visit hanoi,hanoi,seasonal_destination,UK,5,Pursue
+best time to visit hanoi,hanoi,seasonal_destination,AU,5,Pursue
+things to do in bali,bali,destination_hub,US,6,Pursue
+things to do in bali,bali,destination_hub,UK,7,Pursue
+things to do in bali,bali,destination_hub,AU,6,Pursue
+bali tours,bali,destination_hub,US,2,Skip
+bali tours,bali,destination_hub,UK,5,Pursue
+bali tours,bali,destination_hub,AU,2,Skip
+best tours in bali,bali,destination_hub,US,2,Skip
+best tours in bali,bali,destination_hub,UK,,no_data
+best tours in bali,bali,destination_hub,AU,,no_data
+food tours in bali,bali,category_hub,US,,no_data
+food tours in bali,bali,category_hub,UK,,no_data
+food tours in bali,bali,category_hub,AU,,no_data
+bali food tour,bali,category_hub,US,,no_data
+bali food tour,bali,category_hub,UK,,no_data
+bali food tour,bali,category_hub,AU,6,Pursue
+walking tours in bali,bali,category_hub,US,,no_data
+walking tours in bali,bali,category_hub,UK,,no_data
+walking tours in bali,bali,category_hub,AU,,no_data
+day trips from bali,bali,category_hub,US,5,Pursue
+day trips from bali,bali,category_hub,UK,,no_data
+day trips from bali,bali,category_hub,AU,,no_data
+bali day trips,bali,category_hub,US,4,Pursue
+bali day trips,bali,category_hub,UK,4,Pursue
+bali day trips,bali,category_hub,AU,5,Pursue
+cooking class bali,bali,category_hub,US,8,Pursue
+cooking class bali,bali,category_hub,UK,,no_data
+cooking class bali,bali,category_hub,AU,6,Pursue
+bali night tours,bali,category_hub,US,,no_data
+bali night tours,bali,category_hub,UK,,no_data
+bali night tours,bali,category_hub,AU,,no_data
+boat tours in bali,bali,category_hub,US,,no_data
+boat tours in bali,bali,category_hub,UK,,no_data
+boat tours in bali,bali,category_hub,AU,,no_data
+bike tours in bali,bali,category_hub,US,,no_data
+bike tours in bali,bali,category_hub,UK,,no_data
+bike tours in bali,bali,category_hub,AU,,no_data
+bali street food tour,bali,category_hub,US,,no_data
+bali street food tour,bali,category_hub,UK,,no_data
+bali street food tour,bali,category_hub,AU,,no_data
+best time to visit bali,bali,seasonal_destination,US,1,Skip
+best time to visit bali,bali,seasonal_destination,UK,4,Pursue
+best time to visit bali,bali,seasonal_destination,AU,4,Pursue

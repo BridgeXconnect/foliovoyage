@@ -1,0 +1,17 @@
+query,city,source_market,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec
+best time to visit bangkok,bangkok,US,593,949,771,771,771,771,949,771,771,1127,1424,5932
+best time to visit bangkok,bangkok,UK,490,601,601,601,742,742,490,742,601,490,490,490
+best time to visit bangkok,bangkok,AU,406,406,618,618,618,618,618,922,406,618,618,618
+best time to visit kyoto,kyoto,US,132,176,220,132,132,132,132,132,88,572,836,4398
+best time to visit kyoto,kyoto,UK,17,79,98,79,79,124,124,98,98,124,79,79
+best time to visit lisbon,lisbon,US,992,1130,992,1130,992,992,1130,1488,992,2177,2756,827
+best time to visit lisbon,lisbon,UK,484,610,484,484,327,327,610,744,610,484,327,268
+best time to visit rome,rome,US,1917,2320,1917,2320,1917,1917,2320,2925,1917,2320,2925,10087
+best time to visit rome,rome,UK,945,1806,1806,1806,1806,1528,1806,2779,1528,1223,945,1223
+best time to visit rome,rome,AU,137,166,166,207,166,166,137,166,108,68,87,108
+best time to visit hanoi,hanoi,US,482,591,394,482,394,394,394,591,321,730,394,591
+best time to visit hanoi,hanoi,UK,336,412,412,412,412,412,336,509,412,412,336,275
+best time to visit hanoi,hanoi,AU,471,471,384,581,581,314,384,581,471,471,471,581
+best time to visit bali,bali,US,9575,9575,9575,6383,7802,7802,7802,9575,9575,11703,11703,17731
+best time to visit bali,bali,UK,6797,6797,8342,5562,5562,5562,5562,10299,6797,5562,6797,5562
+best time to visit bali,bali,AU,6234,7651,7651,7651,9352,7651,7651,14169,7651,6234,7651,7651
