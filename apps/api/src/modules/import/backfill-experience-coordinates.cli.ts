@@ -463,7 +463,9 @@ export async function main(
       }
       if (p.experienceAction === "update" && p.tour.experience && p.experienceTo) {
         const exp = p.tour.experience;
-        expsWritten += await store.updateExperience(exp.id, { latitude: exp.latitude, longitude: exp.longitude }, p.experienceTo);
+        // Await first: `x += await f()` reads x before the await, so concurrent writers lose each other's increments.
+        const written = await store.updateExperience(exp.id, { latitude: exp.latitude, longitude: exp.longitude }, p.experienceTo);
+        expsWritten += written;
       }
     });
     io.out(`\nUpdated ${toursWritten} Tour row(s) and ${expsWritten} Experience row(s)${skippedRaced > 0 ? `; ${skippedRaced} skipped because the row changed underneath us` : ""}.`);
