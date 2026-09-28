@@ -42,6 +42,7 @@ function dto(overrides: Partial<TourDTO> = {}): TourDTO {
     image_alt: null,
     destination_refs: [],
     tags: [],
+    primary_category_tag_id: null,
     images: [],
     inclusions: [],
     exclusions: [],

@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "@jest/globals";
 import { PrismaClient } from "@prisma/client";
 
+import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import { ExperienceAutoPromoter } from "./experience-auto-promoter";
@@ -114,6 +115,12 @@ const passthroughReferencePriceResolver = {
     tours.map((t) => ({ ...t })),
 } as unknown as ReferencePriceResolver;
 
+/** A category resolver that passes tours through unchanged (no vocabulary needed here). */
+const passthroughCategoryResolver = {
+  attachCategories: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as CategoryResolver;
+
 const upsert = new TourUpsertService(prisma);
 const linker = new ExperienceLinker(prisma);
 const autoPromoter = new ExperienceAutoPromoter(prisma);
@@ -147,6 +154,7 @@ async function runOnce(
     resolver,
     priceResolverFor(priceFor),
     referencePriceResolver,
+    passthroughCategoryResolver,
     validator,
     upsert,
   );
@@ -314,6 +322,7 @@ describe("ImportPipeline data path end-to-end", () => {
       image_alt: null,
       destination_refs: ["343"],
       tags: [],
+      primary_category_tag_id: null,
       images: [],
       inclusions: [],
       exclusions: [],

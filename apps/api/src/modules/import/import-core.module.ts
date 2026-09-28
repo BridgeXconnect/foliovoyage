@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
+import { CategoryResolver } from "./category-resolver";
 import { ViatorClient } from "./clients/viator.client";
 import { ExchangeRateResolver, PrismaExchangeRateCache } from "./exchange-rate-resolver";
 import { ExperienceAutoPromoter } from "./experience-auto-promoter";
@@ -21,6 +22,7 @@ import {
   R2RawArchiveStore,
   type RawArchiveStore,
 } from "./storage/raw-archive.store";
+import { PrismaTagVocabularyCache, TagResolver } from "./tag-resolver";
 import { TourUpsertService } from "./upsert";
 import { TourValidator, type QuarantineStore } from "./validator";
 
@@ -180,6 +182,35 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         ),
     },
     {
+      // BRI-224: caches Viator's tag vocabulary (`/products/tags`) in
+      // ViatorTag, refreshed wholesale every 7 days. Reuses VIATOR_HTTP — same
+      // host-allowlisted fetcher as the crawl/location/price resolvers.
+      provide: TagResolver,
+      inject: [ConfigService, VIATOR_HTTP, PrismaService],
+      useFactory: (
+        config: ConfigService<Env, true>,
+        http: AllowlistFetch,
+        prisma: PrismaService,
+      ): TagResolver =>
+        new TagResolver(
+          {
+            baseUrl: config.get("VIATOR_API_BASE_URL", { infer: true }),
+            apiKey: config.get("VIATOR_API_KEY", { infer: true }),
+            language: config.get("VIATOR_API_LANGUAGE", { infer: true }),
+          },
+          http,
+          new PrismaTagVocabularyCache(prisma),
+        ),
+    },
+    {
+      // BRI-224: derives each tour's primaryCategoryTagId from its tags,
+      // against the vocabulary TagResolver resolves.
+      provide: CategoryResolver,
+      inject: [TagResolver],
+      useFactory: (tagResolver: TagResolver): CategoryResolver =>
+        new CategoryResolver(tagResolver),
+    },
+    {
       provide: QUARANTINE_STORE,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService): QuarantineStore =>
@@ -223,6 +254,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         LocationResolver,
         PriceResolver,
         ReferencePriceResolver,
+        CategoryResolver,
         TourValidator,
         TourUpsertService,
       ],
@@ -231,6 +263,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
         resolver: LocationResolver,
         priceResolver: PriceResolver,
         referencePriceResolver: ReferencePriceResolver,
+        categoryResolver: CategoryResolver,
         validator: TourValidator,
         upsert: TourUpsertService,
       ): ImportPipeline =>
@@ -239,6 +272,7 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
           resolver,
           priceResolver,
           referencePriceResolver,
+          categoryResolver,
           validator,
           upsert,
         ),
@@ -251,6 +285,8 @@ export const QUARANTINE_STORE = Symbol("QUARANTINE_STORE");
     LOCATION_CACHE,
     LocationResolver,
     PriceResolver,
+    TagResolver,
+    CategoryResolver,
     QUARANTINE_STORE,
     TourValidator,
     TourUpsertService,

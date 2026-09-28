@@ -1,0 +1,49 @@
+{
+  "tags": [
+    {
+      "tagId": 21910,
+      "allNamesByLocale": { "en": "Art & Culture" }
+    },
+    {
+      "tagId": 21911,
+      "allNamesByLocale": { "en": "Food & Drink" }
+    },
+    {
+      "tagId": 21913,
+      "allNamesByLocale": { "en": "Tours, Sightseeing & Cruises" }
+    },
+    {
+      "tagId": 100,
+      "allNamesByLocale": { "en": "Museums" },
+      "parentTagIds": [21910]
+    },
+    {
+      "tagId": 300,
+      "allNamesByLocale": { "en": "Food Tours" },
+      "parentTagIds": [21911, 21913]
+    },
+    {
+      "tagId": 12518,
+      "allNamesByLocale": { "en": "Attractions" }
+    },
+    {
+      "tagId": 999,
+      "allNamesByLocale": { "en": "Zombie" }
+    },
+    {
+      "tagId": 700,
+      "allNamesByLocale": { "fr": "Visites guidées" },
+      "parentTagIds": [21913]
+    },
+    {
+      "tagId": 500,
+      "allNamesByLocale": { "en": "Cycle A" },
+      "parentTagIds": [501]
+    },
+    {
+      "tagId": 501,
+      "allNamesByLocale": { "en": "Cycle B" },
+      "parentTagIds": [500]
+    }
+  ]
+}

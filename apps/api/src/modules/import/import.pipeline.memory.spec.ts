@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { describe, expect, it } from "@jest/globals";
 
+import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import type { LocationResolver } from "./location-resolver";
@@ -120,6 +121,12 @@ const passthroughReferencePriceResolver = {
     tours.map((t) => ({ ...t })),
 } as unknown as ReferencePriceResolver;
 
+/** A category resolver that passes tours through unchanged. */
+const passthroughCategoryResolver = {
+  attachCategories: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as CategoryResolver;
+
 /** In-memory quarantine store so the real validator runs without a DB. */
 class InMemoryQuarantineStore implements QuarantineStore {
   readonly saved: QuarantineRecord[] = [];
@@ -150,6 +157,7 @@ function realProviderPipeline(client: ViatorClient): ImportPipeline {
     passthroughResolver,
     pricingResolver,
     passthroughReferencePriceResolver,
+    passthroughCategoryResolver,
     new TourValidator(new InMemoryQuarantineStore()),
     fakeUpsert(),
   );

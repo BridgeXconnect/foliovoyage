@@ -54,6 +54,7 @@ function makeTour(id: string, overrides: Partial<TourDTO> = {}): TourDTO {
     image_alt: null,
     destination_refs: ["351"],
     tags: [],
+    primary_category_tag_id: null,
     images: [],
     inclusions: [],
     exclusions: [],

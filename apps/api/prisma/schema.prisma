@@ -233,8 +233,16 @@ model Tour {
   destinationRefs        String[]    @default([])
   /// Provider category tag IDs, verbatim from the product payload's top-level
   /// `tags` array (category Stage A). Opaque numeric IDs; name/category
-  /// resolution via `/products/tags` is a deferred follow-up. Empty when absent.
+  /// resolution lives in {@link ViatorTag} (BRI-224). Empty when absent.
   tags                   Int[]       @default([])
+  /// Derived primary category (BRI-224): "rarest root wins" among this tour's
+  /// tags' category-root ancestors in the {@link ViatorTag} DAG (see
+  /// `category-rule.ts`), computed at ingest from the vocabulary current at
+  /// that time. No FK to `ViatorTag` — the vocabulary is refreshed wholesale
+  /// and a tag id going away between refreshes must never block a tour
+  /// upsert. Null when the tour has no tags, or none of its tags climb to one
+  /// of the 8 current category roots (legacy roots / ops flags only).
+  primaryCategoryTagId   Int?
   /// FK to the Atlas Experience this Tour was linked to (BRI-164), or null until
   /// the import linker creates/links one. `SetNull` on delete: a Tour outlives
   /// the unlinking of its Experience rather than being cascaded away.
@@ -264,6 +272,9 @@ model Tour {
   @@index([provider, deletedAt])
   /// The linker selects active, unlinked tours; the read path joins by Experience.
   @@index([experienceId])
+  /// The canvas feed (BRI-225) buckets by category on an indexed column
+  /// instead of walking the tag graph per request.
+  @@index([primaryCategoryTagId])
 }
 
 /// A normalized tour that failed validation and was quarantined instead of
@@ -438,6 +449,30 @@ model ProviderExchangeRate {
   fetchedAt      DateTime @default(now()) @updatedAt
 
   @@id([provider, sourceCurrency, targetCurrency])
+}
+
+/// Cached Viator tag vocabulary (BRI-224): tag id → English name + parent tag
+/// ids, from `/products/tags` (~1,265 tags). The hierarchy is a DAG, not a
+/// tree — a tag can list several parents — so this is a flat lookup table, not
+/// a self-referencing tree; `category-rule.ts` does the graph walk in memory.
+/// Refreshed wholesale (delete + re-insert the full set) on a 7-day staleness
+/// check at import start, not per-row — Viator gives no per-tag expiry, so
+/// Atlas owns the cadence. No FK from `Tour.primaryCategoryTagId`: a refresh
+/// that drops or renumbers a tag must never block a tour upsert.
+model ViatorTag {
+  /// Viator's numeric tag id. Natural primary key.
+  tagId        Int      @id
+  /// English display name (`allNamesByLocale.en`, falling back to the first
+  /// available locale when English is absent).
+  name         String
+  /// This tag's parent tag ids, verbatim from the payload's `parentTagIds`.
+  /// Empty for a root (including the 8 category roots and the never-category
+  /// roots — BRI-228's ops flags, the legacy 12518–12521 set).
+  parentTagIds Int[]    @default([])
+  /// When this row was last (re)written by a refresh. Every row from the same
+  /// refresh shares one timestamp, so the table's own staleness is read off
+  /// any row rather than tracked separately.
+  fetchedAt    DateTime @default(now())
 }
 
 /// First-party affiliate click log (ST-24 / BRI-136). Append-only: one row is

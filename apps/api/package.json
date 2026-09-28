@@ -20,6 +20,7 @@
     "experience:promote": "ts-node src/modules/import/promote-experience.cli.ts",
     "research:hub": "ts-node src/modules/research/research.cli.ts",
     "backfill-experience-coordinates:run": "ts-node src/modules/import/backfill-experience-coordinates.cli.ts",
+    "backfill-tour-category:run": "ts-node src/modules/import/backfill-tour-category.cli.ts",
     "tour-copy:run": "ts-node src/modules/content/tour-copy.cli.ts",
     "tour-copy-eval:run": "ts-node src/modules/content/tour-copy-eval.cli.ts",
     "tour-copy-withdraw:run": "ts-node src/modules/content/tour-copy-withdraw.cli.ts",
