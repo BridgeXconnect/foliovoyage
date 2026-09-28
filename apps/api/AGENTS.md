@@ -36,6 +36,7 @@ pnpm --filter @folio/api experience:promote <id>      # promote one draft Experi
 # One off sweeps over the real DB (not in package.json; always via Doppler, both take --dry-run)
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/backfill-reference-price.cli.ts   # fill Tour.priceReferenceMinor for rows ingested before it existed
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/promote-eligible.cli.ts            # promote every draft Experience that is now eligible
+doppler run -- pnpm --filter @folio/api backfill-tour-category:run [--execute] [--city SLUG]                # derive Tour.primaryCategoryTagId for existing rows from Tour.tags
 ```
 
 ## Deployment — Railway

@@ -122,6 +122,20 @@ export interface TourDTO {
    */
   tags: number[];
   /**
+   * Derived primary category (BRI-224): the "rarest root wins" pick among
+   * {@link tags}' category-root ancestors in the Viator tag DAG (see
+   * `category-rule.ts`), or `null` when none resolve to one of the 8 current
+   * category roots. **Not** set by {@link normalizeViatorProduct} — like
+   * {@link latitude}/{@link price_minor}, this is a resolved projection
+   * attached after normalization (by a tag-category resolver, from the
+   * `ViatorTag` vocabulary current at that time), so it starts `null` here.
+   * Deliberately excluded from {@link source_hash}: the vocabulary it's
+   * derived from refreshes weekly on its own schedule, independent of any
+   * change to this tour's own content — hashing it would churn the content
+   * hash of an unchanged tour every time the vocabulary refreshed.
+   */
+  primary_category_tag_id: number | null;
+  /**
    * The product's full image gallery — every entry in the payload's `images`
    * array, captions and all resolution variants included (not just the
    * single cover projection {@link image_url}/{@link image_alt} pick out).
@@ -271,6 +285,10 @@ export interface NormalizeContext {
  *   an unchanged tour every time its "from" price moved.
  * - `price_reference_minor`/`price_reference_currency` — resolved from
  *   `price_minor` by the reference-price step, for the same reason.
+ * - `primary_category_tag_id` — resolved from `tags` (which *is* hashed) by a
+ *   separate tag-category resolver against a vocabulary that refreshes on its
+ *   own weekly schedule, so hashing it would churn an unchanged tour's hash
+ *   every time the vocabulary refreshed rather than when the tour changed.
  */
 type TourContent = Omit<
   TourDTO,
@@ -282,6 +300,7 @@ type TourContent = Omit<
   | "currency"
   | "price_reference_minor"
   | "price_reference_currency"
+  | "primary_category_tag_id"
 >;
 
 /**
@@ -332,6 +351,7 @@ export function normalizeViatorProduct(
     price_reference_currency: null,
     latitude: null,
     longitude: null,
+    primary_category_tag_id: null,
     fetched_at: ctx.fetchedAt,
     source_hash: hashContent(content),
   };

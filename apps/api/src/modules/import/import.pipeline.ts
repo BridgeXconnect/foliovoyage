@@ -1,5 +1,6 @@
 import { Logger } from "@nestjs/common";
 
+import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient } from "./clients/viator.client";
 import {
   extractLocationCandidates,
@@ -28,6 +29,8 @@ import { ImportRunStats, type TourValidator } from "./validator";
  *     → ST-7c {@link PriceResolver} (resolve "from" price from schedules)
  *     → {@link ReferencePriceResolver} (convert to a USD reference price,
  *       category/currency promotion plan Task 4)
+ *     → {@link CategoryResolver} (BRI-224: derive `primaryCategoryTagId`
+ *       from the tag DAG)
  *     → ST-8 {@link TourValidator} (validate / quarantine)
  *     → ST-9 {@link TourUpsertService.upsertBatch} (idempotent upsert, this page)
  *
@@ -251,6 +254,7 @@ export class ImportPipeline {
     private readonly resolver: LocationResolver,
     private readonly priceResolver: PriceResolver,
     private readonly referencePriceResolver: ReferencePriceResolver,
+    private readonly categoryResolver: CategoryResolver,
     private readonly validator: TourValidator,
     private readonly upsert: TourUpsertService,
     /**
@@ -381,11 +385,16 @@ export class ImportPipeline {
         //     batched FX-rate resolve per page, never per tour.
         const referenced = await this.referencePriceResolver.attachReferencePrices(priced);
 
+        // 3d. Derive each tour's primary category from its tags (BRI-224).
+        //     No network call of its own — the vocabulary is fetched once per
+        //     segment and reused across every page (see CategoryResolver).
+        const categorized = await this.categoryResolver.attachCategories(referenced);
+
         // 4. Validate this page. Passing tours proceed to this page's
         //    upsert; quarantined ones are persisted + counted by the
         //    validator via the shared stats tally, which spans this segment.
         const passing: TourDTO[] = [];
-        for (const dto of referenced) {
+        for (const dto of categorized) {
           const result = await this.validator.process(dto, stats);
           if (result.ok) passing.push(dto);
         }

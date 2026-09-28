@@ -1166,6 +1166,7 @@
   "currency": null,
   "price_reference_minor": null,
   "price_reference_currency": null,
+  "primary_category_tag_id": null,
   "latitude": null,
   "longitude": null,
   "fetched_at": "2026-07-18T00:00:00.000Z",

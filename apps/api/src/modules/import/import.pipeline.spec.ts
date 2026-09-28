@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
+import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import type { LocationResolver } from "./location-resolver";
@@ -149,6 +150,17 @@ const passthroughReferencePriceResolver = {
     tours.map((t) => ({ ...t })),
 } as unknown as ReferencePriceResolver;
 
+/**
+ * A category resolver that leaves `primary_category_tag_id` untouched
+ * (pass-through). These orchestration tests don't exercise category
+ * derivation itself (see category-resolver.spec.ts for that); they only need
+ * the pipeline to call this stage and thread its output onward.
+ */
+const passthroughCategoryResolver = {
+  attachCategories: async (tours: TourDTO[]): Promise<TourDTO[]> =>
+    tours.map((t) => ({ ...t })),
+} as unknown as CategoryResolver;
+
 /** In-memory quarantine store so the real validator runs without a DB. */
 class InMemoryQuarantineStore implements QuarantineStore {
   readonly saved: QuarantineRecord[] = [];
@@ -185,7 +197,7 @@ describe("ImportPipeline", () => {
     ]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     const result = await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -230,7 +242,7 @@ describe("ImportPipeline", () => {
     } as unknown as LocationResolver;
     const { service: upsert } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, spyResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, spyResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     await pipeline.runSegment(new ImportRunCounts(), {
       fetchedAt: FETCHED_AT,
       restartEveryNPages: NEVER_STOPS_EARLY,
@@ -250,7 +262,7 @@ describe("ImportPipeline", () => {
     // Price "A" normally, leave "B" unpriced.
     const priceResolver = fakePriceResolver((code) => (code === "B" ? null : 2500));
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, priceResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, priceResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -273,7 +285,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), unnormalizable]]);
     const { service: upsert } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -289,7 +301,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), outOfScope]]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -309,7 +321,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient([[rawProduct("A"), inactive, manual]]);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -337,7 +349,7 @@ describe("ImportPipeline", () => {
     const client = fakeClient(pages);
     const { service: upsert, batchCalls } = fakeUpsert();
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
     await pipeline.runSegment(counts, {
       fetchedAt: FETCHED_AT,
@@ -375,7 +387,7 @@ describe("ImportPipeline", () => {
       },
     } as unknown as TourUpsertService;
 
-    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
     const counts = new ImportRunCounts();
 
     await expect(
@@ -397,7 +409,7 @@ describe("ImportPipeline", () => {
       const { client, calls } = fakeResumableClient(pages);
       const { service: upsert, batchCalls } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
 
       // Segment 1: pages 1-2.
       const counts1 = new ImportRunCounts();
@@ -460,7 +472,7 @@ describe("ImportPipeline", () => {
       const { client, calls } = fakeResumableClient(pages);
       const { service: upsert } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
       const counts = new ImportRunCounts();
       const result = await pipeline.runSegment(counts, {
         fetchedAt: FETCHED_AT,
@@ -482,7 +494,7 @@ describe("ImportPipeline", () => {
       const { client } = fakeResumableClient(pages);
       const { service: upsert } = fakeUpsert();
 
-      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, validator, upsert);
+      const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
       const counts = new ImportRunCounts();
       const result = await pipeline.runSegment(counts, {
         fetchedAt: FETCHED_AT,
@@ -520,6 +532,7 @@ describe("ImportPipeline", () => {
         passthroughResolver,
         pricingResolver,
         passthroughReferencePriceResolver,
+        passthroughCategoryResolver,
         validator,
         upsert,
         memoryUsage,
@@ -550,6 +563,7 @@ describe("ImportPipeline", () => {
         passthroughResolver,
         pricingResolver,
         passthroughReferencePriceResolver,
+        passthroughCategoryResolver,
         validator,
         upsert,
         memoryUsage,
@@ -576,6 +590,7 @@ describe("ImportPipeline", () => {
         passthroughResolver,
         pricingResolver,
         passthroughReferencePriceResolver,
+        passthroughCategoryResolver,
         validator,
         upsert,
         memoryUsage,
