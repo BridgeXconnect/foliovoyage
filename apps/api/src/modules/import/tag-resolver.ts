@@ -1,6 +1,7 @@
 import { Logger } from "@nestjs/common";
 
 import type { PrismaService } from "../../prisma/prisma.service";
+import { withTransientRetry } from "../../prisma/transient-retry";
 import type { TagGraph } from "./category-rule";
 import type { AllowlistFetch } from "./http/allowlist-fetch";
 
@@ -89,12 +90,18 @@ export class PrismaTagVocabularyCache implements TagVocabularyCache {
   }
 
   async replaceAll(rows: CachedTag[], fetchedAt: Date): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.viatorTag.deleteMany({}),
-      this.prisma.viatorTag.createMany({
-        data: rows.map((row) => ({ ...row, fetchedAt })),
-      }),
-    ]);
+    // Idempotent only as a unit (wipe, then re-insert the same rows), so the
+    // whole batch is retried on a transient drop, never its parts (BRI-210).
+    await withTransientRetry(
+      () =>
+        this.prisma.$transaction([
+          this.prisma.viatorTag.deleteMany({}),
+          this.prisma.viatorTag.createMany({
+            data: rows.map((row) => ({ ...row, fetchedAt })),
+          }),
+        ]),
+      { label: "viatorTag.replaceAll" },
+    );
   }
 }
 
