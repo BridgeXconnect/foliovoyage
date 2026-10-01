@@ -121,20 +121,23 @@ export default defineRailway(() => {
       VIATOR_API_KEY: preserve(),
       VIATOR_API_BASE_URL: preserve(),
       VIATOR_API_LANGUAGE: preserve(),
-      VIATOR_REQUEST_TIMEOUT_MS: preserve(),
       R2_ENDPOINT: preserve(),
       R2_BUCKET: preserve(),
       R2_ACCESS_KEY_ID: preserve(),
       R2_SECRET_ACCESS_KEY: preserve(),
-      DELETE_GUARD_THRESHOLD_PCT: preserve(),
-      IMPORT_CRON_SCHEDULE: preserve(),
       IMPORT_CRON_ENABLED: preserve(),
-      IMPORT_STUCK_RUN_TIMEOUT_MINUTES: preserve(),
-      IMPORT_CRAWL_RESTART_PAGES: preserve(),
       IMPORT_MEMORY_LIMIT_MB: preserve(),
       IMPORT_CRAWL_RESTART_MEMORY_PCT: preserve(),
       INTERNAL_CLICK_SECRET: preserve(),
       IP_HASH_SALT: preserve(),
+      // Workaround, tracked in BRI-231: the Doppler sync puts these four on this
+      // service (they live in Doppler prd for local CLI runs) and re-adds them
+      // anyway, but the running service never reads them (only the tour-copy
+      // and research CLIs do). Declared so an apply doesn't delete them.
+      AI_GATEWAY_BASE_URL: preserve(),
+      AI_GATEWAY_TOKEN: preserve(),
+      DATAFORSEO_LOGIN: preserve(),
+      DATAFORSEO_PASSWORD: preserve(),
     },
   });
 
