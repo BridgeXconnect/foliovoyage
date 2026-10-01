@@ -99,9 +99,17 @@ that env var in Vercel's project settings, not this repo, for the current value.
     a single allowlisted host (the Viator API host, from `VIATOR_API_BASE_URL`).
     Reused for both the product client and the location resolver so
     `/locations/bulk` gets the same guard as the crawl.
+  - `fetchWithBackoff` (`http/fetch-with-backoff.ts`, BRI-183) — the shared
+    HTTP retry for Viator calls, used by `ViatorClient` and `LocationResolver`.
+    Retries timeouts, network errors, 429 (honouring `Retry-After`) and 5xx;
+    the request and its body read are one retry unit; other 4xx, malformed
+    JSON and `HostNotAllowedError` fail at once. 5 attempts, 500 ms base,
+    30 s cap (code defaults, no env). HTTP only: DB retry is the separate
+    BRI-210 module above. `PriceResolver`, `TagResolver` and
+    `ExchangeRateResolver` do not use it yet.
   - `ViatorClient` (`clients/viator.client.ts`) — crawls
-    `/products/modified-since`, paginates, rate-limits/backs off, and archives
-    raw payloads via `RawArchiveStore`.
+    `/products/modified-since`, paginates, backs off via `fetchWithBackoff`,
+    and archives raw payloads via `RawArchiveStore`.
   - `R2RawArchiveStore` (`storage/raw-archive.store.ts`) — archives raw OTA
     payloads to Cloudflare R2 (S3-compatible, via `@aws-sdk/client-s3`).
   - `scope-filter.ts` (`decideIngestScope`) — runs on **raw** products, per
@@ -122,6 +130,9 @@ that env var in Vercel's project settings, not this repo, for the current value.
     `location-cache.prisma.ts`) — resolves opaque Viator location refs to
     coordinates once, cached indefinitely in `ProviderLocation` (Viator's
     guidance: location data refreshes monthly, no short-lived invalidation).
+    Each `/locations/bulk` batch is retried via `fetchWithBackoff`; once
+    retries run out the run still fails, on purpose, because a tour upserted
+    without coordinates is never revisited by the cursor-resumed nightly crawl.
   - `PriceResolver` (`price-resolver.ts`, ST-7c/BRI-165) — attaches the "from"
     price per product from `/availability/schedules/{code}`, since the detail
     payload the crawl ingests has no price field. Same attach-after-normalize
