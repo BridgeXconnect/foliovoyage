@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 
 import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
+import type { Sleep } from "./http/fetch-with-backoff";
 import {
   ExchangeRateResolver,
   type CachedExchangeRate,
@@ -39,7 +40,7 @@ function makeResolver(
   cache: ExchangeRateCache,
 ): ExchangeRateResolver {
   const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
-  return new ExchangeRateResolver(CONFIG, http, cache);
+  return new ExchangeRateResolver(CONFIG, http, cache, {}, () => Promise.resolve());
 }
 
 describe("ExchangeRateResolver — reference currency short-circuit", () => {
@@ -196,5 +197,76 @@ describe("ExchangeRateResolver — request shape (live-verified 2026-09-11)", ()
       sourceCurrencies: ["EUR", "THB"],
       targetCurrencies: ["USD"],
     });
+  });
+});
+
+const timeoutError = () =>
+  new DOMException("The operation was aborted due to timeout", "TimeoutError");
+
+describe("ExchangeRateResolver — /exchange-rates retry (BRI-183)", () => {
+  const RATES = {
+    rates: [
+      {
+        sourceCurrency: "EUR",
+        targetCurrency: "USD",
+        rate: 1.1,
+        lastUpdated: "2026-09-01T00:00:00Z",
+        expiry: "2099-01-01T00:00:00Z",
+      },
+    ],
+  };
+  const ok = () => Promise.resolve(okJson(RATES));
+
+  function retrying(fetchImpl: jest.Mock<FetchLike>, cache: ExchangeRateCache, maxRetries = 5) {
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const resolver = new ExchangeRateResolver(
+      CONFIG,
+      new AllowlistFetch(["api.viator.com"], fetchImpl),
+      cache,
+      { baseDelayMs: 100, maxDelayMs: 10_000, maxRetries },
+      sleep,
+      () => 0.5,
+    );
+    return { resolver, sleep };
+  }
+
+  it("retries a timeout, then resolves and caches the rate", async () => {
+    const fetchImpl = jest
+      .fn<FetchLike>()
+      .mockRejectedValueOnce(timeoutError())
+      .mockImplementation(ok);
+    const cache = memCache();
+    const { resolver, sleep } = retrying(fetchImpl, cache);
+
+    const rates = await resolver.ratesToUsd(["EUR"]);
+
+    expect(rates.get("EUR")).toBe(1.1);
+    expect(cache.rows.has("EUR")).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(50);
+  });
+
+  it("does not retry a 400", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response("bad", { status: 400 })),
+    );
+    const { resolver, sleep } = retrying(fetchImpl, memCache());
+
+    expect((await resolver.ratesToUsd(["EUR"])).has("EUR")).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("after maxRetries attempts leaves the currency unresolved and caches nothing", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response("down", { status: 500 })),
+    );
+    const cache = memCache();
+    const { resolver, sleep } = retrying(fetchImpl, cache, 3);
+
+    expect((await resolver.ratesToUsd(["EUR"])).has("EUR")).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(cache.rows.size).toBe(0);
   });
 });

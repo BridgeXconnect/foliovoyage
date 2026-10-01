@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, jest } from "@jest/globals";
 
 import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
+import type { Sleep } from "./http/fetch-with-backoff";
 import { normalizeViatorProduct, type TourDTO } from "./normalizer";
 import {
   PriceResolver,
@@ -60,7 +61,7 @@ function schedulesFetch(bodies: Record<string, unknown>): {
 
 function makeResolver(fetchImpl: FetchLike): PriceResolver {
   const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
-  return new PriceResolver(CONFIG, http);
+  return new PriceResolver(CONFIG, http, {}, () => Promise.resolve());
 }
 
 describe("PriceResolver — real captured schedules payload (BRI-165)", () => {
@@ -192,5 +193,72 @@ describe("toResolvedPrice — pure mapping", () => {
     expect(
       toResolvedPrice("X", { currency: "USD", summary: { fromPrice: 0 } }),
     ).toEqual({ productCode: "X", priceMinor: 0, currency: "USD" });
+  });
+});
+
+const timeoutError = () =>
+  new DOMException("The operation was aborted due to timeout", "TimeoutError");
+
+describe("PriceResolver — /availability/schedules retry (BRI-183)", () => {
+  const SCHEDULES = { currency: "USD", summary: { fromPrice: 12.5 } };
+  const ok = () => Promise.resolve(new Response(JSON.stringify(SCHEDULES), { status: 200 }));
+
+  function retrying(fetchImpl: jest.Mock<FetchLike>, maxRetries = 5) {
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const resolver = new PriceResolver(
+      CONFIG,
+      new AllowlistFetch(["api.viator.com"], fetchImpl),
+      { baseDelayMs: 100, maxDelayMs: 10_000, maxRetries },
+      sleep,
+      () => 0.5,
+    );
+    return { resolver, sleep };
+  }
+
+  it("retries a timeout, then prices the product", async () => {
+    const fetchImpl = jest
+      .fn<FetchLike>()
+      .mockRejectedValueOnce(timeoutError())
+      .mockImplementation(ok);
+    const { resolver, sleep } = retrying(fetchImpl);
+
+    const resolved = await resolver.resolve(["57189P2"]);
+
+    expect(resolved.get("57189P2")?.priceMinor).toBe(1250);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(50);
+  });
+
+  it("retries a 503, then prices the product", async () => {
+    const fetchImpl = jest
+      .fn<FetchLike>()
+      .mockResolvedValueOnce(new Response("down", { status: 503 }))
+      .mockImplementation(ok);
+    const { resolver } = retrying(fetchImpl);
+
+    expect((await resolver.resolve(["57189P2"])).has("57189P2")).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a 404 — leaves the product unpriced", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response("nope", { status: 404 })),
+    );
+    const { resolver, sleep } = retrying(fetchImpl);
+
+    expect((await resolver.resolve(["57189P2"])).size).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("after maxRetries attempts falls back to unpriced (the existing tolerance)", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() => Promise.reject(timeoutError()));
+    const { resolver, sleep } = retrying(fetchImpl, 3);
+
+    const resolved = await resolver.resolve(["57189P2"]);
+
+    expect(resolved.size).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
   });
 });
