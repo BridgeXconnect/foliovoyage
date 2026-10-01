@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { envSchema } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { AnthropicTourCopyJudge } from "./tour-copy-anthropic-judge";
 import {
   DURATION_OPENING_WARN_SHARE,
@@ -466,6 +467,8 @@ export async function main(
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job (paid model calls), so ride out transient DB drops.
+  setDbRetryProfile("import");
   main(process.argv.slice(2), process.env, {
     out: (line) => console.log(line),
     err: (line) => console.error(line),

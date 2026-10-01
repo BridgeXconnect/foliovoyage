@@ -85,9 +85,11 @@ that env var in Vercel's project settings, not this repo, for the current value.
   P1001/P1002/P1008/P1017/P2024; a `$transaction` is retried only by wrapping
   the whole call in `withTransientRetry` at the call site (build batch arrays
   inside the lambda), and only if it is idempotent. Each process picks a
-  profile in code before booting: `setDbRetryProfile("import")` in import/
-  backfill/promote CLIs, `web` (fail fast, the default) for the HTTP server. A
-  new long-running CLI must set `import` itself.
+  profile in code before booting: long-running batch processes → `import`
+  (import, backfill, promote and `tour-copy*` CLIs); the HTTP server → `web`
+  (fail fast, also the default). The deciding question is how long the process
+  runs, not whether it is on the import path. A new long-running CLI must call
+  `setDbRetryProfile("import")` itself.
 - The extension tells transactions apart via Prisma's undocumented
   `__internalParams.transaction`; if it can't read it, it doesn't retry. The
   canary tests in `transient-retry.extension.spec.ts` fail if a Prisma upgrade

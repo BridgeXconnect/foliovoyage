@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { TOUR_COPY_FAILURE_REASON_CODES } from "./tour-copy-check.constants";
 import { evaluateTourCopyEligibility } from "./tour-copy-eligibility";
 import { GOLDEN_TOUR_COUNT, GOLDEN_TOURS_FILE, validateSnapshotShape, type GoldenTourSource } from "./tour-copy-golden-data";
@@ -257,6 +258,8 @@ export async function main(argv: readonly string[], _env: NodeJS.ProcessEnv, io:
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job (paid model calls), so ride out transient DB drops.
+  setDbRetryProfile("import");
   main(process.argv.slice(2), process.env, {
     out: (line) => console.log(line),
     err: (line) => console.error(line),
