@@ -121,6 +121,12 @@ command, and Prisma's advisory lock serializes concurrent runs.
   `railway config apply`. Don't set the pre-deploy command through the
   dashboard/MCP instead: it would drift from the file and a later apply could
   remove it.
+- **`railway.ts` must match the live environment one-to-one.** An apply
+  *creates* anything the file declares and *deletes* any variable it doesn't.
+  Prod has Redis (with its volume), `@folio/api` and `@folio/api-cron`, and no
+  Postgres service: the database is Neon. So don't re-declare a Postgres
+  service or any resource that isn't live, and run `railway config plan` and
+  read it before every apply.
 - **Variables.** In `railway.ts` every variable is `preserve()`d. An apply keeps
   the live value of a listed variable and, per the file's own notes, drops one
   that isn't listed, so a new variable must be added to the service's `env`

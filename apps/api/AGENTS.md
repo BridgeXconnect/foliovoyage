@@ -77,7 +77,9 @@ the deployed image. The datasource has `directUrl = env("DIRECT_URL")`: the
 CLI migrates over the **unpooled** Neon host, while the app queries through the
 pooled `DATABASE_URL`. The command is declared as `preDeploy` in
 `.railway/railway.ts` (applied by hand: `railway config plan`, review, then
-`railway config apply`). Railway's default is no timeout and the DSL has no
+`railway config apply`; the file must match the live environment one-to-one,
+since an apply creates what it declares and deletes any variable it doesn't,
+and prod has no Postgres service, the database is Neon). Railway's default is no timeout and the DSL has no
 timeout field, so set **Pre-deploy Timeout = 300** on both services in the
 dashboard; otherwise a command stuck on the advisory lock hangs the deploy
 instead of failing it. See the root `AGENTS.md` ("Prod migrations") for detail.
