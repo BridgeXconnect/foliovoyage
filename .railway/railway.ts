@@ -99,6 +99,11 @@ export default defineRailway(() => {
     }),
     build: "pnpm --filter @folio/api build",
     start: "pnpm --filter @folio/api start",
+    // BRI-197: apply pending Prisma migrations before the new deployment takes
+    // traffic. A failure fails the deploy; the previous version keeps serving.
+    // The IaC DSL has no pre-deploy *timeout* field, so that cap (300s) is a
+    // dashboard setting, not declared here.
+    preDeploy: "pnpm --filter @folio/api migrate:deploy",
     // Matches the live auto-generated value — declaring it stops
     // `railway config plan` from repeatedly proposing to reset this to
     // null on every apply (harmless each time, but noisy).
@@ -110,6 +115,8 @@ export default defineRailway(() => {
     env: {
       NODE_ENV: preserve(),
       DATABASE_URL: preserve(),
+      // BRI-197: unpooled Postgres URL the Prisma CLI migrates over (directUrl).
+      DIRECT_URL: preserve(),
       REDIS_URL: preserve(),
       VIATOR_API_KEY: preserve(),
       VIATOR_API_BASE_URL: preserve(),
@@ -149,6 +156,9 @@ export default defineRailway(() => {
     }),
     build: "pnpm --filter @folio/api build",
     start: "pnpm --filter @folio/api exec node dist/modules/import/trigger-import.cli.js",
+    // BRI-197: same migration step as @folio/api (see the note there). Both
+    // services run it; Prisma's advisory lock serializes concurrent runs.
+    preDeploy: "pnpm --filter @folio/api migrate:deploy",
     deploy: {
       cronSchedule: "0 3 * * *",
       restartPolicyType: "NEVER",
@@ -159,6 +169,9 @@ export default defineRailway(() => {
     env: {
       NODE_ENV: preserve(),
       DATABASE_URL: preserve(),
+      // BRI-197: set by hand in the dashboard (the Doppler sync didn't reach
+      // this service); preserve() keeps an apply from removing it.
+      DIRECT_URL: preserve(),
       REDIS_URL: preserve(),
       VIATOR_API_KEY: preserve(),
       VIATOR_API_BASE_URL: preserve(),
