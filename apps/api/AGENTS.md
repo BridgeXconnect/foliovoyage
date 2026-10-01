@@ -62,7 +62,10 @@ in the repo). Doppler's native Railway integration (project `foliovoyage`,
 config `prd`) populates `@folio/api`, but it did **not** reach `@folio/api-cron`
 for `DIRECT_URL`, which was set by hand in the dashboard. Don't assume a Doppler
 change reaches both services. An apply leaves listed variables alone and drops
-unlisted ones, so add any new variable to each service's `env` block.
+unlisted ones, so add any new variable to each service's `env` block. In
+particular, `@folio/api`'s variables come from two sources (the Doppler sync and
+`railway.ts`): a new secret added to Doppler `prd` must also be added to
+`railway.ts` with `preserve()`, or the next apply removes it.
 
 ### Migrations on deploy (BRI-197)
 

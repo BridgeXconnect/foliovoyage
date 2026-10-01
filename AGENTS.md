@@ -127,6 +127,11 @@ command, and Prisma's advisory lock serializes concurrent runs.
   block. Doppler's Railway integration did **not** reach `@folio/api-cron`:
   its `DIRECT_URL` was added by hand in the dashboard, so don't assume a Doppler
   change reaches both services; check each.
+- **Two sources for `@folio/api`'s variables.** They come from the Doppler sync
+  *and* from `railway.ts`, and an apply deletes anything the file doesn't
+  declare. So any new secret added to Doppler `prd` must **also** be added to
+  `railway.ts` with `preserve()` (on each service that needs it), or the next
+  apply removes it.
 
 ## Commands
 
