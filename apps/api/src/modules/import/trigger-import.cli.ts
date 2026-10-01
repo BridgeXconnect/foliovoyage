@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "../../app.module";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { ImportRunService } from "./import-run.service";
 
 /**
@@ -30,6 +31,8 @@ import { ImportRunService } from "./import-run.service";
  * nightly job registered in the short-lived context.
  */
 async function main(): Promise<void> {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   const logger = new Logger("trigger-import");
 
   // Application *context* only — we don't want an HTTP server for a one-shot CLI.

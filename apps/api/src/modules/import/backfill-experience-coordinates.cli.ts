@@ -1,4 +1,5 @@
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { AllowlistFetch } from "./http/allowlist-fetch";
 import { CURATED_CITIES, CURATED_REFS } from "./curated-cities";
 import {
@@ -565,6 +566,8 @@ function afterReal(p: TourPlan): boolean {
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   main(process.argv.slice(2), process.env, {
     out: (line) => console.log(line),
     err: (line) => console.error(line),

@@ -4,6 +4,7 @@ import * as readline from "node:readline";
 import { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { SPOTCHECK_SIZE } from "./tour-copy-eval.constants";
 import { shuffle } from "./tour-copy-eval-sample";
 import type { PromptModelPair } from "./tour-copy-eval-stats";
@@ -438,6 +439,8 @@ export function createPrismaSpotcheckStore(prisma: PrismaService): SpotcheckStor
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job (paid model calls), so ride out transient DB drops.
+  setDbRetryProfile("import");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   let ended = false;
   rl.on("close", () => {

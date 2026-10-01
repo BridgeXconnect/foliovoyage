@@ -78,6 +78,22 @@ that env var in Vercel's project settings, not this repo, for the current value.
 - **Persistence**: Prisma (`src/prisma/prisma.service.ts`), schema at
   `apps/api/prisma/schema.prisma`. Deliberately minimal — resist growing it
   beyond what the current story needs (see comments in the schema file).
+- **Transient DB retry** (BRI-210, `src/prisma/transient-retry*.ts`): retry
+  whole units of work, never a query inside a transaction. `PrismaService`'s
+  extension retries allow-listed standalone queries (reads, `upsert`,
+  `delete*`, non-atomic `update*`, `createMany` with `skipDuplicates`) on
+  P1001/P1002/P1008/P1017/P2024; a `$transaction` is retried only by wrapping
+  the whole call in `withTransientRetry` at the call site (build batch arrays
+  inside the lambda), and only if it is idempotent. Each process picks a
+  profile in code before booting: long-running batch processes → `import`
+  (import, backfill, promote and `tour-copy*` CLIs); the HTTP server → `web`
+  (fail fast, also the default). The deciding question is how long the process
+  runs, not whether it is on the import path. A new long-running CLI must call
+  `setDbRetryProfile("import")` itself.
+- The extension tells transactions apart via Prisma's undocumented
+  `__internalParams.transaction`; if it can't read it, it doesn't retry. The
+  canary tests in `transient-retry.extension.spec.ts` fail if a Prisma upgrade
+  changes that field. Fix the detection before upgrading.
 - **Ingest pipeline** (`src/modules/import/`), wired in `import.module.ts`:
   - `AllowlistFetch` (`http/allowlist-fetch.ts`) — SSRF-safe fetcher locked to
     a single allowlisted host (the Viator API host, from `VIATOR_API_BASE_URL`).

@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "../../app.module";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 
 /**
@@ -21,6 +22,8 @@ import { ExperienceAutoPromoter } from "./experience-auto-promoter";
  * `--dry-run` counts what would be promoted without writing anything.
  */
 async function main(): Promise<void> {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   const logger = new Logger("promote-eligible");
   const dryRun = process.argv.includes("--dry-run");
 

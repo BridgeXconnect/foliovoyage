@@ -1,6 +1,7 @@
 import { Logger } from "@nestjs/common";
 
 import type { PrismaService } from "../../prisma/prisma.service";
+import { withTransientRetry } from "../../prisma/transient-retry";
 import type { LocationCache, ResolvedLocation } from "./location-resolver";
 
 /**
@@ -49,24 +50,30 @@ export class PrismaLocationCache implements LocationCache {
 
     // Upsert per reference: first resolve inserts, a later re-resolve refreshes
     // coordinates and `resolvedAt`. Run in one transaction so a partial failure
-    // doesn't leave the cache half-written.
-    await this.prisma.$transaction(
-      locations.map((loc) =>
-        this.prisma.providerLocation.upsert({
-          where: { reference: loc.reference },
-          create: {
-            reference: loc.reference,
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-            name: loc.name,
-          },
-          update: {
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-            name: loc.name,
-          },
-        }),
-      ),
+    // doesn't leave the cache half-written. Retried whole on a transient drop
+    // (BRI-210); the array is rebuilt per attempt because a batch's queries
+    // are single-use.
+    await withTransientRetry(
+      () =>
+        this.prisma.$transaction(
+          locations.map((loc) =>
+            this.prisma.providerLocation.upsert({
+              where: { reference: loc.reference },
+              create: {
+                reference: loc.reference,
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                name: loc.name,
+              },
+              update: {
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                name: loc.name,
+              },
+            }),
+          ),
+        ),
+      { label: "providerLocation.putMany" },
     );
 
     this.logger.debug(`Cached ${locations.length} resolved location(s)`);

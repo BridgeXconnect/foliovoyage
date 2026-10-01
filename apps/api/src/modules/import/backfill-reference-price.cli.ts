@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "../../app.module";
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { ExchangeRateResolver } from "./exchange-rate-resolver";
 import { computeReferenceMinor } from "./reference-price";
 
@@ -50,6 +51,8 @@ interface PendingWrite {
 }
 
 async function main(): Promise<void> {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   const logger = new Logger("backfill-reference-price");
   const dryRun = process.argv.includes("--dry-run");
 

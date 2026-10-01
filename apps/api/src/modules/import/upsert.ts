@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
+import { withTransientRetry } from "../../prisma/transient-retry";
 import type { TourDTO } from "./normalizer";
 
 /**
@@ -116,6 +117,14 @@ export interface UpsertBatchResult {
 /** How long the whole read+diff+upsert+soft-delete transaction may run. */
 const DEFAULT_TRANSACTION_TIMEOUT_MS = 120_000;
 
+/**
+ * How long an interactive transaction may wait to *start* (BRI-210). Prisma's
+ * 2 s default threw P2028 under Neon pooler latency mid-run (2026-08-20); 10 s
+ * matches Prisma's default pool-checkout wait (`pool_timeout`, unset in our
+ * DATABASE_URL), so a busy pool fails as P2024 (retried) before this trips.
+ */
+const DEFAULT_TRANSACTION_MAX_WAIT_MS = 10_000;
+
 /** Options for one `upsertBatch` call. */
 export interface UpsertBatchOptions {
   /**
@@ -210,23 +219,32 @@ export class TourUpsertService {
       }
     }
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        for (const tour of tours) {
-          const data = toColumns(tour);
-          await tx.tour.upsert({
-            where: {
-              provider_providerTourId: {
-                provider: tour.provider,
-                providerTourId: tour.provider_tour_id,
-              },
-            },
-            create: data,
-            update: { ...data, deletedAt: null },
-          });
-        }
-      },
-      { timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS },
+    // Whole-transaction retry (BRI-210): a drop kills the transaction, so the
+    // unit reruns from the top. Keyed upserts make the rerun idempotent.
+    await withTransientRetry(
+      () =>
+        this.prisma.$transaction(
+          async (tx) => {
+            for (const tour of tours) {
+              const data = toColumns(tour);
+              await tx.tour.upsert({
+                where: {
+                  provider_providerTourId: {
+                    provider: tour.provider,
+                    providerTourId: tour.provider_tour_id,
+                  },
+                },
+                create: data,
+                update: { ...data, deletedAt: null },
+              });
+            }
+          },
+          {
+            maxWait: DEFAULT_TRANSACTION_MAX_WAIT_MS,
+            timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
+          },
+        ),
+      { label: "tour.upsertBatch" },
     );
 
     this.logger.log(
@@ -273,61 +291,72 @@ export class TourUpsertService {
     provider: string,
     options: FinalizeSoftDeleteOptions,
   ): Promise<FinalizeSoftDeleteResult> {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const active = await tx.tour.findMany({
-          where: { provider, deletedAt: null },
-          select: { providerTourId: true },
-        });
-        const activeIds = active.map((r) => r.providerTourId);
+    // Whole-transaction retry (BRI-210). Idempotent for data: a rerun only
+    // soft-deletes still-active rows. If a commit lands but its ack is lost,
+    // the rerun sees the already-reduced active set and under-reports
+    // `softDeleted`. MassDeletionAbortError isn't transient, so it propagates.
+    return withTransientRetry(
+      () =>
+        this.prisma.$transaction(
+          async (tx) => {
+            const active = await tx.tour.findMany({
+              where: { provider, deletedAt: null },
+              select: { providerTourId: true },
+            });
+            const activeIds = active.map((r) => r.providerTourId);
 
-        const plan = planDeletion(
-          activeIds,
-          incomingIds,
-          options.deleteGuardThresholdPct,
-        );
+            const plan = planDeletion(
+              activeIds,
+              incomingIds,
+              options.deleteGuardThresholdPct,
+            );
 
-        if (plan.aborted) {
-          this.logger.error(
-            `ABORT: import for provider "${provider}" would soft-delete ` +
-              `${plan.toSoftDelete.length}/${plan.activeCount} active tours ` +
-              `(${plan.deletionPct.toFixed(2)}%), over the ` +
-              `${options.deleteGuardThresholdPct}% guard threshold. This run's ` +
-              `upserts already committed per-page (BRI-170) — only this ` +
-              `soft-delete step is being rolled back.`,
-          );
-          throw new MassDeletionAbortError(
-            provider,
-            plan.activeCount,
-            plan.toSoftDelete.length,
-            plan.deletionPct,
-            options.deleteGuardThresholdPct,
-          );
-        }
+            if (plan.aborted) {
+              this.logger.error(
+                `ABORT: import for provider "${provider}" would soft-delete ` +
+                  `${plan.toSoftDelete.length}/${plan.activeCount} active tours ` +
+                  `(${plan.deletionPct.toFixed(2)}%), over the ` +
+                  `${options.deleteGuardThresholdPct}% guard threshold. This run's ` +
+                  `upserts already committed per-page (BRI-170) — only this ` +
+                  `soft-delete step is being rolled back.`,
+              );
+              throw new MassDeletionAbortError(
+                provider,
+                plan.activeCount,
+                plan.toSoftDelete.length,
+                plan.deletionPct,
+                options.deleteGuardThresholdPct,
+              );
+            }
 
-        if (plan.toSoftDelete.length > 0) {
-          await tx.tour.updateMany({
-            where: {
-              provider,
-              providerTourId: { in: plan.toSoftDelete },
-              deletedAt: null,
-            },
-            data: { deletedAt: new Date() },
-          });
-        }
+            if (plan.toSoftDelete.length > 0) {
+              await tx.tour.updateMany({
+                where: {
+                  provider,
+                  providerTourId: { in: plan.toSoftDelete },
+                  deletedAt: null,
+                },
+                data: { deletedAt: new Date() },
+              });
+            }
 
-        this.logger.log(
-          `Finalized provider "${provider}": soft-deleted ` +
-            `${plan.toSoftDelete.length} of ${plan.activeCount} active ` +
-            `(${plan.deletionPct.toFixed(2)}%).`,
-        );
+            this.logger.log(
+              `Finalized provider "${provider}": soft-deleted ` +
+                `${plan.toSoftDelete.length} of ${plan.activeCount} active ` +
+                `(${plan.deletionPct.toFixed(2)}%).`,
+            );
 
-        return {
-          softDeleted: plan.toSoftDelete.length,
-          activeCountBefore: plan.activeCount,
-        };
-      },
-      { timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS },
+            return {
+              softDeleted: plan.toSoftDelete.length,
+              activeCountBefore: plan.activeCount,
+            };
+          },
+          {
+            maxWait: DEFAULT_TRANSACTION_MAX_WAIT_MS,
+            timeout: options.transactionTimeoutMs ?? DEFAULT_TRANSACTION_TIMEOUT_MS,
+          },
+        ),
+      { label: "tour.finalizeGuardedSoftDelete" },
     );
   }
 }

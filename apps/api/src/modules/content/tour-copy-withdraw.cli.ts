@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { EVAL_MAX_BAD_RATE, EVAL_MIN_JUDGED } from "./tour-copy-eval.constants";
 import { decideKillSwitch, getPairStats, type PairStats, type PromptModelPair } from "./tour-copy-eval-stats";
 import { getJudgeRubric } from "./tour-copy-judge-rubric";
@@ -168,6 +169,8 @@ export async function main(
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job (paid model calls), so ride out transient DB drops.
+  setDbRetryProfile("import");
   main(process.argv.slice(2), process.env, {
     out: (line) => console.log(line),
     err: (line) => console.error(line),
