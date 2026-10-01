@@ -88,6 +88,9 @@ jobs:
     env:
       # Mirrors the format documented in the repo-root .env.example (ST-2).
       DATABASE_URL: postgres://folio:folio@localhost:5432/folio
+      # BRI-197: the datasource declares directUrl = env("DIRECT_URL"), so
+      # `migrate deploy` needs it. Same ephemeral container: no pooler here.
+      DIRECT_URL: postgres://folio:folio@localhost:5432/folio
 
     steps:
       - name: Checkout

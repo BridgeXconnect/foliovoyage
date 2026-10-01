@@ -85,6 +85,34 @@ dev`.
 - `apps/web`'s `API_BASE_URL` points at `@folio/api`'s Railway domain — see
   that env var in Vercel's project settings, not this repo, for the current value.
 
+### Prod migrations (BRI-197)
+
+Merging to `master` auto-deploys code to Railway, so migrations have to land
+with it. Each Railway service (`@folio/api` and `@folio/api-cron`) is meant to
+run `pnpm --filter @folio/api migrate:deploy` as its **pre-deploy command**.
+That runs inside the new deployment, before it takes traffic; if it fails, the
+deploy fails and the previous version keeps serving. A hung command holds the
+deploy open, so set a Pre-deploy Timeout alongside it. Both services run the
+same command, and Prisma's advisory lock serializes concurrent runs.
+
+- **Needs `DIRECT_URL`.** The datasource declares
+  `directUrl = env("DIRECT_URL")`, which the Prisma CLI uses instead of
+  `DATABASE_URL`. It must be the **unpooled** Neon host (no `-pooler`): the
+  migration advisory lock isn't safe through PgBouncer transaction mode. Set it
+  in Doppler (`dev`, `prd`) and let it sync to Railway with the other variables.
+  Never point it at the pooled URL. CI sets it to the same ephemeral container
+  URL as `DATABASE_URL`.
+- **Only additive migrations are safe.** During a rollout the old code briefly
+  runs against the new schema. Destructive changes (drop or rename a column or
+  table) need expand-then-contract across two deploys.
+- **Transitional:** until the first real migration has been confirmed applied by
+  the pre-deploy step, the manual `doppler run --config prd -- pnpm --filter
+  @folio/api migrate:deploy` step in release/cleanup prompts stays mandatory.
+  Remove this note once that's confirmed.
+- **Where the setting lives:** the pre-deploy command is a Railway service
+  setting. `.railway/railway.ts` (repo root) governs the same services as
+  config-as-code, so declare it there too, or `railway config apply` may reset it.
+
 ## Commands
 
 Run from the repo root unless noted. Node 22 (`.nvmrc`), pnpm 11 via corepack.

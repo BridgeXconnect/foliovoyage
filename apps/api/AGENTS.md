@@ -27,6 +27,7 @@ docker compose -f infra/docker-compose.yml up -d
 # Prisma
 pnpm --filter @folio/api exec prisma migrate dev     # create/apply a migration locally
 pnpm --filter @folio/api exec prisma generate        # regenerate client (also runs on postinstall)
+pnpm --filter @folio/api migrate:deploy              # apply pending migrations (what Railway's pre-deploy runs; needs DATABASE_URL + DIRECT_URL)
 pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 
 # Import CLIs
@@ -60,6 +61,26 @@ Both services share one set of environment variables synced from Doppler's
 native Railway integration (project `foliovoyage`, config `prd`) at the
 environment level — set up from the Doppler dashboard, not committed
 anywhere in this repo.
+
+### Migrations on deploy (BRI-197)
+
+Both services run `pnpm --filter @folio/api migrate:deploy` as Railway's
+**pre-deploy command**, so pending Prisma migrations apply before the new
+version takes traffic; a failing migration fails the deploy and the old version
+keeps serving. `prisma` is a runtime `dependency` (not dev) so the CLI exists in
+the deployed image. The datasource has `directUrl = env("DIRECT_URL")`: the
+CLI migrates over the **unpooled** Neon host, while the app queries through the
+pooled `DATABASE_URL`. `DIRECT_URL` is another Doppler variable, synced to
+Railway like the rest. Set a Pre-deploy Timeout, since an unbounded command
+(e.g. one stuck on the advisory lock) hangs the deploy instead of failing it.
+
+Only **additive** migrations are safe: during a rollout the old code briefly
+runs against the new schema, so drops and renames need expand-then-contract
+across two deploys.
+
+Transitional: the manual `doppler run --config prd -- pnpm --filter @folio/api
+migrate:deploy` step stays mandatory until the first real migration has been
+confirmed applied by the pre-deploy step.
 
 `apps/web`'s `API_BASE_URL` points at `@folio/api`'s Railway domain — see
 that env var in Vercel's project settings, not this repo, for the current value.
