@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { ImportSegmentWorkerModule } from "./import-segment-worker.module";
@@ -42,6 +43,8 @@ import { MassDeletionAbortError, TourUpsertService } from "./upsert";
  *   node dist/modules/import/segment-worker.cli.js --runId <id>
  */
 async function main(): Promise<void> {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   const logger = new Logger("segment-worker");
   const { runId, modifiedSince } = parseArgs(process.argv.slice(2));
 

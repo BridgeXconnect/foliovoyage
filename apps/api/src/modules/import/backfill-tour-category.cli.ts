@@ -1,4 +1,5 @@
 import { PrismaService } from "../../prisma/prisma.service";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import { CATEGORY_ROOTS_PRIORITY, derivePrimaryCategory, unresolvedTagIds } from "./category-rule";
 import { CURATED_CITIES } from "./curated-cities";
 import { AllowlistFetch } from "./http/allowlist-fetch";
@@ -237,6 +238,8 @@ function report(
 }
 
 if (require.main === module) {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   main(process.argv.slice(2), process.env, {
     out: (line) => console.log(line),
     err: (line) => console.error(line),

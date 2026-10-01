@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "../../app.module";
+import { setDbRetryProfile } from "../../prisma/transient-retry";
 import {
   ExperienceNotFoundError,
   ExperiencePromoter,
@@ -26,6 +27,8 @@ import {
  * bad/missing id, so it is safe to script.
  */
 async function main(): Promise<void> {
+  // BRI-210: long-running batch job, so ride out transient DB drops.
+  setDbRetryProfile("import");
   const logger = new Logger("promote-experience");
 
   const id = process.argv[2]?.trim();
