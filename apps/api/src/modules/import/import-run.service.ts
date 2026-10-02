@@ -32,8 +32,8 @@ import type { SegmentRunner } from "./segment-runner";
  * measurably helped but left a real residual memory accumulation across
  * many pages — BRI-176's diagnosis confirmed only a *fully completed*
  * process/generator releases everything, so the restart had to become a real
- * OS process exit, and the real production trigger path (`POST
- * /v1/import/trigger`, BRI-173) runs inside the same long-lived web-server
+ * OS process exit, and the in-process trigger path (`ImportScheduler`'s
+ * nightly cron) runs inside the same long-lived web-server
  * process that also serves other traffic — it cannot `process.exit()` itself
  * to get that release. Spawning a disposable child gets the same guarantee
  * without taking the API down. This class's own memory footprint therefore
@@ -84,8 +84,10 @@ import type { SegmentRunner } from "./segment-runner";
 
 /**
  * How a run was kicked off — persisted on the record for later triage.
- * `"scheduled"` is the in-process nightly cron (`ImportScheduler`); `"manual"`
- * is an ad hoc human/CI-initiated run (`trigger-import.cli.ts`).
+ * `"scheduled"` is any cron-initiated run: the in-process `ImportScheduler`, or
+ * the Railway `@folio/api-cron` service via `trigger-import.cli.ts --trigger
+ * scheduled`. `"manual"` is an ad hoc human/CI-initiated run
+ * (`trigger-import.cli.ts` with its default).
  */
 export type ImportRunTrigger = "scheduled" | "manual";
 

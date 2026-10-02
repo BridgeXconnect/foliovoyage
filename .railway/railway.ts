@@ -87,7 +87,8 @@ export default defineRailway(() => {
       branch: "master",
     }),
     build: "pnpm --filter @folio/api build",
-    start: "pnpm --filter @folio/api exec node dist/modules/import/trigger-import.cli.js",
+    // BRI-232: label this service's runs trigger="scheduled" (the CLI defaults to "manual").
+    start: "pnpm --filter @folio/api exec node dist/modules/import/trigger-import.cli.js --trigger scheduled",
     // BRI-197: same migration step as @folio/api (see the note there). Both
     // services run it; Prisma's advisory lock serializes concurrent runs.
     preDeploy: "pnpm --filter @folio/api migrate:deploy",
