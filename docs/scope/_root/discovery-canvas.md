@@ -1,6 +1,6 @@
 # Scope: discovery canvas (EP-20, BRI-223)
 
-A Pinterest style discovery surface that pans freely in every direction, with tours at fixed positions clustered by city and category. It is the main top of funnel discovery surface, so its features run at the Beta tier (the project default is Alpha). Design input: [the canvas design brief](../../superpowers/plans/2026-09-27-canvas-design-brief.md). What it lists under Decided is settled; `/architect` should confirm or override only what it lists under Recommended and Ask Roy. See the legend in [index.md](index.md#legend) for the status words and the feature lifecycle.
+A Pinterest style discovery surface that pans freely in every direction, with tours at fixed positions clustered by city and category. It is the main top of funnel discovery surface, so its features run at the Beta tier (the project default is Alpha). Design input: [the canvas design brief](../../superpowers/plans/2026-09-27-canvas-design-brief.md). Decisions made since: [the canvas design decisions](../../superpowers/plans/2026-10-01-canvas-design-decisions.md). What it lists under Decided is settled; `/architect` should confirm or override only what it lists under Recommended and Ask Roy. See the legend in [index.md](index.md#legend) for the status words and the feature lifecycle.
 
 ## Slice 1: thin thread, one city
 
