@@ -16,10 +16,10 @@ A pure layout that gives every tile a stable position inside its city and catego
 
 ## Slice 2: all six cities
 
-### 14. Canvas navigation (minimap, bucket search, shareable position URLs) · planned · Beta
+### 14. Canvas navigation (minimap, bucket search, shareable position URLs) · planned · needs a decision · Beta
 Ways to travel between regions on a canvas that pans but does not zoom: a minimap, a search that jumps to a bucket, and a position kept in the page address so a shared link reopens the same spot.
 **Done when:** picking a region on the minimap or a result in the search moves the view to that bucket, and a copied link reopens the same position.
-- [ ] Build it: `/develop canvas navigation`
+- [ ] Design it (spec): `/architect canvas navigation`
 
 ## Slice 3: tile design
 
