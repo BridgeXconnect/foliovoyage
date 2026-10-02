@@ -23,5 +23,16 @@ export type ViatorModifiedSinceResponse = z.infer<
   typeof viatorModifiedSinceResponseSchema
 >;
 
+/**
+ * Viator `POST /products/bulk` response (BRI-227). Observed against the live
+ * API on 2026-10-02: a **bare array** of the same full product records
+ * `/products/modified-since` returns inside `products[]` (not wrapped in an
+ * object), so the elements reuse the same opaque record shape and only the
+ * wrapper is new. Normalization stays downstream.
+ */
+export const viatorBulkResponseSchema = z.array(
+  z.record(z.string(), z.unknown()),
+);
+
 /** A single Viator product, unmodelled at this layer. */
 export type ViatorProduct = Record<string, unknown>;

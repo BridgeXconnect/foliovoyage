@@ -104,11 +104,13 @@ interface ParsedArgs {
   concurrency: number;
   /** Curated-city slug: only that city's tours are scanned, planned and written. */
   city: string | null;
+  /** Archive source to read: `raw/{source}/…` (BRI-227: `viator-refetch` for by-code payloads). */
+  source: string;
 }
 
 const USAGE =
   "Usage: backfill-experience-coordinates:run [--execute] [--dates YYYY-MM-DD,…] " +
-  "[--max-pages N] [--sample N] [--concurrency N] [--city SLUG]";
+  "[--max-pages N] [--sample N] [--concurrency N] [--city SLUG] [--source NAME]";
 
 /** Same ceiling as backfill-reference-price: a full unthrottled batch exhausted the Prisma pool. */
 const WRITE_CONCURRENCY = 8;
@@ -123,6 +125,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
     sample: 3,
     concurrency: 3,
     city: null,
+    source: SOURCE,
   };
   const positiveInt = (flag: string, raw: string | undefined): number | string => {
     const value = raw === undefined ? NaN : Number(raw);
@@ -147,6 +150,12 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
         return { error: `--city needs one of: ${known}. Got ${raw ?? "(nothing)"}.\n${USAGE}` };
       }
       parsed.city = raw;
+    } else if (arg === "--source") {
+      const raw = argv[++i];
+      if (!raw || !/^[a-z0-9][a-z0-9-]*$/.test(raw)) {
+        return { error: `--source needs an archive source name such as viator or viator-refetch, got ${raw ?? "(nothing)"}.\n${USAGE}` };
+      }
+      parsed.source = raw;
     } else if (arg === "--max-pages" || arg === "--sample" || arg === "--concurrency") {
       const value = positiveInt(arg, argv[++i]);
       if (typeof value === "string") return { error: value };
@@ -344,7 +353,7 @@ async function scanArchive(
   args: ParsedArgs,
   io: CliIo,
 ): Promise<Map<string, LocationCandidate[]>> {
-  let keys = await reader.listPageKeys(SOURCE);
+  let keys = await reader.listPageKeys(args.source);
   if (args.dates) {
     const dates = new Set(args.dates);
     keys = keys.filter((k) => dates.has(k.split("/")[2]));

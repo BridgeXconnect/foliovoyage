@@ -11,10 +11,12 @@ import type { R2Config } from "./raw-archive.store";
  * Read side of the raw-payload archive (BRI-218).
  *
  * `R2RawArchiveStore` only writes. The coordinate backfill needs to re-read the
- * payloads Atlas already archived (`raw/{source}/{date}/{page}.json`), because
+ * payloads Atlas already archived (`raw/{source}/{date}/{page}.json`; source
+ * `viator` by default, `viator-refetch` for the BRI-227 by-code re-fetch), because
  * `Tour` rows keep only the one `location_ref` and not the itinerary/pickup refs
- * this fix reads. Reading our own archive costs no OTA calls, and avoids
- * `/products/bulk`, which doc 13 says must not be used for ingestion.
+ * this fix reads. Reading our own archive costs no OTA calls, so the backfill
+ * itself never calls `/products/bulk` (doc 13: not for ingestion); only the
+ * one-off BRI-227 re-fetch does, and it archives what it got for this reader.
  */
 export interface RawArchiveReader {
   /**
@@ -30,6 +32,19 @@ export interface RawArchiveReader {
 const READ_ATTEMPTS = 5;
 
 const KEY_RE = /^raw\/[^/]+\/(\d{4}-\d{2}-\d{2})\/(\d+)\.json$/;
+
+/**
+ * The products in one archived body. Two shapes exist: the crawl's
+ * `{ products: [...] }` (`/products/modified-since`) and the bare array
+ * `POST /products/bulk` returns, which the by-code re-fetch archives as
+ * returned under `raw/viator-refetch/` (BRI-227).
+ */
+export function productsOf(body: unknown): ViatorProduct[] {
+  const products = Array.isArray(body)
+    ? body
+    : (body as { products?: unknown } | null)?.products;
+  return Array.isArray(products) ? (products as ViatorProduct[]) : [];
+}
 
 /** Newest date first, then ascending page number; unparseable keys last. */
 export function compareArchiveKeys(a: string, b: string): number {
@@ -91,10 +106,7 @@ export class R2RawArchiveReader implements RawArchiveReader {
           new GetObjectCommand({ Bucket: this.bucket, Key: key }),
         );
         const text = (await response.Body?.transformToString()) ?? "";
-        const parsed = JSON.parse(text) as { products?: unknown };
-        return Array.isArray(parsed.products)
-          ? (parsed.products as ViatorProduct[])
-          : [];
+        return productsOf(JSON.parse(text));
       } catch (error) {
         if (attempt >= READ_ATTEMPTS) throw error;
         await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * attempt));
