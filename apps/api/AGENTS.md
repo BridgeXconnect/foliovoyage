@@ -99,9 +99,20 @@ that env var in Vercel's project settings, not this repo, for the current value.
     a single allowlisted host (the Viator API host, from `VIATOR_API_BASE_URL`).
     Reused for both the product client and the location resolver so
     `/locations/bulk` gets the same guard as the crawl.
+  - `fetchWithBackoff` (`http/fetch-with-backoff.ts`, BRI-183) — the shared
+    HTTP retry for Viator calls, used by `ViatorClient`, `LocationResolver`,
+    `PriceResolver`, `TagResolver` and `ExchangeRateResolver` (every Viator
+    HTTP call in the import path).
+    Retries timeouts, network errors, 429 (honouring `Retry-After`) and 5xx;
+    the request and its body read are one retry unit; other 4xx, malformed
+    JSON and `HostNotAllowedError` fail at once. 5 attempts, 500 ms base,
+    30 s cap (code defaults, no env). HTTP only: DB retry is the separate
+    BRI-210 module above. Only `LocationResolver` (and `ViatorClient`) fail the
+    run when retries run out; the other three keep their existing tolerance
+    and retry in front of it (below).
   - `ViatorClient` (`clients/viator.client.ts`) — crawls
-    `/products/modified-since`, paginates, rate-limits/backs off, and archives
-    raw payloads via `RawArchiveStore`.
+    `/products/modified-since`, paginates, backs off via `fetchWithBackoff`,
+    and archives raw payloads via `RawArchiveStore`.
   - `R2RawArchiveStore` (`storage/raw-archive.store.ts`) — archives raw OTA
     payloads to Cloudflare R2 (S3-compatible, via `@aws-sdk/client-s3`).
   - `scope-filter.ts` (`decideIngestScope`) — runs on **raw** products, per
@@ -122,17 +133,25 @@ that env var in Vercel's project settings, not this repo, for the current value.
     `location-cache.prisma.ts`) — resolves opaque Viator location refs to
     coordinates once, cached indefinitely in `ProviderLocation` (Viator's
     guidance: location data refreshes monthly, no short-lived invalidation).
+    Each `/locations/bulk` batch is retried via `fetchWithBackoff`; once
+    retries run out the run still fails, on purpose, because a tour upserted
+    without coordinates is never revisited by the cursor-resumed nightly crawl.
   - `PriceResolver` (`price-resolver.ts`, ST-7c/BRI-165) — attaches the "from"
     price per product from `/availability/schedules/{code}`, since the detail
     payload the crawl ingests has no price field. Same attach-after-normalize
-    shape as the location resolver.
+    shape as the location resolver. Each call is retried; after exhaustion (or
+    on a 4xx) the product is left unpriced and quarantines, as before.
   - `ExchangeRateResolver` + `ReferencePriceResolver` (`exchange-rate-resolver.ts`,
     `reference-price.ts`) — convert each product's supplier currency "from" price
     to a USD reference price (`Tour.priceReferenceMinor`, currency from
     `PRICE_REFERENCE_CURRENCY`), run per page right after `PriceResolver`. Rates
     come from Viator's `/exchange-rates` (a **POST**, GET returns 405), cached in
     `ProviderExchangeRate` until Viator's own `expiry`. Never fabricated: a
-    currency with no resolvable rate leaves the reference price null.
+    currency with no resolvable rate leaves the reference price null. The POST is
+    a read-only lookup and is retried; after exhaustion the currencies stay
+    unresolved. `TagResolver` (`tag-resolver.ts`, `/products/tags`, 7-day
+    wholesale cache) retries its refresh the same way, then falls back to the
+    existing stale vocabulary.
   - `ExperienceAutoPromoter` (`experience-auto-promoter.ts`) — promotes draft
     Experiences that are complete (title, description, a linked Tour with an
     image, an affiliate link and a positive USD reference price) to published;

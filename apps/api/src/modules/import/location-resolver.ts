@@ -2,6 +2,13 @@ import { Logger } from "@nestjs/common";
 import { z } from "zod";
 
 import type { AllowlistFetch } from "./http/allowlist-fetch";
+import {
+  defaultSleep,
+  fetchWithBackoff,
+  withBackoffDefaults,
+  type BackoffOptions,
+  type Sleep,
+} from "./http/fetch-with-backoff";
 import type { LocationCandidate } from "./location-candidates";
 import type { TourDTO } from "./normalizer";
 import { pickTourPosition, type PositionBasis } from "./position";
@@ -25,6 +32,12 @@ import { pickTourPosition, type PositionBasis } from "./position";
  *   resolved on a previous import is served from cache and never re-fetched.
  * - **SSRF-safe** — every request goes through the same {@link AllowlistFetch}
  *   the ST-6 client uses, locked to the Viator API host.
+ * - **Retried** (BRI-183) — each batch goes through the same backoff as the
+ *   ST-6 client ({@link fetchWithBackoff}): timeouts, network errors, 429 and
+ *   5xx are retried; other 4xx and malformed JSON fail at once. Exhausting the
+ *   retries still fails the run: upserting tours without coordinates would
+ *   stick, because nightly runs resume from Viator's modified-since cursor and
+ *   never revisit an unchanged tour.
  *
  * Request/response shape is **verified against the live production API** (Viator
  * product 57189P2 + a 30-product Hanoi sample, 2026-07-24), not just the docs:
@@ -122,12 +135,20 @@ const locationsBulkResponseSchema = z.object({
 
 export class LocationResolver {
   private readonly logger = new Logger(LocationResolver.name);
+  private readonly backoff: Required<BackoffOptions>;
 
   constructor(
     private readonly config: LocationResolverConfig,
     private readonly http: AllowlistFetch,
     private readonly cache: LocationCache,
-  ) {}
+    /** Defaults to the ST-6 client's schedule; overridable for tests. */
+    backoff: BackoffOptions = {},
+    private readonly sleep: Sleep = defaultSleep,
+    /** Injectable RNG for deterministic jitter in tests. Returns [0, 1). */
+    private readonly random: () => number = Math.random,
+  ) {
+    this.backoff = withBackoffDefaults(backoff);
+  }
 
   /**
    * Resolve a set of location references to coordinates. Cache hits are served
@@ -230,28 +251,36 @@ export class LocationResolver {
     return out;
   }
 
-  /** POST one ≤500 batch to `/locations/bulk` and parse the resolved rows. */
+  /**
+   * POST one ≤500 batch to `/locations/bulk` and parse the resolved rows. The
+   * request and body read are retried as one unit; parsing is not.
+   */
   private async fetchBatch(references: string[]): Promise<ResolvedLocation[]> {
     const url = this.buildUrl();
-    const response = await this.http.fetch(url, {
-      method: "POST",
-      headers: {
-        "exp-api-key": this.config.apiKey,
-        Accept: "application/json;version=2.0",
-        "Accept-Language": this.config.language,
-        "Content-Type": "application/json",
+    const body = await fetchWithBackoff(
+      () =>
+        this.http.fetch(url, {
+          method: "POST",
+          headers: {
+            "exp-api-key": this.config.apiKey,
+            Accept: "application/json;version=2.0",
+            "Accept-Language": this.config.language,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ locations: references }),
+        }),
+      (response) => response.text(),
+      {
+        name: "Viator /locations/bulk",
+        logContext: `, batch of ${references.length} ref(s)`,
+        backoff: this.backoff,
+        logger: this.logger,
+        sleep: this.sleep,
+        random: this.random,
       },
-      body: JSON.stringify({ locations: references }),
-    });
+    );
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `Viator /locations/bulk failed: ${response.status} ${response.statusText} ${body}`.trim(),
-      );
-    }
-
-    const parsed = locationsBulkResponseSchema.parse(await response.json());
+    const parsed = locationsBulkResponseSchema.parse(JSON.parse(body));
 
     const out: ResolvedLocation[] = [];
     for (const item of parsed.locations) {

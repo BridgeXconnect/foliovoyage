@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, jest } from "@jest/globals";
 
 import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
+import type { Sleep } from "./http/fetch-with-backoff";
 import {
   LocationResolver,
   MAX_LOCATIONS_PER_REQUEST,
@@ -165,6 +166,165 @@ describe("LocationResolver — resolve", () => {
     const { resolver } = makeResolver(fetchImpl);
 
     await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(/400/);
+  });
+});
+
+describe("LocationResolver — /locations/bulk retry (BRI-183)", () => {
+  /** A 200 echoing a `center` for every requested reference. */
+  function okResponse(init?: RequestInit): Response {
+    const body = JSON.parse(String(init?.body)) as { locations: string[] };
+    return new Response(
+      JSON.stringify({
+        locations: body.locations.map((ref) => apiLocation(ref, 1, 2)),
+      }),
+      { status: 200 },
+    );
+  }
+
+  /** Fails the first `failures.length` calls as scripted, then succeeds. */
+  function scriptedFetch(
+    failures: ((init?: RequestInit) => Promise<Response>)[],
+  ): jest.Mock<FetchLike> {
+    let calls = 0;
+    return jest.fn<FetchLike>((_input, init) => {
+      const step = failures[calls];
+      calls += 1;
+      return step ? step(init) : Promise.resolve(okResponse(init));
+    });
+  }
+
+  function makeRetryingResolver(
+    fetchImpl: jest.Mock<FetchLike>,
+    maxRetries = 5,
+  ): { resolver: LocationResolver; sleep: jest.Mock<Sleep> } {
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const resolver = new LocationResolver(
+      CONFIG,
+      new AllowlistFetch(["api.viator.com"], fetchImpl),
+      new FakeCache(),
+      { baseDelayMs: 100, maxDelayMs: 10_000, maxRetries },
+      sleep,
+      () => 0.5,
+    );
+    return { resolver, sleep };
+  }
+
+  const timeout = () =>
+    Promise.reject(
+      new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+    );
+
+  it("retries a timeout, then resolves (one retry)", async () => {
+    const fetchImpl = scriptedFetch([timeout]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a"]);
+
+    expect(resolved.get("LOC-a")?.latitude).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(50); // floor(0.5 * 100 * 2^0)
+  });
+
+  it("retries a 503, then resolves", async () => {
+    const fetchImpl = scriptedFetch([
+      () => Promise.resolve(new Response("unavailable", { status: 503 })),
+    ]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a"]);
+
+    expect(resolved.has("LOC-a")).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits the Retry-After of a 429, then resolves", async () => {
+    const fetchImpl = scriptedFetch([
+      () =>
+        Promise.resolve(
+          new Response("slow down", {
+            status: 429,
+            headers: { "retry-after": "3" },
+          }),
+        ),
+    ]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a"]);
+
+    expect(resolved.has("LOC-a")).toBe(true);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(3000);
+  });
+
+  it("fails a 400 immediately, without retrying", async () => {
+    const fetchImpl = scriptedFetch([
+      () =>
+        Promise.resolve(
+          new Response("Maximum number of locations 500 exceeded", {
+            status: 400,
+            statusText: "Bad Request",
+          }),
+        ),
+    ]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(/400/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("retries a body-read failure on a 200 (the read is inside the retry unit)", async () => {
+    const fetchImpl = scriptedFetch([
+      (init) => {
+        const response = okResponse(init);
+        (response as { text: () => Promise<string> }).text = () =>
+          Promise.reject(new Error("body read timed out"));
+        (response as { json: () => Promise<unknown> }).json = () =>
+          Promise.reject(new Error("body read timed out"));
+        return Promise.resolve(response);
+      },
+    ]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    const resolved = await resolver.resolve(["LOC-a"]);
+
+    expect(resolved.has("LOC-a")).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a malformed-JSON 200 (a parse error is not transient)", async () => {
+    const fetchImpl = scriptedFetch([
+      () => Promise.resolve(new Response("{not json", { status: 200 })),
+    ]);
+    const { resolver, sleep } = makeRetryingResolver(fetchImpl);
+
+    await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(SyntaxError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("rejects with the last error after exactly maxRetries attempts, caching nothing", async () => {
+    const fetchImpl = jest.fn<FetchLike>(timeout);
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const cache = new FakeCache();
+    const resolver = new LocationResolver(
+      CONFIG,
+      new AllowlistFetch(["api.viator.com"], fetchImpl),
+      cache,
+      { baseDelayMs: 100, maxDelayMs: 10_000, maxRetries: 3 },
+      sleep,
+      () => 0.5,
+    );
+
+    await expect(resolver.resolve(["LOC-a"])).rejects.toThrow(
+      /after 3 attempts.*aborted due to timeout/,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2); // not after the final attempt
+    expect(cache.puts).toHaveLength(0);
   });
 });
 

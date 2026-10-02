@@ -3,6 +3,13 @@ import { z } from "zod";
 
 import type { PrismaService } from "../../prisma/prisma.service";
 import type { AllowlistFetch } from "./http/allowlist-fetch";
+import {
+  type BackoffOptions,
+  defaultSleep,
+  fetchWithBackoff,
+  type Sleep,
+  withBackoffDefaults,
+} from "./http/fetch-with-backoff";
 
 /**
  * FX rate resolver + cache (category/currency promotion plan, Task 2).
@@ -26,7 +33,9 @@ import type { AllowlistFetch } from "./http/allowlist-fetch";
  * Same tolerance shape as `price-resolver.ts`: a network error, non-OK
  * response, or unexpected payload shape is caught, logged via `Logger.warn`,
  * and leaves the affected currencies unresolved rather than throwing — one bad
- * batch never sinks the whole run.
+ * batch never sinks the whole run. The POST is a read-only lookup, so it is
+ * retried first (BRI-183, `fetchWithBackoff`); the unresolved fallback only
+ * applies once retries are exhausted or on a non-retryable status.
  */
 
 /** Config the resolver needs to reach Viator (mirrors `price-resolver.ts`). */
@@ -147,12 +156,18 @@ const exchangeRatesResponseSchema = z
 
 export class ExchangeRateResolver {
   private readonly logger = new Logger(ExchangeRateResolver.name);
+  private readonly backoff: Required<BackoffOptions>;
 
   constructor(
     private readonly config: ExchangeRateConfig,
     private readonly http: AllowlistFetch,
     private readonly cache: ExchangeRateCache,
-  ) {}
+    backoff: BackoffOptions = {},
+    private readonly sleep: Sleep = defaultSleep,
+    private readonly random: () => number = Math.random,
+  ) {
+    this.backoff = withBackoffDefaults(backoff);
+  }
 
   /**
    * Resolve `sourceCurrency → rate` for a set of provider-quoted currencies,
@@ -208,41 +223,42 @@ export class ExchangeRateResolver {
   private async fetchRates(
     sourceCurrencies: string[],
   ): Promise<CachedExchangeRate[]> {
-    let response: Awaited<ReturnType<AllowlistFetch["fetch"]>>;
+    let body: string;
     try {
-      response = await this.http.fetch(this.buildUrl(), {
-        method: "POST",
-        headers: {
-          "exp-api-key": this.config.apiKey,
-          Accept: "application/json;version=2.0",
-          "Content-Type": "application/json",
-          "Accept-Language": this.config.language,
+      body = await fetchWithBackoff(
+        () =>
+          this.http.fetch(this.buildUrl(), {
+            method: "POST",
+            headers: {
+              "exp-api-key": this.config.apiKey,
+              Accept: "application/json;version=2.0",
+              "Content-Type": "application/json",
+              "Accept-Language": this.config.language,
+            },
+            body: JSON.stringify({
+              sourceCurrencies,
+              targetCurrencies: [this.config.targetCurrency],
+            }),
+          }),
+        (response) => response.text(),
+        {
+          name: "Viator /exchange-rates",
+          logContext: `, ${sourceCurrencies.length} currenc(ies)`,
+          backoff: this.backoff,
+          logger: this.logger,
+          sleep: this.sleep,
+          random: this.random,
         },
-        body: JSON.stringify({
-          sourceCurrencies,
-          targetCurrencies: [this.config.targetCurrency],
-        }),
-      });
+      );
     } catch (error) {
       this.logger.warn(
-        `Viator /exchange-rates request errored: ` +
-          `${error instanceof Error ? error.message : String(error)}; ` +
+        `${error instanceof Error ? error.message : String(error)}; ` +
           `${sourceCurrencies.join(", ")} left unresolved`,
       );
       return [];
     }
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      this.logger.warn(
-        `Viator /exchange-rates failed: ` +
-          `${response.status} ${response.statusText} ${body}`.trim() +
-          `; ${sourceCurrencies.join(", ")} left unresolved`,
-      );
-      return [];
-    }
-
-    const parsed = exchangeRatesResponseSchema.safeParse(await response.json());
+    const parsed = exchangeRatesResponseSchema.safeParse(JSON.parse(body));
     if (!parsed.success) {
       this.logger.warn(
         `Viator /exchange-rates returned an unexpected shape; ` +

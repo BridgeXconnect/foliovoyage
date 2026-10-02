@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { describe, expect, it, jest } from "@jest/globals";
 
 import { AllowlistFetch, type FetchLike } from "./http/allowlist-fetch";
+import type { Sleep } from "./http/fetch-with-backoff";
 import {
   parseTagsResponse,
   TagResolver,
@@ -47,7 +48,7 @@ function memCache(seed: CachedTag[] = [], seedFetchedAt: Date | null = null) {
 
 function makeResolver(fetchImpl: FetchLike, cache: TagVocabularyCache): TagResolver {
   const http = new AllowlistFetch(["api.viator.com"], fetchImpl);
-  return new TagResolver(CONFIG, http, cache);
+  return new TagResolver(CONFIG, http, cache, {}, () => Promise.resolve());
 }
 
 describe("parseTagsResponse", () => {
@@ -177,5 +178,68 @@ describe("TagResolver — tolerance", () => {
     const resolver = makeResolver(fetchImpl, cache);
 
     await expect(resolver.getVocabulary()).resolves.toBeDefined();
+  });
+});
+
+const timeoutError = () =>
+  new DOMException("The operation was aborted due to timeout", "TimeoutError");
+
+describe("TagResolver — /products/tags retry (BRI-183)", () => {
+  const ok = () => Promise.resolve(okJson(FIXTURE));
+
+  function retrying(fetchImpl: jest.Mock<FetchLike>, cache: TagVocabularyCache, maxRetries = 5) {
+    const sleep = jest.fn<Sleep>().mockResolvedValue(undefined);
+    const resolver = new TagResolver(
+      CONFIG,
+      new AllowlistFetch(["api.viator.com"], fetchImpl),
+      cache,
+      { baseDelayMs: 100, maxDelayMs: 10_000, maxRetries },
+      sleep,
+      () => 0.5,
+    );
+    return { resolver, sleep };
+  }
+
+  it("retries a timeout, then refreshes the vocabulary", async () => {
+    const fetchImpl = jest
+      .fn<FetchLike>()
+      .mockRejectedValueOnce(timeoutError())
+      .mockImplementation(ok);
+    const { resolver, sleep } = retrying(fetchImpl, memCache());
+
+    const vocab = await resolver.getVocabulary();
+
+    expect(vocab.names.get(100)).toBe("Museums");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(50);
+  });
+
+  it("does not retry a 403", async () => {
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response("forbidden", { status: 403 })),
+    );
+    const { resolver, sleep } = retrying(fetchImpl, memCache());
+
+    expect((await resolver.getVocabulary()).names.size).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("after maxRetries attempts keeps the existing stale vocabulary (fallback preserved)", async () => {
+    const stale: CachedTag[] = [{ tagId: 1, name: "Old", parentTagIds: [] }];
+    const fetchImpl = jest.fn<FetchLike>(() =>
+      Promise.resolve(new Response("down", { status: 502 })),
+    );
+    const { resolver, sleep } = retrying(
+      fetchImpl,
+      memCache(stale, new Date(0)),
+      3,
+    );
+
+    const vocab = await resolver.getVocabulary();
+
+    expect(vocab.names.get(1)).toBe("Old");
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
   });
 });

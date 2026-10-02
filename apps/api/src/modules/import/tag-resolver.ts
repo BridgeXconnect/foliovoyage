@@ -4,6 +4,13 @@ import type { PrismaService } from "../../prisma/prisma.service";
 import { withTransientRetry } from "../../prisma/transient-retry";
 import type { TagGraph } from "./category-rule";
 import type { AllowlistFetch } from "./http/allowlist-fetch";
+import {
+  type BackoffOptions,
+  defaultSleep,
+  fetchWithBackoff,
+  type Sleep,
+  withBackoffDefaults,
+} from "./http/fetch-with-backoff";
 
 /**
  * Viator tag vocabulary resolver + cache (BRI-224).
@@ -22,7 +29,8 @@ import type { AllowlistFetch } from "./http/allowlist-fetch";
  * outage never blocks a whole import run — it only leaves the vocabulary a
  * little older than usual. A refresh failing with **no** existing vocabulary
  * is logged loudly (every tour's category derivation is a no-op for this run,
- * not a crash).
+ * not a crash). The refresh call is retried first (BRI-183, `fetchWithBackoff`);
+ * the fallbacks above only apply once retries are exhausted.
  */
 
 /** 7 days — Viator gives no per-tag expiry, so Atlas owns this cadence. */
@@ -147,12 +155,17 @@ function toVocabulary(rows: readonly CachedTag[]): TagVocabulary {
 export class TagResolver {
   private readonly logger = new Logger(TagResolver.name);
   private readonly staleAfterMs: number;
+  private readonly backoff: Required<BackoffOptions>;
 
   constructor(
     private readonly config: TagResolverConfig,
     private readonly http: AllowlistFetch,
     private readonly cache: TagVocabularyCache,
+    backoff: BackoffOptions = {},
+    private readonly sleep: Sleep = defaultSleep,
+    private readonly random: () => number = Math.random,
   ) {
+    this.backoff = withBackoffDefaults(backoff);
     this.staleAfterMs = config.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
   }
 
@@ -200,35 +213,35 @@ export class TagResolver {
    * warning — {@link getVocabulary} decides what to do about an empty result.
    */
   private async fetchTags(): Promise<CachedTag[]> {
-    let response: Response;
+    let body: string;
     try {
-      response = await this.http.fetch(this.buildUrl(), {
-        method: "GET",
-        headers: {
-          "exp-api-key": this.config.apiKey,
-          Accept: "application/json;version=2.0",
-          "Accept-Language": this.config.language,
+      body = await fetchWithBackoff(
+        () =>
+          this.http.fetch(this.buildUrl(), {
+            method: "GET",
+            headers: {
+              "exp-api-key": this.config.apiKey,
+              Accept: "application/json;version=2.0",
+              "Accept-Language": this.config.language,
+            },
+          }),
+        (response) => response.text(),
+        {
+          name: "Viator /products/tags",
+          backoff: this.backoff,
+          logger: this.logger,
+          sleep: this.sleep,
+          random: this.random,
         },
-      });
+      );
     } catch (error) {
-      this.logger.warn(
-        `Viator /products/tags request errored: ` +
-          `${error instanceof Error ? error.message : String(error)}`,
-      );
-      return [];
-    }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      this.logger.warn(
-        `Viator /products/tags failed: ${response.status} ${response.statusText} ${body}`.trim(),
-      );
+      this.logger.warn(error instanceof Error ? error.message : String(error));
       return [];
     }
 
     let json: unknown;
     try {
-      json = await response.json();
+      json = JSON.parse(body);
     } catch {
       this.logger.warn("Viator /products/tags returned a body that is not JSON.");
       return [];

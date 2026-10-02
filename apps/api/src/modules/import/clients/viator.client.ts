@@ -1,6 +1,13 @@
 import { Logger } from "@nestjs/common";
 
-import { AllowlistFetch, HostNotAllowedError } from "../http/allowlist-fetch";
+import type { AllowlistFetch } from "../http/allowlist-fetch";
+import {
+  defaultSleep,
+  fetchWithBackoff,
+  withBackoffDefaults,
+  type BackoffOptions,
+  type Sleep,
+} from "../http/fetch-with-backoff";
 import type { RawArchiveStore } from "../storage/raw-archive.store";
 import {
   viatorModifiedSinceResponseSchema,
@@ -48,15 +55,9 @@ export interface ViatorClientConfig {
   language: string;
 }
 
-/** Backoff tuning. All optional; sensible defaults below. */
-export interface BackoffOptions {
-  /** Max attempts per page before giving up (incl. the first). Default 5. */
-  maxRetries?: number;
-  /** Base delay in ms for the exponential schedule. Default 500. */
-  baseDelayMs?: number;
-  /** Ceiling for a single backoff delay in ms. Default 30_000. */
-  maxDelayMs?: number;
-}
+// Backoff lives in `../http/fetch-with-backoff.ts` (shared with
+// `LocationResolver`, BRI-183); re-exported so existing imports keep working.
+export type { BackoffOptions, Sleep };
 
 /** Options for a crawl of `/products/modified-since`. */
 export interface FetchModifiedSinceOptions {
@@ -115,19 +116,9 @@ interface FetchPageResult {
   etag?: string;
 }
 
-/** Injectable delay so tests don't actually sleep. */
-export type Sleep = (ms: number) => Promise<void>;
-
-const defaultSleep: Sleep = (ms) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
-
 export class ViatorClient {
   private readonly logger = new Logger(ViatorClient.name);
-  private readonly maxRetries: number;
-  private readonly baseDelayMs: number;
-  private readonly maxDelayMs: number;
+  private readonly backoff: Required<BackoffOptions>;
 
   constructor(
     private readonly config: ViatorClientConfig,
@@ -138,9 +129,7 @@ export class ViatorClient {
     /** Injectable RNG for deterministic jitter in tests. Returns [0, 1). */
     private readonly random: () => number = Math.random,
   ) {
-    this.maxRetries = backoff.maxRetries ?? 5;
-    this.baseDelayMs = backoff.baseDelayMs ?? 500;
-    this.maxDelayMs = backoff.maxDelayMs ?? 30_000;
+    this.backoff = withBackoffDefaults(backoff);
   }
 
   /**
@@ -238,111 +227,32 @@ export class ViatorClient {
     url: URL,
     ifNoneMatch?: string,
   ): Promise<FetchPageResult> {
-    let lastError: Error | undefined;
-
-    for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
-      let response: Response;
-      let body = "";
-      try {
-        response = await this.http.fetch(url, {
+    return fetchWithBackoff(
+      () =>
+        this.http.fetch(url, {
           method: "GET",
           headers: this.buildHeaders(ifNoneMatch),
-        });
-
+        }),
+      // The body read is inside the retry unit (BRI-182 diagnostic session,
+      // 2026-09-02 — this method previously only wrapped the `fetch()` call).
+      async (response): Promise<FetchPageResult> =>
         // 304: the page is unchanged — nothing to re-parse or re-archive.
-        if (response.status === 304) {
-          return { status: 304, body: "", etag: ifNoneMatch };
-        }
-
-        // The body read shares the fetch call's own try/catch, and so its
-        // retry/backoff budget: a slow or truncated read is just as transient
-        // as a failed connection and must not escape as an uncaught
-        // rejection (BRI-182 diagnostic session, 2026-09-02 — this method
-        // previously only wrapped the `fetch()` call itself).
-        if (response.ok) body = await response.text();
-      } catch (error) {
-        // A configuration error, not a transient one — retrying it changes
-        // nothing (the URL's host doesn't change between attempts), so it
-        // must fail immediately rather than burn through the retry budget.
-        if (error instanceof HostNotAllowedError) throw error;
-
-        const message = error instanceof Error ? error.message : String(error);
-        const isLastAttempt = attempt === this.maxRetries - 1;
-        if (isLastAttempt) {
-          lastError = new Error(
-            `Viator request failed after ${this.maxRetries} attempts: ${message}`,
-          );
-          break;
-        }
-        const delay = this.backoffDelay(attempt, null);
-        this.logger.warn(
-          `Viator request errored (${message}); backing off ${delay}ms ` +
-            `(attempt ${attempt + 1}/${this.maxRetries})`,
-        );
-        await this.sleep(delay);
-        continue;
-      }
-
-      if (response.ok) {
-        return {
-          status: response.status,
-          body,
-          etag: response.headers.get("etag") ?? undefined,
-        };
-      }
-
-      if (!RETRYABLE_STATUSES.has(response.status)) {
-        const body = await response.text().catch(() => "");
-        throw new Error(
-          `Viator request failed: ${response.status} ${response.statusText} ${body}`.trim(),
-        );
-      }
-
-      const isLastAttempt = attempt === this.maxRetries - 1;
-      if (isLastAttempt) {
-        lastError = new Error(
-          `Viator request failed after ${this.maxRetries} attempts: ` +
-            `last status ${response.status}`,
-        );
-        break;
-      }
-
-      const delay = this.backoffDelay(attempt, response.headers.get("retry-after"));
-      this.logger.warn(
-        `Viator returned ${response.status}; backing off ${delay}ms ` +
-          `(attempt ${attempt + 1}/${this.maxRetries})`,
-      );
-      await this.sleep(delay);
-    }
-
-    throw lastError ?? new Error("Viator request failed");
-  }
-
-  /**
-   * Exponential backoff with full jitter: `random(0, base * 2^attempt)`, capped
-   * at `maxDelayMs`. If Viator sent a `Retry-After` (delta-seconds), that value
-   * is respected as a floor instead.
-   */
-  private backoffDelay(attempt: number, retryAfter: string | null): number {
-    const retryAfterMs = this.parseRetryAfter(retryAfter);
-    if (retryAfterMs !== undefined) {
-      return Math.min(retryAfterMs, this.maxDelayMs);
-    }
-    const ceiling = Math.min(
-      this.baseDelayMs * 2 ** attempt,
-      this.maxDelayMs,
+        response.status === 304
+          ? { status: 304, body: "", etag: ifNoneMatch }
+          : {
+              status: response.status,
+              body: await response.text(),
+              etag: response.headers.get("etag") ?? undefined,
+            },
+      {
+        name: "Viator",
+        backoff: this.backoff,
+        logger: this.logger,
+        sleep: this.sleep,
+        random: this.random,
+        isSuccess: (response) => response.ok || response.status === 304,
+      },
     );
-    return Math.floor(this.random() * ceiling);
-  }
-
-  /** Parse a `Retry-After` delta-seconds value to ms; `undefined` if absent. */
-  private parseRetryAfter(value: string | null): number | undefined {
-    if (!value) return undefined;
-    const seconds = Number(value);
-    if (Number.isFinite(seconds) && seconds >= 0) {
-      return seconds * 1000;
-    }
-    return undefined;
   }
 
   private buildHeaders(ifNoneMatch?: string): Record<string, string> {
@@ -355,3 +265,4 @@ export class ViatorClient {
     return headers;
   }
 }
+

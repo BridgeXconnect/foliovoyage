@@ -2,6 +2,13 @@ import { Logger } from "@nestjs/common";
 import { z } from "zod";
 
 import type { AllowlistFetch } from "./http/allowlist-fetch";
+import {
+  type BackoffOptions,
+  defaultSleep,
+  fetchWithBackoff,
+  type Sleep,
+  withBackoffDefaults,
+} from "./http/fetch-with-backoff";
 import type { TourDTO } from "./normalizer";
 
 /**
@@ -31,7 +38,10 @@ import type { TourDTO } from "./normalizer";
  *   the ST-6 client and location resolver use, locked to the Viator API host.
  * - **Tolerant per product** — a product whose schedules call fails or carries no
  *   price is simply left unpriced (and will quarantine downstream); one bad
- *   product never sinks the run.
+ *   product never sinks the run. The call is retried first (BRI-183, via
+ *   `fetchWithBackoff`: request + body read, transient errors and 429/5xx); only
+ *   once retries are exhausted, or on a non-retryable status, does the product
+ *   fall back to unpriced.
  *
  * Unlike the location resolver there is **no persistent cache**: a "from" price is
  * volatile (it can move between runs), so caching it indefinitely would serve
@@ -97,11 +107,16 @@ const schedulesResponseSchema = z
 export class PriceResolver {
   private readonly logger = new Logger(PriceResolver.name);
   private readonly concurrency: number;
+  private readonly backoff: Required<BackoffOptions>;
 
   constructor(
     private readonly config: PriceResolverConfig,
     private readonly http: AllowlistFetch,
+    backoff: BackoffOptions = {},
+    private readonly sleep: Sleep = defaultSleep,
+    private readonly random: () => number = Math.random,
   ) {
+    this.backoff = withBackoffDefaults(backoff);
     this.concurrency = Math.max(1, config.concurrency ?? DEFAULT_PRICE_RESOLVER_CONCURRENCY);
   }
 
@@ -155,35 +170,37 @@ export class PriceResolver {
    * a single product, so one failure can't abort the whole run.
    */
   private async fetchPrice(productCode: string): Promise<ResolvedPrice | null> {
-    let response: Awaited<ReturnType<AllowlistFetch["fetch"]>>;
+    let body: string;
     try {
-      response = await this.http.fetch(this.buildUrl(productCode), {
-        method: "GET",
-        headers: {
-          "exp-api-key": this.config.apiKey,
-          Accept: "application/json;version=2.0",
-          "Accept-Language": this.config.language,
+      body = await fetchWithBackoff(
+        () =>
+          this.http.fetch(this.buildUrl(productCode), {
+            method: "GET",
+            headers: {
+              "exp-api-key": this.config.apiKey,
+              Accept: "application/json;version=2.0",
+              "Accept-Language": this.config.language,
+            },
+          }),
+        (response) => response.text(),
+        {
+          name: `Viator /availability/schedules/${productCode}`,
+          backoff: this.backoff,
+          logger: this.logger,
+          sleep: this.sleep,
+          random: this.random,
         },
-      });
+      );
     } catch (error) {
+      // Retries exhausted, or a non-retryable status: leave this product
+      // unpriced rather than failing the run (the fallback predates BRI-183).
       this.logger.warn(
-        `Viator /availability/schedules/${productCode} request errored: ` +
-          `${error instanceof Error ? error.message : String(error)}; left unpriced`,
+        `${error instanceof Error ? error.message : String(error)}; left unpriced`,
       );
       return null;
     }
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      this.logger.warn(
-        `Viator /availability/schedules/${productCode} failed: ` +
-          `${response.status} ${response.statusText} ${body}`.trim() +
-          `; left unpriced`,
-      );
-      return null;
-    }
-
-    const parsed = schedulesResponseSchema.safeParse(await response.json());
+    const parsed = schedulesResponseSchema.safeParse(JSON.parse(body));
     if (!parsed.success) {
       this.logger.warn(
         `Viator /availability/schedules/${productCode} returned an ` +
