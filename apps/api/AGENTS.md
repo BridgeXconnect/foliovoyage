@@ -27,6 +27,7 @@ docker compose -f infra/docker-compose.yml up -d
 # Prisma
 pnpm --filter @folio/api exec prisma migrate dev     # create/apply a migration locally
 pnpm --filter @folio/api exec prisma generate        # regenerate client (also runs on postinstall)
+pnpm --filter @folio/api migrate:deploy              # apply pending migrations (what Railway's pre-deploy runs; needs DATABASE_URL + DIRECT_URL)
 pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 
 # Import CLIs
@@ -53,13 +54,43 @@ for the full migration plan and rationale). Two services in one environment:
   check, not the bare `/health` liveness probe).
 - `@folio/api-cron` — runs the compiled import CLI
   (`dist/modules/import/trigger-import.cli.js`) on Railway's native cron
-  schedule (`0 3 * * *` UTC), configured directly via the Railway MCP/CLI
-  since cron scheduling is not yet expressible in `.railway/railway.ts`.
+  schedule (`0 3 * * *` UTC, restart policy `NEVER`), declared in
+  `.railway/railway.ts` like `@folio/api`.
 
-Both services share one set of environment variables synced from Doppler's
-native Railway integration (project `foliovoyage`, config `prd`) at the
-environment level — set up from the Doppler dashboard, not committed
-anywhere in this repo.
+Variables are declared `preserve()` in `.railway/railway.ts` (values never live
+in the repo). Doppler's native Railway integration (project `foliovoyage`,
+config `prd`) populates `@folio/api`, but it did **not** reach `@folio/api-cron`
+for `DIRECT_URL`, which was set by hand in the dashboard. Don't assume a Doppler
+change reaches both services. An apply leaves listed variables alone and drops
+unlisted ones, so add any new variable to each service's `env` block. In
+particular, `@folio/api`'s variables come from two sources (the Doppler sync and
+`railway.ts`): a new secret added to Doppler `prd` must also be added to
+`railway.ts` with `preserve()`, or the next apply removes it.
+
+### Migrations on deploy (BRI-197)
+
+Both services run `pnpm --filter @folio/api migrate:deploy` as Railway's
+**pre-deploy command**, so pending Prisma migrations apply before the new
+version takes traffic; a failing migration fails the deploy and the old version
+keeps serving. `prisma` is a runtime `dependency` (not dev) so the CLI exists in
+the deployed image. The datasource has `directUrl = env("DIRECT_URL")`: the
+CLI migrates over the **unpooled** Neon host, while the app queries through the
+pooled `DATABASE_URL`. The command is declared as `preDeploy` in
+`.railway/railway.ts` (applied by hand: `railway config plan`, review, then
+`railway config apply`; the file must match the live environment one-to-one,
+since an apply creates what it declares and deletes any variable it doesn't,
+and prod has no Postgres service, the database is Neon). Railway's default is no timeout and the DSL has no
+timeout field, so set **Pre-deploy Timeout = 300** on both services in the
+dashboard; otherwise a command stuck on the advisory lock hangs the deploy
+instead of failing it. See the root `AGENTS.md` ("Prod migrations") for detail.
+
+Only **additive** migrations are safe: during a rollout the old code briefly
+runs against the new schema, so drops and renames need expand-then-contract
+across two deploys.
+
+Transitional: the manual `doppler run --config prd -- pnpm --filter @folio/api
+migrate:deploy` step stays mandatory until the first real migration has been
+confirmed applied by the pre-deploy step.
 
 `apps/web`'s `API_BASE_URL` points at `@folio/api`'s Railway domain — see
 that env var in Vercel's project settings, not this repo, for the current value.

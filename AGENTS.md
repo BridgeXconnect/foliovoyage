@@ -85,6 +85,60 @@ dev`.
 - `apps/web`'s `API_BASE_URL` points at `@folio/api`'s Railway domain — see
   that env var in Vercel's project settings, not this repo, for the current value.
 
+### Prod migrations (BRI-197)
+
+Merging to `master` auto-deploys code to Railway, so migrations have to land
+with it. Each Railway service (`@folio/api` and `@folio/api-cron`) runs
+`pnpm --filter @folio/api migrate:deploy` as its **pre-deploy command**, declared
+as `preDeploy` in `.railway/railway.ts` (the source of truth for both services;
+it takes effect when someone runs `railway config apply`, see below). That runs
+inside the new deployment, before it takes traffic; if it fails, the deploy
+fails and the previous version keeps serving. Both services run the same
+command, and Prisma's advisory lock serializes concurrent runs.
+
+- **Needs `DIRECT_URL`.** The datasource declares
+  `directUrl = env("DIRECT_URL")`, which the Prisma CLI uses instead of
+  `DATABASE_URL`. It must be the **unpooled** Neon host (no `-pooler`): the
+  migration advisory lock isn't safe through PgBouncer transaction mode. Set it
+  in Doppler (`dev`, `prd`). Never point it at the pooled URL. CI sets it to the
+  same ephemeral container URL as `DATABASE_URL`. It is declared `preserve()` in
+  `railway.ts` for both services; see "Variables" below for how it reaches each.
+- **Only additive migrations are safe.** During a rollout the old code briefly
+  runs against the new schema. Destructive changes (drop or rename a column or
+  table) need expand-then-contract across two deploys.
+- **Transitional:** until the first real migration has been confirmed applied by
+  the pre-deploy step, the manual `doppler run --config prd -- pnpm --filter
+  @folio/api migrate:deploy` step in release/cleanup prompts stays mandatory.
+  Remove this note once that's confirmed.
+- **Pre-deploy timeout:** the IaC DSL (`railway` 3.11/3.12) has no pre-deploy
+  timeout field, and Railway's default is *no limit*, so a command stuck on the
+  advisory lock would hold the deploy open. Set **Pre-deploy Timeout = 300** on
+  both services in the Railway dashboard (the field appears once a command is
+  set). It isn't declared in `railway.ts`.
+- **Applying `railway.ts`:** it's applied by hand (no CI or hook runs it on
+  merge). After merging a change to it, preview with `railway config plan`,
+  review every line (an apply pushes the whole file, not just your edit), then
+  `railway config apply`. Don't set the pre-deploy command through the
+  dashboard/MCP instead: it would drift from the file and a later apply could
+  remove it.
+- **`railway.ts` must match the live environment one-to-one.** An apply
+  *creates* anything the file declares and *deletes* any variable it doesn't.
+  Prod has Redis (with its volume), `@folio/api` and `@folio/api-cron`, and no
+  Postgres service: the database is Neon. So don't re-declare a Postgres
+  service or any resource that isn't live, and run `railway config plan` and
+  read it before every apply.
+- **Variables.** In `railway.ts` every variable is `preserve()`d. An apply keeps
+  the live value of a listed variable and, per the file's own notes, drops one
+  that isn't listed, so a new variable must be added to the service's `env`
+  block. Doppler's Railway integration did **not** reach `@folio/api-cron`:
+  its `DIRECT_URL` was added by hand in the dashboard, so don't assume a Doppler
+  change reaches both services; check each.
+- **Two sources for `@folio/api`'s variables.** They come from the Doppler sync
+  *and* from `railway.ts`, and an apply deletes anything the file doesn't
+  declare. So any new secret added to Doppler `prd` must **also** be added to
+  `railway.ts` with `preserve()` (on each service that needs it), or the next
+  apply removes it.
+
 ## Commands
 
 Run from the repo root unless noted. Node 22 (`.nvmrc`), pnpm 11 via corepack.

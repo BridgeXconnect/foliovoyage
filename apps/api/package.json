@@ -14,6 +14,7 @@
     "test": "jest",
     "test:integration": "jest --config jest.integration.config.js",
     "postinstall": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "import:run": "pnpm build && node dist/modules/import/trigger-import.cli.js",
@@ -42,6 +43,7 @@
     "cron": "^4.4.0",
     "ioredis": "^5.11.1",
     "pg": "^8.22.0",
+    "prisma": "^6.19.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.4.3"
@@ -57,7 +59,6 @@
     "@types/pg": "^8.20.0",
     "eslint": "^9.39.5",
     "jest": "^30.0.0",
-    "prisma": "^6.19.0",
     "source-map-support": "^0.5.21",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
