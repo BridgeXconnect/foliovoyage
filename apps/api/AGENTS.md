@@ -38,6 +38,12 @@ pnpm --filter @folio/api experience:promote <id>      # promote one draft Experi
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/backfill-reference-price.cli.ts   # fill Tour.priceReferenceMinor for rows ingested before it existed
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/promote-eligible.cli.ts            # promote every draft Experience that is now eligible
 doppler run -- pnpm --filter @folio/api backfill-tour-category:run [--execute] [--city SLUG]                # derive Tour.primaryCategoryTagId for existing rows from Tour.tags
+
+# BRI-227 one-off: re-fetch the stale pre-14-Sep cohort by product code (POST /products/bulk) through the normal
+# normalize/upsert stages. Compiled build only (pnpm --filter @folio/api build first). Never moves the delta cursor,
+# never soft-deletes, writes no ImportRun row; refuses to start while an import is running. Dev unless Roy says otherwise.
+doppler run --config dev -- node dist/modules/import/refetch-by-code.cli.js [--dry-run] [--codes-file PATH] [--limit N] [--batch-size N<=500] [--refreshed-after ISO]
+# archives land under raw/viator-refetch/; point the BRI-218 backfill at them with: backfill-experience-coordinates --source viator-refetch
 ```
 
 ## Deployment — Railway
