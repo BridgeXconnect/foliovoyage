@@ -112,9 +112,13 @@ command, and Prisma's advisory lock serializes concurrent runs.
   Remove this note once that's confirmed.
 - **Pre-deploy timeout:** the IaC DSL (`railway` 3.11/3.12) has no pre-deploy
   timeout field, and Railway's default is *no limit*, so a command stuck on the
-  advisory lock would hold the deploy open. Set **Pre-deploy Timeout = 300** on
-  both services in the Railway dashboard (the field appears once a command is
-  set). It isn't declared in `railway.ts`.
+  advisory lock would hold the deploy open. The live config key is
+  `preDeployTimeoutSeconds`, set to **300** on both services. It isn't declared
+  in `railway.ts`. For `@folio/api` it's set in the Railway dashboard; for
+  `@folio/api-cron` it's set via the Railway API/MCP (`update-service`,
+  `preDeployTimeoutSeconds`), because the dashboard hides the field on cron
+  services. `railway config apply` deploys immediately, so the timeout must
+  already exist before an apply that introduces or changes a pre-deploy command.
 - **Applying `railway.ts`:** it's applied by hand (no CI or hook runs it on
   merge). After merging a change to it, preview with `railway config plan`,
   review every line (an apply pushes the whole file, not just your edit), then
