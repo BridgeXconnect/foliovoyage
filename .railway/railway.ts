@@ -1,4 +1,17 @@
 import { defineRailway, github, preserve, project, redis, service } from "railway/iac";
+import type { DeployConfig } from "railway/iac";
+
+// BRI-232: cap on how long a pre-deploy command (migrate:deploy) may run, so one
+// stuck on the migration advisory lock can't hold a deploy open. An apply resets
+// any field the file doesn't declare, which BRI-232's plan showed as
+// `preDeployTimeoutSeconds 300 -> null`, so it has to be declared here. The SDK's
+// DeployConfig type lacks the field, but normalizeDeploy spreads `config.deploy`
+// into the node, so the key passes through at runtime (railway@3.11/3.12). A
+// future SDK change could stop that, and it would show up as `300 -> null` in
+// `railway config plan`: read every plan.
+const preDeployTimeout: DeployConfig & { preDeployTimeoutSeconds: number } = {
+  preDeployTimeoutSeconds: 300,
+};
 
 /**
  * @folio/api — apps/api's NestJS HTTP server. No rootDirectory: the build
@@ -30,9 +43,11 @@ export default defineRailway(() => {
     start: "pnpm --filter @folio/api start",
     // BRI-197: apply pending Prisma migrations before the new deployment takes
     // traffic. A failure fails the deploy; the previous version keeps serving.
-    // The IaC DSL has no pre-deploy *timeout* field, so that cap (300s) is a
-    // dashboard setting, not declared here.
+    // The pre-deploy timeout (300s) is declared in `deploy` below.
     preDeploy: "pnpm --filter @folio/api migrate:deploy",
+    deploy: {
+      ...preDeployTimeout,
+    },
     // Matches the live auto-generated value — declaring it stops
     // `railway config plan` from repeatedly proposing to reset this to
     // null on every apply (harmless each time, but noisy).
@@ -93,6 +108,7 @@ export default defineRailway(() => {
     // services run it; Prisma's advisory lock serializes concurrent runs.
     preDeploy: "pnpm --filter @folio/api migrate:deploy",
     deploy: {
+      ...preDeployTimeout,
       cronSchedule: "0 3 * * *",
       restartPolicyType: "NEVER",
     },
