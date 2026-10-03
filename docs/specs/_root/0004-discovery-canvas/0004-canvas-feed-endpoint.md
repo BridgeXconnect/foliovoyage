@@ -4,7 +4,7 @@ Scope row 12, BRI-225. Governed by [index.md](index.md): world geometry, shared 
 
 ## Summary
 
-The canvas reads two public endpoints. The first returns a small summary of all 42 city and category buckets for first paint. The second returns one bucket's best 60 tours, ranked, plus the true total for the exit tile. Ranking happens in SQL on each cache miss, so there is no migration and no stored rank. Both endpoints are cached, and nothing is paged because a bucket never exceeds 60 tiles.
+The canvas reads two public endpoints. The first returns a small summary of all 42 city and category buckets for first paint. The second returns one bucket's best 50 tours, ranked, plus the true total for the exit tile. Ranking happens in SQL on each cache miss, so there is no migration and no stored rank. Both endpoints are cached, and nothing is paged because a bucket never exceeds 50 tiles.
 
 ## Requirements
 
@@ -15,12 +15,12 @@ The canvas reads two public endpoints. The first returns a small summary of all 
 
 **Acceptance criteria** (the contract, each criterion is IDed and independently checkable):
 - **AC-F1**: `GET /v1/canvas/buckets` returns up to 42 summaries, one per bucket that has at least one eligible tile, with `citySlug`, `countrySlug`, `cityName`, `categorySlug`, `categoryLabel`, `total` (the count of eligible tiles, uncapped), and `image` (the cover image of the bucket's rank 1 tile). A bucket with no eligible tile is left out. The list order is the fixed world order from index.md.
-- **AC-F2**: `GET /v1/canvas/buckets/:citySlug/:categorySlug` returns the bucket summary fields plus `tiles`, at most 60, in rank order with `rank` starting at 1. An unknown city slug, an unknown category slug, or a bucket with no eligible tile returns 404 `application/problem+json`.
+- **AC-F2**: `GET /v1/canvas/buckets/:citySlug/:categorySlug` returns the bucket summary fields plus `tiles`, at most 50, in rank order with `rank` starting at 1. An unknown city slug, an unknown category slug, or a bucket with no eligible tile returns 404 `application/problem+json`.
 - **AC-F3**: A tour is eligible only when `deletedAt` is null, `primaryCategoryTagId` is one of the seven shown categories (21909, 21910, 21911, 21912, 21913, 21915, 21916), its Experience has `status = "published"` and belongs to a city in the shared geometry list (matched on `countrySlug` plus `slug`, see index.md), it has a usable image (AC-F7), and `priceReferenceMinor` is not null. Category 21914 and a null category are never returned.
 - **AC-F4**: One tile per Experience within a bucket. When an Experience has several eligible tours, the tile uses the tour with the best score, ties broken by the lowest Tour `id`.
 - **AC-F5**: Within a bucket, tiles are ordered by Bayesian score descending: `(v / (v + m)) * R + (m / (v + m)) * C`, where `R` is the tour's `ratingAvg`, `v` its `ratingCount`, `C` the mean `ratingAvg` of the bucket's rated eligible tours, and `m` = 10. `C` is computed over all eligible rated tours in the bucket, before the one tile per Experience step. A tour counts as unrated when `ratingAvg` is null or `COALESCE(ratingCount, 0) = 0`, and ranks after every rated tour. Ties, rated or not, break on Tour `id` ascending with `COLLATE "C"` (ids are text). The score is computed in SQL, never stored.
 - **AC-F6**: A tile carries `id` (the Experience id), `tourId` (the chosen Tour id, so a click can be attributed to a tour), `rank`, `title`, `image {url, width, height}` (width and height are `null` when unknown), `durationMin`, `price {amountMinor, currency}` (`amountMinor` from `priceReferenceMinor`, a `BigInt` sent as a JSON number and checked as an integer in the Zod schema, `currency` from `priceReferenceCurrency`), `ratingAvg`, and `ratingCount`. It carries no `aiSummary`, no affiliate URL, and no tags.
-- **AC-F7**: In SQL, a tour has a usable image when `Tour.images` has an entry with at least one variant URL, or `imageUrl` is not null. The variant is picked in code, so the SQL stays one query (AC-F10). The entry is the one with `isCover`, else the first entry. Within it, pick the smallest variant at least 480 px wide for an `sm` rank (21 to 60), at least 640 px for `md` and `lg`, else the widest variant, skipping variants with width 0, else `Tour.imageUrl`.
+- **AC-F7**: In SQL, a tour has a usable image when `Tour.images` has an entry with at least one variant URL, or `imageUrl` is not null. The variant is picked in code, so the SQL stays one query (AC-F10). The entry is the one with `isCover`, else the first entry. Within it, pick the smallest variant at least 480 px wide for an `sm` rank (21 to 50), at least 640 px for `md` and `lg`, else the widest variant, skipping variants with width 0, else `Tour.imageUrl`.
 - **AC-F8**: Responses carry `Cache-Control: public, max-age=300, s-maxage=3600, stale-while-revalidate=86400` and are also held in an in process cache for 10 minutes per bucket, so repeated requests do not reach the database.
 - **AC-F9**: Every response body parses against the Zod schemas in `@folio/shared` (`packages/shared/src/api.ts`). Errors use the existing `ProblemDetailsFilter` (RFC 9457). The routes are versioned under `/v1`.
 - **AC-F10**: A bucket request runs one query (the join, filter, and rank together), and the summaries request runs one grouped query, not 42.
@@ -33,7 +33,7 @@ The canvas reads two public endpoints. The first returns a small summary of all 
 |---|---|---|---|
 | Endpoint shape | `/v1/canvas/buckets` plus `/v1/canvas/buckets/:citySlug/:categorySlug` | First paint needs summaries only. Tiles load on demand | One endpoint returning every tile |
 | Bucket key | City slug and category slug from a constant map in `@folio/shared` | The map is the one list of the 7 shown categories and their root tag ids | Query by raw tag id |
-| Paging | None, hard cap of 60 | The wall shows the best 60. No cursor logic | Cursor pagination (the old BRI-225 text) |
+| Paging | None, hard cap of 50 | The wall shows the best 50. No cursor logic | Cursor pagination (the old BRI-225 text) |
 | Ranking | Bayesian score with prior weight `m` = 10 in SQL per request, cached | No migration, no stale stored rank | A stored rank column |
 | Price on the tile | `priceReferenceMinor` with its `priceReferenceCurrency` | Ranking and display need one comparable currency | Local `priceMinor` and `currency` |
 | Data model | No schema change, no migration | `primaryCategoryTagId` is already indexed for this feed | Add a bucket table |
@@ -65,12 +65,12 @@ The canvas reads two public endpoints. The first returns a small summary of all 
 
 **Key invariants**:
 - The seven shown categories and the excluded 21914 are defined once, in `@folio/shared`.
-- A response never contains more than 60 tiles or two tiles for one Experience.
+- A response never contains more than 50 tiles or two tiles for one Experience.
 - Rank is a pure function of the data, so two requests for unchanged data return the same order.
 
 **Security model**: public, read only, no user data. No auth. The response holds nothing private (no affiliate URL, no `aiSummary`). The in process cache bounds database load whatever the request rate.
 
-**Configuration required**: none. `m` = 10 and the 60 cap are code constants.
+**Configuration required**: none. `m` = 10 and the 50 cap are code constants.
 
 **Critical test scenarios**:
 - Happy path: a seeded Bangkok bucket returns tiles in score order with ranks 1 to N, verifies **AC-F2**, **AC-F5**
@@ -111,4 +111,4 @@ The canvas reads two public endpoints. The first returns a small summary of all 
 
 ## Rationale
 
-The canvas needs two different things: a cheap overview and a bucket on demand. One endpoint for both would either ship 2,500 tiles up front or force a second call anyway. With a hard cap of 60 per bucket there is nothing to page, so cursor pagination from the old ticket would be dead code. Ranking in SQL on a cache miss avoids a stored column that goes stale and needs a migration for no measured gain. Using the Experience id as the tile id gives the layout a stable seed and gives the tile target page one key.
+The canvas needs two different things: a cheap overview and a bucket on demand. One endpoint for both would either ship 2,500 tiles up front or force a second call anyway. With a hard cap of 50 per bucket there is nothing to page, so cursor pagination from the old ticket would be dead code. Ranking in SQL on a cache miss avoids a stored column that goes stale and needs a migration for no measured gain. Using the Experience id as the tile id gives the layout a stable seed and gives the tile target page one key.

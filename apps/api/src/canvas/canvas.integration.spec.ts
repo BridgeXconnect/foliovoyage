@@ -38,7 +38,7 @@ const FIXTURE_CITY = { slug: SLUG, countrySlug: COUNTRY };
 // Category tag ids used as buckets.
 const OUTDOOR = 21909; // ranking, Bayesian prior, unrated order, exclusions
 const ART = 21910; // one tile per Experience
-const FOOD = 21911; // the 60 tile cap and the image pick by rank
+const FOOD = 21911; // the tile cap and the image pick by rank
 const TICKETS = 21912; // no rated tour at all, large price
 const TOURS = 21913; // image fallbacks
 const CLASSES = 21915; // only ineligible tours, so an empty bucket
@@ -195,7 +195,7 @@ beforeAll(async () => {
     { id: "n-rated", exp: "exp-E3", cat: ART, rating: 2.0, count: 3 },
   ]);
 
-  // FOOD. 65 Experiences, one tour each: only 60 tiles come back, total says 65.
+  // FOOD. 65 Experiences, one tour each: only MAX_TILES tiles come back, total says 65.
   await seedTours(
     Array.from({ length: 65 }, (_, i) => ({
       id: `f${String(i).padStart(2, "0")}`,
@@ -342,11 +342,11 @@ describe("GET /v1/canvas/buckets/:citySlug/:categorySlug", () => {
     expect(bucket.tiles[0]).toMatchObject({ ratingAvg: null, ratingCount: null, durationMin: 120 });
   });
 
-  it("caps a bucket at 60 tiles but reports the true total, and ranks all of them in order (AC-F2, AC-F5)", async () => {
+  it("caps a bucket at the tile cap but reports the true total, and ranks all of them in order (AC-F2, AC-F5)", async () => {
     const { body } = await get(`/v1/canvas/buckets/${SLUG}/food-drink`);
     const bucket = body as CanvasBucketResponse;
-    expect(MAX_TILES).toBe(60);
-    expect(bucket.tiles).toHaveLength(60);
+    expect(MAX_TILES).toBe(50);
+    expect(bucket.tiles).toHaveLength(MAX_TILES);
     expect(bucket.total).toBe(65);
 
     const rows = Array.from({ length: 65 }, (_, i) => ({
@@ -358,7 +358,7 @@ describe("GET /v1/canvas/buckets/:citySlug/:categorySlug", () => {
     const expected = rows
       .map((row) => ({ tourId: row.tourId, score: bayes(row.r, row.v, c) }))
       .sort((p, q) => q.score - p.score || (p.tourId < q.tourId ? -1 : 1))
-      .slice(0, 60)
+      .slice(0, MAX_TILES)
       .map((row) => row.tourId);
     expect(bucket.tiles.map((t) => t.tourId)).toEqual(expected);
   });
@@ -369,7 +369,7 @@ describe("GET /v1/canvas/buckets/:citySlug/:categorySlug", () => {
     expect(tiles[0]!.image).toMatchObject({ width: 720, height: 480 });
     expect(tiles[19]!.image.width).toBe(720); // rank 20, md
     expect(tiles[20]!.image.width).toBe(480); // rank 21, sm
-    expect(tiles[59]!.image.width).toBe(480);
+    expect(tiles[MAX_TILES - 1]!.image.width).toBe(480);
   });
 
   it("falls back to imageUrl, and treats a width 0 variant as unknown (AC-F7)", async () => {

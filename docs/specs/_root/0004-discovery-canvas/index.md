@@ -11,7 +11,7 @@ The discovery canvas is one big surface you pan around freely, where tours sit a
 
 Each child is a flat file in this directory, written to be built from on its own, with a short inline rationale.
 
-- [0004-canvas-feed-endpoint.md](0004-canvas-feed-endpoint.md): the two read endpoints that serve bucket summaries and one bucket's 60 ranked tiles (scope row 12, BRI-225). Supports the data decisions: ranking in SQL, no migration, no pagination.
+- [0004-canvas-feed-endpoint.md](0004-canvas-feed-endpoint.md): the two read endpoints that serve bucket summaries and one bucket's 50 ranked tiles (scope row 12, BRI-225). Supports the data decisions: ranking in SQL, no migration, no pagination.
 - [0004-canvas-layout-rendering.md](0004-canvas-layout-rendering.md): the pure layout function, its property test, the pan and culler engine, the `/discover` page, and the performance spike (scope row 13). Supports the layout and performance decisions.
 - [0004-canvas-tile-design.md](0004-canvas-tile-design.md): tile tiers, shapes, caption heights, hover, the exit tile, tokens, and the `design.md` handoff (scope row 15). Supports the tile decisions.
 - [0004-canvas-navigation.md](0004-canvas-navigation.md): minimap, bucket search, and the position URL (scope row 14). Supports the position URL decision.
@@ -44,8 +44,8 @@ The decisions inside that option, with the pick, the reason, and the runner up:
 | Surface | One fixed scale world, free pan, no zoom, tiles at fixed positions | The design is a wall you wander, and fixed positions make shared links and a minimap exact | A virtual scroll grid (`@tanstack/react-virtual`) |
 | Mounting | Section grid culler: 512 px sections, 1 section overscan, at most about 150 mounted tiles | Cheap to compute, predictable, no per tile observers | Per tile `IntersectionObserver` |
 | Pan | Hand rolled pointer events, `translate3d`, `requestAnimationFrame`, wheel and arrow keys | No new dependency, full control of the frame budget | A pan and zoom library |
-| Tiles per bucket | 60 | One bucket fills a 2400 by 1624 slot with room to breathe, and 60 is small enough to need no paging | 40 or 100 |
-| Rank tiers | Ranks 1 to 4 `lg`, 5 to 20 `md`, 21 to 60 `sm` | Confirmed in the interview | Fewer, larger tiers |
+| Tiles per bucket | 50 | One bucket fills a 2400 by 1624 slot with room to breathe, and 50 is small enough to need no paging. At 60 tiles, 14 of the 36 full buckets did not fit the slot (41 of 2,400 tiles dropped, all `sm`); at 50, 0 of 42 fail on the real data | 40, 60 or 100 |
+| Rank tiers | Ranks 1 to 4 `lg`, 5 to 20 `md`, 21 to 50 `sm` | Confirmed (the cap moved from 60 to 50 after the fit measurement) in the interview | Fewer, larger tiers |
 | Ranking | Bayesian weighted rating, computed in SQL per request and cached | No migration, no stored derived value, results stay fresh | A stored rank column |
 | World arrangement | Cities in a 3 by 2 grid, each city a 4 by 2 grid of category slots (7 used, 1 spare) | Regular, so the minimap and the arithmetic are trivial | One long strip of 42 slots |
 | Position URL | Bucket relative: `/discover?at=rome.art-culture&dx=120&dy=-40` | Survives any later change to slot size or arrangement | Absolute world pixels |
@@ -133,7 +133,7 @@ Slice 3, tile design:
 
 **Negative / tradeoffs**:
 - A hand rolled pan is more code than a library, and gestures on a phone need real testing.
-- The 60 tile cap means a visitor sees the best 60 of a bucket only. The exit tile promises a count and category the target page does not show (see Follow-up).
+- The 50 tile cap means a visitor sees the best 50 of a bucket only. The exit tile promises a count and category the target page does not show (see Follow-up).
 - Clearance was tested on one bucket only. The property test closes that gap but the layout rules may still need tuning.
 - Ranking in SQL on every request costs a query per bucket, held down by caching.
 - Ranks can change when the 10 minute cache refreshes, which re flows a bucket. A shared link's `dx` and `dy` may then land near different tiles. This is accepted.

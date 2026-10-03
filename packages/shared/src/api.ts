@@ -107,7 +107,7 @@ export type CanvasImage = z.infer<typeof canvasImageSchema>;
 
 /**
  * One bucket (a city and a category) as the canvas first paint sees it.
- * `total` is the count of eligible tiles, uncapped, so it can exceed the 60
+ * `total` is the count of eligible tiles, uncapped, so it can exceed the 50
  * tiles a bucket carries. `image` is the cover image of the rank 1 tile.
  */
 export const canvasBucketSummarySchema = z.object({
@@ -151,7 +151,7 @@ export const canvasTileSchema = z.object({
 });
 export type CanvasTile = z.infer<typeof canvasTileSchema>;
 
-/** `GET /v1/canvas/buckets/:citySlug/:categorySlug`: the summary fields plus up to 60 ranked tiles. */
+/** `GET /v1/canvas/buckets/:citySlug/:categorySlug`: the summary fields plus up to 50 ranked tiles. */
 export const canvasBucketResponseSchema = canvasBucketSummarySchema.extend({
   tiles: z.array(canvasTileSchema).min(1).max(MAX_TILES_PER_BUCKET),
 });

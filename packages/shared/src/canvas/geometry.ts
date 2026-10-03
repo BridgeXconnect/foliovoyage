@@ -5,7 +5,7 @@
  * layout constant for the canvas. The layout, the minimap, the search jump and
  * the position URL all read it from here (AC-1), so a bucket never moves.
  *
- * Purity rule: this folder has no imports and uses no Node or DOM API, so the
+ * Purity rule: this folder imports nothing but this file and uses no Node or DOM API, so the
  * layout can run on the server, in a worker, or in a test with the same result.
  * `geometry.spec.ts` fails the build if either rule breaks, or if a pixel
  * literal shows up in another file in this folder.
@@ -40,11 +40,11 @@ export const SECTION_OVERSCAN = 1;
 // Feed shape ----------------------------------------------------------------
 
 /** A bucket never carries more than this many tiles, so nothing is paged. */
-export const MAX_TILES_PER_BUCKET = 60;
+export const MAX_TILES_PER_BUCKET = 50;
 
 export type TileTier = "lg" | "md" | "sm";
 
-/** Highest rank in each tier: ranks 1 to 4 are `lg`, 5 to 20 `md`, 21 to 60 `sm`. */
+/** Highest rank in each tier: ranks 1 to 4 are `lg`, 5 to 20 `md`, 21 to 50 `sm`. */
 export const TIER_LAST_RANK = { lg: 4, md: 20, sm: MAX_TILES_PER_BUCKET } as const;
 
 /** The tier a tile of this 1-based rank is drawn in. */
@@ -85,6 +85,23 @@ export const CLEARANCE = 6;
 /** Placement jitter in px and tilt in degrees, applied as plus or minus. */
 export const JITTER = 5;
 export const TILT_DEGREES = 1.5;
+
+/** Placement score is `y + SCORE_X_WEIGHT * x`: the first free spot reads top to bottom, left to right-ish. */
+export const SCORE_X_WEIGHT = 0.55;
+
+/** A tile is 1:1 when its id hash modulo `PERCENT_BASE` is below this, so about 30% of tiles. */
+export const SQUARE_SHAPE_PERCENT = 30;
+export const PERCENT_BASE = 100;
+
+/** A 3:2 photo is `width` wide for every `height` tall in this ratio (as width : height). */
+export const LANDSCAPE_RATIO = { width: 3, height: 2 } as const;
+
+/** Tilt is drawn in tenths of a degree, and a degree is this many radians' worth of half turn. */
+export const TILT_STEPS_PER_DEGREE = 10;
+export const DEGREES_PER_HALF_TURN = 180;
+
+/** Rank 1 sits this far right of the title block, outside the placement scoring. */
+export const RANK_ONE_OFFSET = 24;
 
 /**
  * The title block reserved at the top left of every slot. A fixed reservation,

@@ -27,7 +27,7 @@ import { pickImage } from "./canvas-image";
  */
 
 /** A bucket never carries more than this many tiles (AC-F2). Pinned to the shared constant by a spec. */
-export const MAX_TILES = 60;
+export const MAX_TILES = 50;
 /** Bayesian prior weight `m` (AC-F5): the number of ratings a tour needs before its own average outweighs the bucket mean. */
 export const BAYESIAN_M = 10;
 /** How long a computed response is reused (AC-F8). */

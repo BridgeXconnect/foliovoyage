@@ -103,7 +103,7 @@ describe("world geometry", () => {
     expect(EXIT_TILE_CORNER).toEqual({ x: 2112, y: 1416 });
   });
 
-  it("maps rank to tier: 1 to 4 lg, 5 to 20 md, 21 to 60 sm", () => {
+  it("maps rank to tier: 1 to 4 lg, 5 to 20 md, 21 to 50 sm", () => {
     expect([1, 4].map(tierForRank)).toEqual(["lg", "lg"]);
     expect([5, 20].map(tierForRank)).toEqual(["md", "md"]);
     expect([21, MAX_TILES_PER_BUCKET].map(tierForRank)).toEqual(["sm", "sm"]);
@@ -111,7 +111,7 @@ describe("world geometry", () => {
 });
 
 // The purity rule is enforced here, not by convention: this folder must stay
-// free of imports and of Node or DOM APIs, and only geometry.ts may hold a
+// free of imports (but for the constants in geometry.ts) and of Node or DOM APIs, and only geometry.ts may hold a
 // pixel literal. A new file in this folder is checked automatically.
 describe("canvas folder purity", () => {
   const dir = __dirname;
@@ -130,9 +130,24 @@ describe("canvas folder purity", () => {
     expect(sources.map((s) => s.file)).toContain("geometry.ts");
   });
 
-  it("has no imports and no Node or DOM API in any file", () => {
+  /** The source with comments blanked but strings kept, so import paths can be read. */
+  const withoutComments = (text: string): string =>
+    text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/.*$/gm, " ");
+
+  // The one import allowed: a file here may read the constants in geometry.ts.
+  const IMPORT = /^import\b[^;]*?\bfrom\s+"([^"]+)";/gm;
+
+  it("imports nothing but the constants file", () => {
+    for (const { file, text } of sources) {
+      const paths = [...withoutComments(text).matchAll(IMPORT)].map((m) => m[1]);
+      expect({ file, paths: paths.filter((p) => p !== "./geometry") }).toEqual({ file, paths: [] });
+      if (file === "geometry.ts") expect(paths).toEqual([]);
+    }
+  });
+
+  it("has no other import and no Node or DOM API in any file", () => {
     for (const { text } of sources) {
-      const code = codeOnly(text);
+      const code = codeOnly(withoutComments(text).replace(IMPORT, " "));
       expect(code).not.toMatch(/^\s*import\b/m);
       expect(code).not.toMatch(/^\s*export\b[^;]*\bfrom\b/m);
       expect(code).not.toMatch(/\brequire\s*\(/);

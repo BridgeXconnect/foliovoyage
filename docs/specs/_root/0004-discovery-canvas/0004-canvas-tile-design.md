@@ -14,7 +14,7 @@ A tile is a photo with a caption below it, in one of three tiers by rank: large 
 - As a designer, I want the tokens and rules in one place so that I can change the look without touching the layout.
 
 **Acceptance criteria** (the contract, each criterion is IDed and independently checkable):
-- **AC-T1**: A tile's tier comes from its rank: 1 to 4 `lg`, 5 to 20 `md`, 21 to 60 `sm`. The tiers show: `lg` title, duration, price, rating; `md` title, duration, price; `sm` title only.
+- **AC-T1**: A tile's tier comes from its rank: 1 to 4 `lg`, 5 to 20 `md`, 21 to 50 `sm`. The tiers show: `lg` title, duration, price, rating; `md` title, duration, price; `sm` title only.
 - **AC-T2**: The caption sits below the photo and is never overlaid on it. Caption height is fixed per tier: `lg` 68 px, `md` 57 px, `sm` 14 px, set as an explicit height with `overflow: hidden` and a title line clamp of 2, 2, and 1 lines. The height is never derived from line height.
 - **AC-T3**: `apps/web/src/app/globals.css` defines `--container-tile-lg: 360px`, `--container-tile-md: 240px`, `--container-tile-sm: 168px`, `--container-caption-sm: 14px`, `--container-caption-md: 57px`, `--container-caption-lg: 68px`, `--container-panel: 360px`, `--leading-xs: 16px`, `--leading-sm: 18px`, and sets `--leading-tight` (115%), `--text-lg` (20px), and `--text-base` (16px) to the Paper values only inside a `.canvas-root` scope, so the rest of the site keeps Tailwind's defaults. Because `--container-*` feeds width utilities, caption heights are applied as `h-(--container-caption-md)` or an inline style, not as a width.
 - **AC-T4**: A test asserts the three caption token values equal the constants the layout uses, so the CSS and the layout cannot drift apart.

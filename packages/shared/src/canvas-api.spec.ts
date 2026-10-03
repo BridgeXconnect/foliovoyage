@@ -5,6 +5,7 @@ import {
   canvasBucketsResponseSchema,
   canvasTileSchema,
 } from "./api";
+import { MAX_TILES_PER_BUCKET } from "./canvas/geometry";
 
 const image = { url: "https://example.test/a.jpg", width: 480, height: 320 };
 const tile = {
@@ -50,8 +51,8 @@ describe("canvas wire schemas", () => {
     expect(canvasTileSchema.safeParse(bad).success).toBe(false);
   });
 
-  it("rejects a bucket with more than 60 tiles or none", () => {
-    const many = Array.from({ length: 61 }, (_, i) => ({ ...tile, id: `e${i}`, rank: i + 1 }));
+  it("rejects a bucket with more than the cap or none", () => {
+    const many = Array.from({ length: MAX_TILES_PER_BUCKET + 1 }, (_, i) => ({ ...tile, id: `e${i}`, rank: i + 1 }));
     expect(canvasBucketResponseSchema.safeParse({ ...summary, tiles: many }).success).toBe(false);
     expect(canvasBucketResponseSchema.safeParse({ ...summary, tiles: [] }).success).toBe(false);
   });
