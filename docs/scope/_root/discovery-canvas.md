@@ -22,9 +22,9 @@ A pure layout that gives every tile a stable position inside its city and catego
 - [x] Design it (spec): [0004 layout and rendering](../../specs/_root/0004-discovery-canvas/0004-canvas-layout-rendering.md), umbrella [0004](../../specs/_root/0004-discovery-canvas/index.md)
 - [ ] Build it: `/develop canvas layout and rendering`
   - [ ] Pure `layoutBucket`, tier constants, seeded shape, and the property test (AC-L1 to AC-L6)
-  - [ ] Performance spike on synthetic tiles, then the production pan and culler engine (AC-L7 to AC-L9, AC-L15)
-  - [ ] `/discover` page, bucket proxy route, fetch and cache, Bangkok's seven slots (AC-L10, AC-L12, AC-L14, AC-L16)
-  - [ ] Tile links, keyboard handling, and the click and bucket enter events (AC-L11, AC-L13)
+  - [x] Performance spike on synthetic tiles, then the production pan and culler engine (AC-L7 to AC-L9, AC-L15)
+  - [x] `/discover` page, bucket proxy route, fetch and cache, Bangkok's seven slots (AC-L10, AC-L12, AC-L14, AC-L16)
+  - [x] Tile links, keyboard handling, and the click and bucket enter events (AC-L11, AC-L13)
   - [ ] All six cities and the mobile and performance gate (AC-L9, AC-L14)
 - [ ] Verify it: `/check verify`
 - [ ] Test it: `/test`

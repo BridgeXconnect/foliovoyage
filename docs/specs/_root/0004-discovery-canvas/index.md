@@ -1,7 +1,7 @@
 # 0004. Discovery canvas (EP-20)
 
 **Date**: 2026-10-03
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
