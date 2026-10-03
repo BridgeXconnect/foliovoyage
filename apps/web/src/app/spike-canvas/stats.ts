@@ -24,22 +24,109 @@ export function notePanInput(windows: PanWindow[], now: number, tail = PAN_TAIL_
 }
 
 /**
- * The deltas of the frames that ended inside a pan window (start exclusive, end
- * inclusive) and at or after `since`. Frames and windows are in time order.
+ * The [end, delta] of the frames that ended inside a pan window (start exclusive,
+ * end inclusive) and at or after `since`. Frames and windows are in time order.
  */
-export function panFrameDeltas(
+export function panFrameEntries(
   frames: readonly (readonly [number, number])[],
   windows: readonly PanWindow[],
   since = -Infinity,
-): number[] {
-  const out: number[] = [];
+): [number, number][] {
+  const out: [number, number][] = [];
   let w = 0;
   for (const [t, delta] of frames) {
     while (w < windows.length && windows[w][1] < t) w++;
     if (w === windows.length) break;
-    if (t > windows[w][0] && t >= since) out.push(delta);
+    if (t > windows[w][0] && t >= since) out.push([t, delta]);
   }
   return out;
+}
+
+export const panFrameDeltas = (...args: Parameters<typeof panFrameEntries>): number[] =>
+  panFrameEntries(...args).map(([, delta]) => delta);
+
+/** A section crossing: the culler's range changed and the mounted set with it. */
+export interface Crossing {
+  /** performance.now() in the frame that crossed. */
+  t: number;
+  /** Tiles that enter and leave the mounted set. */
+  added: number;
+  removed: number;
+  /** mount=react: render plus DOM commit of the new set, in ms. Null until React commits. */
+  commitMs: number | null;
+  /** mount=react: from the crossing to the start of React's render, in ms. */
+  delayMs: number | null;
+}
+
+/** A frame ends within `windowMs` after a crossing when crossing < end <= crossing + windowMs. */
+export const HITCH_MS = 25;
+export const AFTER_CROSSING_MS = 100;
+
+export interface CrossingSummary {
+  frames: number;
+  crossings: number;
+  /** Frames longer than HITCH_MS, and how many of them end within AFTER_CROSSING_MS after a crossing. */
+  hitches: number;
+  hitchesAfterCrossing: number;
+  /** The share of all frames that end within AFTER_CROSSING_MS after a crossing: what hitches would show by chance. */
+  baseRate: number;
+}
+
+export function crossingSummary(
+  frames: readonly (readonly [number, number])[],
+  crossingTimes: readonly number[],
+  hitchMs = HITCH_MS,
+  windowMs = AFTER_CROSSING_MS,
+): CrossingSummary {
+  const times = [...crossingTimes].sort((a, b) => a - b);
+  const after = (t: number) => {
+    // The latest crossing before t.
+    let lo = 0;
+    let hi = times.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo > 0 && t - times[lo - 1] <= windowMs;
+  };
+  let hitches = 0;
+  let hitchesAfterCrossing = 0;
+  let framesAfter = 0;
+  for (const [t, delta] of frames) {
+    const near = after(t);
+    if (near) framesAfter++;
+    if (delta > hitchMs) {
+      hitches++;
+      if (near) hitchesAfterCrossing++;
+    }
+  }
+  return {
+    frames: frames.length,
+    crossings: times.length,
+    hitches,
+    hitchesAfterCrossing,
+    baseRate: frames.length ? framesAfter / frames.length : 0,
+  };
+}
+
+/** What the overlay freezes on when a scripted pan ends. */
+export interface RunResult extends CrossingSummary {
+  p50: number;
+  p95: number;
+  p99: number;
+  worst: number;
+  /** View distance covered, in px, and the run's length in s. */
+  distance: number;
+  seconds: number;
+  maxMounted: number;
+  /** Tiles mounted per crossing, mean and max. */
+  addedMean: number;
+  addedMax: number;
+  /** mount=react: commit ms per crossing. mount=batch: ms per drain frame. p50, p95, max. */
+  workP50: number;
+  workP95: number;
+  workMax: number;
 }
 
 export function percentile(values: number[], p: number): number {
@@ -62,12 +149,22 @@ export interface SpikeStats {
   imageMounts: number;
   /** Decoded pixel area of each distinct image mounted since load, by URL. */
   imagePixels: Map<string, number>;
+  /** Section crossings since the last reset. */
+  crossings: Crossing[];
+  /** mount=batch: ms of each frame's imperative show/hide work since the last reset. */
+  drainMs: number[];
+  /** View distance moved since the last reset, in px. */
+  distance: number;
+  /** The last scripted pan's result, once it has finished. */
+  autoResult: RunResult | null;
   /** Called by the page on every pan input. */
   panInput(): void;
   /** Deltas of the pan frames since the last reset, or since `since`. */
   panFrames(since?: number): number[];
   /** Long tasks that ended inside a pan window. */
   panLongTasks(): { start: number; duration: number }[];
+  /** Summary of the pan frames since the last reset. */
+  summary(seconds: number): RunResult;
   reset(): void;
 }
 
@@ -88,6 +185,10 @@ export function startRecorder(): { stats: SpikeStats; stop(): void } {
     clicks: 0,
     imageMounts: 0,
     imagePixels: new Map(),
+    crossings: [],
+    drainMs: [],
+    distance: 0,
+    autoResult: null,
     panInput() {
       notePanInput(stats.windows, performance.now());
     },
@@ -99,7 +200,36 @@ export function startRecorder(): { stats: SpikeStats; stop(): void } {
         stats.windows.some(([start, end]) => task.start + task.duration > start && task.start + task.duration <= end),
       );
     },
+    summary(seconds) {
+      const entries = panFrameEntries(stats.frames, stats.windows);
+      const deltas = entries.map(([, d]) => d);
+      const added = stats.crossings.map((c) => c.added);
+      const work = stats.drainMs.length
+        ? stats.drainMs
+        : stats.crossings.flatMap((c) => (c.commitMs === null ? [] : [c.commitMs]));
+      return {
+        ...crossingSummary(
+          entries,
+          stats.crossings.map((c) => c.t),
+        ),
+        p50: percentile(deltas, 50),
+        p95: percentile(deltas, 95),
+        p99: percentile(deltas, 99),
+        worst: Math.max(0, ...deltas),
+        distance: stats.distance,
+        seconds,
+        maxMounted: stats.maxMounted,
+        addedMean: added.length ? added.reduce((a, b) => a + b, 0) / added.length : 0,
+        addedMax: Math.max(0, ...added),
+        workP50: percentile(work, 50),
+        workP95: percentile(work, 95),
+        workMax: Math.max(0, ...work),
+      };
+    },
     reset() {
+      stats.crossings = [];
+      stats.drainMs = [];
+      stats.distance = 0;
       stats.frames = [];
       stats.windows = [];
       stats.longTasks = [];

@@ -6,7 +6,9 @@ import SpikeCanvas from "./spike-canvas";
  * in the sitemap, never merged. Query parameters: `overlay=1` shows the frame
  * stats, `section` and `overscan` override the culler, and the diagnostic
  * switches `img=full|1x|2x|off`, `tilt=0`, `cap=<n>`, `decode=pre` and
- * `layers=0` are described in `config.ts`. An unknown value shows as INVALID.
+ * `layers=0`, the scripted pan `auto=1` (`speed=`), `overlay=lite`, and the
+ * batch mounter `mount=batch` (`batch=`) are described in `config.ts`. An
+ * unknown value shows as INVALID.
  */
 export const metadata: Metadata = {
   title: "Canvas spike",

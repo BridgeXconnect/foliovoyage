@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { notePanInput, panFrameDeltas, type PanWindow } from "./stats";
+import { crossingSummary, notePanInput, panFrameDeltas, type PanWindow } from "./stats";
 
 describe("notePanInput", () => {
   it("opens a window at the first input and extends it while inputs keep coming", () => {
@@ -53,5 +53,28 @@ describe("panFrameDeltas", () => {
     expect(panFrameDeltas(frames, [[100, 200], [2000, 2100]], 1500)).toHaveLength(
       inWindows.filter(([t]) => t >= 1500).length,
     );
+  });
+});
+
+describe("crossingSummary", () => {
+  it("counts frames over 25 ms and those ending within 100 ms after a crossing, with the chance rate", () => {
+    const frames: [number, number][] = [
+      [16, 16],
+      [50, 34], // 40 ms after the crossing at 10: a hitch after a crossing
+      [66, 16],
+      [200, 40], // 190 ms after it: a hitch, not after a crossing
+      [216, 16],
+    ];
+    expect(crossingSummary(frames, [10])).toEqual({
+      frames: 5,
+      crossings: 1,
+      hitches: 2,
+      hitchesAfterCrossing: 1,
+      baseRate: 3 / 5,
+    });
+  });
+
+  it("does not count a frame ending exactly at the crossing, and counts one exactly 100 ms after", () => {
+    expect(crossingSummary([[10, 30], [110, 30]], [10])).toMatchObject({ hitches: 2, hitchesAfterCrossing: 1 });
   });
 });

@@ -12,15 +12,19 @@ export default function SpikeRunsPage() {
     <main style={{ maxWidth: 640, margin: "0 auto", padding: 16, font: "16px/1.45 system-ui, sans-serif", color: "#222" }}>
       <h1 style={{ fontSize: 22 }}>Canvas spike: phone runs</h1>
       <p>
-        For each run: tap the link, wait about 3 s for the photos to load, tap <b>reset</b>, then pan continuously
-        for 20 s, left and right across the four slots. Stop, wait 1 s, and take a screenshot with the overlay in it.
-        Check that the overlay&apos;s <code>img / tilt / decode / layers</code> line shows what the run says, and that there is no red INVALID line.
+        Every run is hands-off. Tap the link and wait about 3 s for the photos. Tap <b>start 30 s pan</b>, put the phone
+        down flat, and don&apos;t touch the screen. After a 3 s countdown the canvas pans by itself for 30 s, then the
+        overlay freezes on a <b>RESULT</b> block. Take a screenshot with the whole overlay in it.
+      </p>
+      <p>
+        Check that the overlay&apos;s <code>mount / section / overlay</code> lines show what the run says, and that there
+        is no red INVALID line. Keep the conditions the same for every run: Low Power Mode off, same browser.
       </p>
       <ol>
         {PHONE_RUNS.map((run) => (
           <li key={run.query} style={{ marginBottom: 14 }}>
             <a href={runUrl("", run.query)} style={{ fontFamily: "ui-monospace, monospace", wordBreak: "break-all" }}>
-              ?overlay=1{run.query ? `&${run.query}` : ""}
+              ?{run.query}
             </a>
             <div>{run.meaning}</div>
           </li>

@@ -9,11 +9,13 @@
  */
 
 export type ImageMode = "full" | "1x" | "2x" | "off";
+export type OverlayMode = "off" | "full" | "lite";
 
 export interface Config {
   sectionSize: number;
   overscan: number;
-  overlay: boolean;
+  /** `full`: translucent, text updated every 250 ms. `lite`: opaque, text updated once a second. */
+  overlay: OverlayMode;
   /** `full`: the feed's own URL. `1x`/`2x`: the smallest CDN variant covering the photo box at that scale. `off`: no image. */
   imageMode: ImageMode;
   /** False with `tilt=0`: no rotation and no placement jitter. */
@@ -24,6 +26,13 @@ export interface Config {
   decodePre: boolean;
   /** False with `layers=0`: tiles get `contain: paint` and never `will-change` or `translateZ`. */
   layers: boolean;
+  /** With `auto=1`, the overlay has a start button for a scripted 30 s pan (and is shown even without `overlay`). */
+  auto: boolean;
+  /** Scripted pan speed in px/s. */
+  speed: number;
+  /** `react`: the mounted set is React state, committed at each section crossing. `batch`: a stable list, shown imperatively at most `batch` tiles per frame. */
+  mount: "react" | "batch";
+  batch: number;
   /** `name=value` of every parameter that was not understood. */
   invalid: string[];
 }
@@ -39,7 +48,7 @@ const positiveInt = (v: string) => /^[1-9]\d*$/.test(v);
 const nonNegativeInt = (v: string) => /^\d+$/.test(v);
 
 const PARSERS: Record<string, Parser> = {
-  overlay: (v, c) => (v === "1" || v === "0" ? ((c.overlay = v === "1"), true) : false),
+  overlay: (v, c) => (v === "1" || v === "0" || v === "lite" ? ((c.overlay = v === "1" ? "full" : v === "0" ? "off" : "lite"), true) : false),
   section: (v, c) => (positiveInt(v) ? ((c.sectionSize = Number(v)), true) : false),
   overscan: (v, c) => (nonNegativeInt(v) ? ((c.overscan = Number(v)), true) : false),
   img: (v, c) => (v === "full" || v === "1x" || v === "2x" || v === "off" ? ((c.imageMode = v), true) : false),
@@ -47,18 +56,38 @@ const PARSERS: Record<string, Parser> = {
   cap: (v, c) => (positiveInt(v) ? ((c.cap = Number(v)), true) : false),
   decode: (v, c) => (v === "pre" || v === "async" ? ((c.decodePre = v === "pre"), true) : false),
   layers: (v, c) => (v === "0" || v === "1" ? ((c.layers = v === "1"), true) : false),
+  auto: (v, c) => (v === "0" || v === "1" ? ((c.auto = v === "1"), true) : false),
+  speed: (v, c) => (positiveInt(v) ? ((c.speed = Number(v)), true) : false),
+  mount: (v, c) => (v === "react" || v === "batch" ? ((c.mount = v), true) : false),
+  batch: (v, c) => (positiveInt(v) ? ((c.batch = Number(v)), true) : false),
 };
+
+/** Switches that only mean something with another one, or that the batch mounter does not support. */
+function checkCombinations(q: URLSearchParams, c: Config): void {
+  const flag = (name: string) => {
+    const entry = `${name}=${q.get(name)}`;
+    if (!c.invalid.includes(entry)) c.invalid.push(entry);
+  };
+  if (q.has("batch") && c.mount !== "batch") flag("batch");
+  if (q.has("speed") && !c.auto) flag("speed");
+  if (c.mount === "batch" && c.cap !== null) flag("cap");
+  if (c.mount === "batch" && c.decodePre) flag("decode");
+}
 
 export function parseConfig(search: string, defaults: ConfigDefaults): Config {
   const config: Config = {
     sectionSize: defaults.sectionSize,
     overscan: defaults.overscan,
-    overlay: false,
+    overlay: "off",
     imageMode: "full",
     tilt: true,
     cap: null,
     decodePre: false,
     layers: true,
+    auto: false,
+    speed: 900,
+    mount: "react",
+    batch: 4,
     invalid: [],
   };
   const q = new URLSearchParams(search);
@@ -68,6 +97,7 @@ export function parseConfig(search: string, defaults: ConfigDefaults): Config {
     if (!parse || seen.has(name) || !parse(value, config)) config.invalid.push(`${name}=${value}`);
     seen.add(name);
   }
+  checkCombinations(q, config);
   return config;
 }
 
@@ -77,6 +107,7 @@ export function describeConfig(config: Config): string {
     `img ${config.imageMode} · tilt ${config.tilt ? 1 : 0} · cap ${config.cap ?? "none"}`,
     `decode ${config.decodePre ? "pre" : "async"} · layers ${config.layers ? 1 : 0}`,
     `section ${config.sectionSize} · overscan ${config.overscan}`,
+    `mount ${config.mount === "batch" ? `batch ${config.batch}/frame` : "react"} · overlay ${config.overlay}${config.auto ? ` · auto ${config.speed} px/s` : ""}`,
   ].join("\n");
 }
 

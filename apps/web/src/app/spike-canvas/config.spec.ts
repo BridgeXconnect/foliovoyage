@@ -7,21 +7,41 @@ const FEED = "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-674
 describe("parseConfig", () => {
   it("reads every switch after the overlay flag", () => {
     const c = parseConfig("?overlay=1&img=1x&tilt=0&cap=20&decode=pre&layers=0", defaults);
-    expect(c).toMatchObject({ overlay: true, imageMode: "1x", tilt: false, cap: 20, decodePre: true, layers: false, invalid: [] });
+    expect(c).toMatchObject({ overlay: "full", imageMode: "1x", tilt: false, cap: 20, decodePre: true, layers: false, invalid: [] });
   });
 
   it("runs the defaults when nothing is given", () => {
     expect(parseConfig("", defaults)).toMatchObject({
       sectionSize: 512,
       overscan: 1,
-      overlay: false,
+      overlay: "off",
       imageMode: "full",
       tilt: true,
       cap: null,
       decodePre: false,
       layers: true,
+      auto: false,
+      speed: 900,
+      mount: "react",
+      batch: 4,
       invalid: [],
     });
+  });
+
+  it("reads the scripted pan, the lite overlay and the batch mounter", () => {
+    expect(parseConfig("?auto=1&speed=600&overlay=lite&mount=batch&batch=6", defaults)).toMatchObject({
+      auto: true,
+      speed: 600,
+      overlay: "lite",
+      mount: "batch",
+      batch: 6,
+      invalid: [],
+    });
+  });
+
+  it("flags a switch that needs another one, and combinations the batch mounter does not support", () => {
+    expect(parseConfig("?batch=6&speed=600", defaults).invalid).toEqual(["batch=6", "speed=600"]);
+    expect(parseConfig("?mount=batch&cap=20&decode=pre", defaults).invalid).toEqual(["cap=20", "decode=pre"]);
   });
 
   it("flags an unknown value instead of silently running full images", () => {
@@ -48,7 +68,7 @@ describe("parseConfig", () => {
 
   it("describes every setting", () => {
     expect(describeConfig(parseConfig("?img=off&cap=30", defaults))).toBe(
-      "img off · tilt 1 · cap 30\ndecode async · layers 1\nsection 512 · overscan 1",
+      "img off · tilt 1 · cap 30\ndecode async · layers 1\nsection 512 · overscan 1\nmount react · overlay off",
     );
   });
 });
