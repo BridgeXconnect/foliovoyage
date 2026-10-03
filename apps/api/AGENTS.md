@@ -42,6 +42,7 @@ doppler run -- pnpm --filter @folio/api backfill-tour-category:run [--execute] [
 # BRI-227 one-off: re-fetch the stale pre-14-Sep cohort by product code (POST /products/bulk) through the normal
 # normalize/upsert stages. Compiled build only (pnpm --filter @folio/api build first). Never moves the delta cursor,
 # never soft-deletes, writes no ImportRun row; refuses to start while an import is running. Dev unless Roy says otherwise.
+# Cohort = every live tour with fetchedAt < --refreshed-after (default 2026-09-15T00:00:00Z); no lower bound.
 doppler run --config dev -- node dist/modules/import/refetch-by-code.cli.js [--dry-run] [--codes-file PATH] [--limit N] [--batch-size N<=500] [--refreshed-after ISO]
 # archives land under raw/viator-refetch/; point the BRI-218 backfill at them with: backfill-experience-coordinates --source viator-refetch
 ```

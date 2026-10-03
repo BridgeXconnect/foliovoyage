@@ -46,13 +46,18 @@ import { ImportRunStats } from "./validator";
  * counts, durations and cursor lineage would all read it as a crawl). Skipping
  * the row adds zero risk; the stdout summary is the record (copy it to Linear).
  *
- * Cohort (default, no `--codes-file`): live (`deletedAt IS NULL`) Viator tours
- * whose `fetchedAt` is in [2026-08-31, 2026-09-15) and still stale.
- * "Stale" has one definition everywhere: `fetchedAt < --refreshed-after`
- * (default 2026-09-15T00:00:00Z, the end of the window). A successful upsert
- * stamps `fetchedAt` with this run's start time, which is at or after that
- * threshold, so a re-run skips rows it already refreshed. That is the resume
- * mechanism, for the default cohort query and for `--codes-file` alike.
+ * Cohort (default, no `--codes-file`): every live (`deletedAt IS NULL`) Viator
+ * tour with `fetchedAt` strictly before `--refreshed-after` (default
+ * 2026-09-15T00:00:00Z). There is deliberately no lower bound: an earlier
+ * [2026-08-31, ...) window skipped the ~40 live tours fetched 19-30 Aug, which
+ * lack tags, gallery and inclusions/exclusions just like the rest. No live tour
+ * fetched on or after 15 Sep lacks tags, so the cutoff alone separates stale
+ * from healthy.
+ * "Stale" has one definition everywhere: `fetchedAt < --refreshed-after`. A
+ * successful upsert stamps `fetchedAt` with this run's start time, which is at
+ * or after that threshold, so a re-run skips rows it already refreshed. That is
+ * the resume mechanism, for the default cohort query and for `--codes-file`
+ * alike.
  *
  * `--codes-file`: one product code per line (blank lines and `#` comments
  * ignored); only the live, still-stale codes among them are fetched. Used to
@@ -84,10 +89,8 @@ export interface CliIo {
   err: (line: string) => void;
 }
 
-/** Start of the stale window: when the pre-14-Sep fetches began. */
-export const COHORT_FROM = new Date("2026-08-31T00:00:00.000Z");
-/** End of the stale window (exclusive) and the default `--refreshed-after`. */
-export const COHORT_TO = new Date("2026-09-15T00:00:00.000Z");
+/** Default `--refreshed-after`: rows fetched before this are stale (exclusive, no lower bound). */
+export const DEFAULT_REFRESHED_AFTER = new Date("2026-09-15T00:00:00.000Z");
 
 const PROVIDER = "viator";
 const MAX_LISTED_CODES = 200;
@@ -115,7 +118,7 @@ export function parseArgs(
     dryRun: false,
     limit: null,
     batchSize: VIATOR_BULK_MAX_CODES,
-    refreshedAfter: COHORT_TO,
+    refreshedAfter: DEFAULT_REFRESHED_AFTER,
   };
   const positiveInt = (flag: string, raw: string | undefined, max = Infinity): number | string => {
     const value = raw === undefined ? NaN : Number(raw);
@@ -197,7 +200,7 @@ export interface CodeClassification {
 export interface RefetchStore {
   /** `ImportRunService.hasRunningRun()`. */
   hasRunningRun(): Promise<boolean>;
-  /** Default cohort, ordered by code: live, in the window, stale. */
+  /** Default cohort, ordered by code: live and `fetchedAt < refreshedAfter`. */
   selectCohort(refreshedAfter: Date): Promise<string[]>;
   classifyCodes(codes: readonly string[], refreshedAfter: Date): Promise<CodeClassification>;
   quarantineStats(): Promise<QuarantineStats>;
@@ -282,8 +285,7 @@ export async function main(
   } else {
     stale = await store.selectCohort(args.refreshedAfter);
     io.out(
-      `  Cohort: ${stale.length} live tour(s) fetched in [${COHORT_FROM.toISOString()}, ${COHORT_TO.toISOString()}) ` +
-        `and older than ${args.refreshedAfter.toISOString()}.`,
+      `  Cohort: ${stale.length} live tour(s) fetched before ${args.refreshedAfter.toISOString()}.`,
     );
   }
   const selected = args.limit === null ? stale : stale.slice(0, args.limit);
@@ -412,10 +414,7 @@ export function createPrismaRefetchStore(prisma: PrismaForRefetch): RefetchStore
   const staleWhere = (refreshedAfter: Date) => ({
     provider: PROVIDER,
     deletedAt: null,
-    fetchedAt: {
-      gte: COHORT_FROM,
-      lt: refreshedAfter < COHORT_TO ? refreshedAfter : COHORT_TO,
-    },
+    fetchedAt: { lt: refreshedAfter },
   });
   return {
     hasRunningRun: () => runService.hasRunningRun(),
