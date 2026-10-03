@@ -32,7 +32,7 @@ Each child is a flat file in this directory, written to be built from on its own
 - **AC-5**: The three analytics events (`canvas_bucket_enter`, `canvas_tile_click`, `canvas_nav_jump`) go through one helper in `apps/web/src/lib/analytics.ts` and never through an inline `posthog.capture`.
 - **AC-6**: Every tile and the exit tile link through one swappable function each (`tourHref`, `exitHref`), so BRI-205 and the new tour page can change a target in one place.
 - **AC-7**: The canvas runs the performance gate in `0004-canvas-layout-rendering.md` (AC-L9) on a mid range phone before slice 2 starts.
-  - The performance spike passed the gate on an iPhone 16 (95th percentile 17 to 18 ms over pan frames, production build) and confirmed 512 px sections, overscan 1, and the 150 tile cap. The numbers, and what was not measured, are under AC-L9.
+  - The performance spike passed the gate on an iPhone 16 (95th percentile 17 to 18 ms over pan frames in 9 of 13 runs, production build) and confirmed 512 px sections, overscan 1, and the 150 tile cap. The numbers, and what was not measured, are under AC-L9.
 
 ## Decision
 
