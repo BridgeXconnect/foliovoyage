@@ -4,8 +4,7 @@ import type { ViatorCodeBatch } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import type { ProcessProductsResult } from "./import.pipeline";
 import {
-  COHORT_FROM,
-  COHORT_TO,
+  DEFAULT_REFRESHED_AFTER,
   createPrismaRefetchStore,
   main,
   nextBatchIndexFrom,
@@ -33,9 +32,7 @@ function memoryStore(rows: Record<string, Row>, running = false) {
       Object.entries(rows)
         .filter(
           ([, r]) =>
-            r.deletedAt === null &&
-            r.fetchedAt >= COHORT_FROM &&
-            r.fetchedAt < (refreshedAfter < COHORT_TO ? refreshedAfter : COHORT_TO),
+            r.deletedAt === null && r.fetchedAt < refreshedAfter,
         )
         .map(([code]) => code)
         .sort(),
@@ -111,10 +108,10 @@ const rowsOf = (n: number, prefix = "P"): Record<string, Row> =>
   );
 
 describe("refetch-by-code args", () => {
-  it("defaults: batch 500, refreshed-after = end of the window", () => {
+  it("defaults: batch 500, refreshed-after = 2026-09-15 cutoff", () => {
     const a = parseArgs([], T0);
     expect(a).toMatchObject({ batchSize: 500, limit: null, dryRun: false, codesFile: null });
-    expect((a as { refreshedAfter: Date }).refreshedAfter).toEqual(COHORT_TO);
+    expect((a as { refreshedAfter: Date }).refreshedAfter).toEqual(DEFAULT_REFRESHED_AFTER);
   });
 
   it.each([["--batch-size", "501"], ["--batch-size", "0"], ["--limit", "x"], ["--refreshed-after", "nope"], ["--bogus", "1"]])(
@@ -173,16 +170,17 @@ describe("refetch-by-code main", () => {
     expect(h.processProducts).not.toHaveBeenCalled();
   });
 
-  it("cohort selection uses the window and ignores soft-deleted rows", async () => {
+  it("cohort is every live row fetched before the cutoff (no lower bound); soft-deleted and newer rows are excluded", async () => {
     const rows = {
       ...rowsOf(2),
+      EARLY_AUG: { fetchedAt: new Date("2026-08-20T00:00:00Z"), deletedAt: null },
       DELETED: { fetchedAt: stale, deletedAt: new Date() },
+      AT_CUTOFF: { fetchedAt: new Date("2026-09-15T00:00:00Z"), deletedAt: null },
       TOO_NEW: { fetchedAt: new Date("2026-09-20T00:00:00Z"), deletedAt: null },
-      TOO_OLD: { fetchedAt: new Date("2026-08-01T00:00:00Z"), deletedAt: null },
     };
     const h = harness({ rows });
     await run([], h.deps);
-    expect(h.fetchCalls.flat().sort()).toEqual(["P0000", "P0001"]);
+    expect(h.fetchCalls.flat().sort()).toEqual(["EARLY_AUG", "P0000", "P0001"]);
   });
 
   it("--codes-file fetches only live, still-stale codes from the file", async () => {
@@ -285,8 +283,8 @@ describe("refetch-by-code never touches the cursor, runs or deletion", () => {
     };
     const store = createPrismaRefetchStore(prisma as never);
     await store.hasRunningRun();
-    await store.selectCohort(COHORT_TO);
-    await store.classifyCodes(["A"], COHORT_TO);
+    await store.selectCohort(DEFAULT_REFRESHED_AFTER);
+    await store.classifyCodes(["A"], DEFAULT_REFRESHED_AFTER);
     await store.quarantineStats();
 
     expect(calls).toEqual(
@@ -307,6 +305,19 @@ describe("refetch-by-code never touches the cursor, runs or deletion", () => {
     expect(Object.keys(h.deps.client)).toEqual(["fetchProductsByCode"]);
     expect(Object.keys(h.deps.store).sort()).toEqual(
       ["classifyCodes", "hasRunningRun", "quarantineStats", "selectCohort"],
+    );
+  });
+});
+
+describe("createPrismaRefetchStore cohort filter", () => {
+  it("selects live rows with fetchedAt < refreshedAfter and no lower bound", async () => {
+    const findMany = jest.fn().mockResolvedValue([{ providerTourId: "A" }] as never);
+    const store = createPrismaRefetchStore({ tour: { findMany } } as never);
+    await store.selectCohort(DEFAULT_REFRESHED_AFTER);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { provider: "viator", deletedAt: null, fetchedAt: { lt: DEFAULT_REFRESHED_AFTER } },
+      }),
     );
   });
 });
