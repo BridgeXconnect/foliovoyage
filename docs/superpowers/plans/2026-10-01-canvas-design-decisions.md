@@ -44,13 +44,16 @@ Prototype: `~/dev/canvas-Gallery/atlas-cluster/cluster.mjs` (rewritten on 2 Oct 
 
 - **Tiles per bucket:** 60 is recommended.
 - **Exit tile target** while BRI-205's hub pages don't exist. Fallback: the existing city page filtered by category. `/architect` must verify the city page actually supports a category filter.
+- **Caption heights:** spec the token values (14 / 57 / 68 px), not formulas, because `md` and `sm` come from fractional line-heights (18.4 px and 13.8 px) that render rounded.
+- **Clearance is one sample of one bucket.** `/architect` should specify a property test of the layout function across many buckets and seeds (30 to 60 tiles, varying shape seeds) rather than relying on this result.
+- **The 9 search-result row separators on `line-strong` are an unreviewed judgment call.**
 
-## Pending from the Paper resume (`paper-04-chrome-resume.md`)
+## Resolved on 3 Oct
 
-`/architect` needs the results of this session: the Step 1 token names, the caption arithmetic and the clearance result. They are not available yet. Don't spec tile heights from the caption values until they are.
+Five fixes, all done. Details, token values and the caption arithmetic are in [`2026-10-03-paper-04-resume-status.md`](2026-10-03-paper-04-resume-status.md).
 
-- exit-tile line-heights become tokens;
-- dividers become `line-strong`;
-- a new search/panel width token (stop borrowing `--container-tile-lg`);
-- the `overlay` contract text broadened to cover any dimming layer;
-- then the swap regression, with each page activated before reading its bounds.
+- exit-tile leadings are tokens in all four frames;
+- dividers are on `line-strong`;
+- `--container-panel` is 360 px;
+- the `overlay` caption now covers any dimming layer;
+- the swap regression passed.
