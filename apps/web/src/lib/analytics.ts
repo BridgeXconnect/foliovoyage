@@ -103,3 +103,52 @@ export function trackSearch(input: SearchAnalyticsInput): void {
       (input.minRating !== undefined ? 1 : 0),
   });
 }
+
+/**
+ * Discovery canvas events (spec 0004, AC-5). Every canvas capture goes through
+ * these three helpers, never an inline `posthog.capture`.
+ */
+export type CanvasBucketEnterSource = "pan" | "minimap" | "search" | "link";
+
+/** The view's centre moved into a bucket slot and stayed there 600 ms. */
+export function trackCanvasBucketEnter(input: {
+  city: string;
+  category: string;
+  source: CanvasBucketEnterSource;
+}): void {
+  posthog.capture("canvas_bucket_enter", {
+    city: input.city,
+    category: input.category,
+    source: input.source,
+  });
+}
+
+/** A canvas tile or the exit tile was activated. `rank` is null for the exit tile. */
+export function trackCanvasTileClick(input: {
+  city: string;
+  category: string;
+  rank: number | null;
+  tier: "lg" | "md" | "sm";
+  tileKind: "tour" | "exit";
+}): void {
+  posthog.capture("canvas_tile_click", {
+    city: input.city,
+    category: input.category,
+    rank: input.rank,
+    tier: input.tier,
+    tile_kind: input.tileKind,
+  });
+}
+
+/** The minimap or search moved the view. Buckets are `city.category` slugs. */
+export function trackCanvasNavJump(input: {
+  fromBucket: string;
+  toBucket: string;
+  method: "minimap" | "search";
+}): void {
+  posthog.capture("canvas_nav_jump", {
+    from_bucket: input.fromBucket,
+    to_bucket: input.toBucket,
+    method: input.method,
+  });
+}
