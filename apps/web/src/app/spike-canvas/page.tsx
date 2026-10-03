@@ -4,8 +4,9 @@ import SpikeCanvas from "./spike-canvas";
 /**
  * THROWAWAY (canvas performance spike, BRI-223). Not linked from anywhere, not
  * in the sitemap, never merged. Query parameters: `overlay=1` shows the frame
- * stats, `section` and `overscan` override the culler, `img=tier` asks the CDN
- * for tier sized images instead of the feed's 674 px ones.
+ * stats, `section` and `overscan` override the culler, and the diagnostic
+ * switches `img=full|1x|2x|off`, `tilt=0`, `cap=<n>`, `decode=pre` and
+ * `layers=0` are described in `config.ts`. An unknown value shows as INVALID.
  */
 export const metadata: Metadata = {
   title: "Canvas spike",

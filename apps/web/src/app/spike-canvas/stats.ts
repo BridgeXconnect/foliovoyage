@@ -58,6 +58,10 @@ export interface SpikeStats {
   mounted: number;
   maxMounted: number;
   clicks: number;
+  /** Image tiles mounted since load, a remount counted again. */
+  imageMounts: number;
+  /** Decoded pixel area of each distinct image mounted since load, by URL. */
+  imagePixels: Map<string, number>;
   /** Called by the page on every pan input. */
   panInput(): void;
   /** Deltas of the pan frames since the last reset, or since `since`. */
@@ -82,6 +86,8 @@ export function startRecorder(): { stats: SpikeStats; stop(): void } {
     mounted: 0,
     maxMounted: 0,
     clicks: 0,
+    imageMounts: 0,
+    imagePixels: new Map(),
     panInput() {
       notePanInput(stats.windows, performance.now());
     },
