@@ -98,3 +98,4 @@ export interface Destination {
 }
 export * from "./api";
 export * from "./canvas/geometry";
+export * from "./canvas/layout";
