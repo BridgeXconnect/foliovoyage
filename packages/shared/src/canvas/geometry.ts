@@ -40,11 +40,11 @@ export const SECTION_OVERSCAN = 1;
 // Feed shape ----------------------------------------------------------------
 
 /** A bucket never carries more than this many tiles, so nothing is paged. */
-export const MAX_TILES_PER_BUCKET = 60;
+export const MAX_TILES_PER_BUCKET = 50;
 
 export type TileTier = "lg" | "md" | "sm";
 
-/** Highest rank in each tier: ranks 1 to 4 are `lg`, 5 to 20 `md`, 21 to 60 `sm`. */
+/** Highest rank in each tier: ranks 1 to 4 are `lg`, 5 to 20 `md`, 21 to 50 `sm`. */
 export const TIER_LAST_RANK = { lg: 4, md: 20, sm: MAX_TILES_PER_BUCKET } as const;
 
 /** The tier a tile of this 1-based rank is drawn in. */

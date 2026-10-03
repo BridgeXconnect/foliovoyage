@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import { TIER_LAST_RANK } from "@folio/shared";
 
 import { pickImage } from "./canvas-image";
 
@@ -28,10 +29,10 @@ describe("pickImage (AC-F7)", () => {
     expect(pickImage(images, null, 20)?.width).toBe(720);
   });
 
-  it("picks the smallest variant at least 480 wide for sm ranks (21 to 60)", () => {
+  it("picks the smallest variant at least 480 wide for sm ranks (21 to 50)", () => {
     const images = [{ isCover: true, variants: [v(200), v(480), v(720), v(1080)] }];
     expect(pickImage(images, null, 21)?.width).toBe(480);
-    expect(pickImage(images, null, 60)?.width).toBe(480);
+    expect(pickImage(images, null, TIER_LAST_RANK.sm)?.width).toBe(480);
   });
 
   it("falls back to the widest variant when none is wide enough", () => {

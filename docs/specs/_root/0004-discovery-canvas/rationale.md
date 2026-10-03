@@ -65,7 +65,7 @@ Option 1 fits the forces in Context. The surface is a wall you wander, with fixe
 
 Putting the layout in `@folio/shared` as a pure function with fixed caption heights keeps it independent of fonts and devices. Option 4 is attractive later for share cards, but the api cannot load that package today, so it is a Follow-up, not a blocker, and `apps/web` is the only consumer for now.
 
-Ranking runs in SQL per request with a Bayesian weighted rating (the average shrunk toward the bucket mean by how many ratings it has), tie broken on id, unrated last. A stored rank would be a derived value that goes stale, and there is no measured performance problem, so no migration. At 60 tiles per bucket nothing is paged, which removes cursor logic and the stale ticket text about it.
+Ranking runs in SQL per request with a Bayesian weighted rating (the average shrunk toward the bucket mean by how many ratings it has), tie broken on id, unrated last. A stored rank would be a derived value that goes stale, and there is no measured performance problem, so no migration. At 50 tiles per bucket nothing is paged, which removes cursor logic and the stale ticket text about it.
 
 The position URL is bucket relative so that a later change to slot size or arrangement does not break links already shared. The cost is a small lookup on load.
 
@@ -87,6 +87,6 @@ What the repo check found before the interview (so the spec's claims can be trac
 
 ## Open design items carried from the interview
 
-Decided in the interview: 60 tiles per bucket, exit tile to the unfiltered city page, tile click to a new DB tour page, tiers 4, 16, 40, explicit caption heights, ranking in SQL cached, shared layout in web only for now, the 4 by 2 city region, bucket relative position URL, the brief's Recommended items as written, the two endpoint feed, and no migration.
+Decided in the interview: 60 tiles per bucket (lowered to 50 after the fit measurement: at 60, 14 of 36 full buckets did not fit the slot), exit tile to the unfiltered city page, tile click to a new DB tour page, tiers 4, 16, 30 (4, 16, 40 before the cap change), explicit caption heights, ranking in SQL cached, shared layout in web only for now, the 4 by 2 city region, bucket relative position URL, the brief's Recommended items as written, the two endpoint feed, and no migration.
 
-Decided here without a separate question (for you to accept or change): the layout property test (many buckets and seeds, 1 to 60 tiles, small buckets included), the placement of the performance spike as the first task of the layout child, and the 9 separators as an open item for the designer.
+Decided here without a separate question (for you to accept or change): the layout property test (many buckets and seeds, 1 to 50 tiles, small buckets included), the placement of the performance spike as the first task of the layout child, and the 9 separators as an open item for the designer.

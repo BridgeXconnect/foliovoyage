@@ -18,8 +18,8 @@ A pure function places every tile of a bucket inside its slot, the same way ever
 - **AC-L2**: Each tile's shape (1:1 or 3:2) and its jitter and tilt are seeded from its tile id (the Experience id) with FNV-1a (32 bit) hashing into a mulberry32 generator. A tile is 1:1 when `hash % 100 < 30`. Jitter is within ±5 px and rotation within ±1.5 degrees.
 - **AC-L3**: Placement follows the prototype rules: rank order, the first free spot on an 8 px grid, scored by `y + 0.55 * x`, a 24 px gutter, a 48 px margin, the title block and the exit tile corner reserved first, and a minimum clearance of 6 px between tilted outlines. The outline includes the caption. A placement's `x` and `y` are the pre rotation top left corner. All constants (tier widths, title block, exit tile) are in index.md.
 - **AC-L4**: Every tile is placed fully inside its 2400 by 1624 slot, with caption height taken from the fixed tier tokens (14, 57, 68 px) and never measured.
-- **AC-L5**: A property test runs the function over at least 200 buckets with different seeds, tile counts from 1 to 60 (small buckets included), and shape mixes from none to all 1:1. For each it asserts: minimum clearance at least 6 px, every tile inside the slot, no overlap with the title block or the exit tile, determinism (two runs equal), and that no tile is dropped. A fixed seed list makes failures reproducible.
-- **AC-L6**: The exit tile is 240 by 160 px with no caption, placed in the reserved corner (2112, 1416). Rank 1 sits to the right of the title block, 24 px from it, and is exempt from the placement scoring. The tile count never exceeds 60 plus the exit tile.
+- **AC-L5**: A property test runs the function over at least 200 buckets with different seeds, tile counts from 1 to 50 (small buckets included), and 1:1 shares from none to 50%. For each it asserts: minimum clearance at least 6 px, every tile inside the slot, no overlap with the title block or the exit tile, determinism (two runs equal), and that no tile is dropped. A fixed seed list makes failures reproducible.
+- **AC-L6**: The exit tile is 240 by 160 px with no caption, placed in the reserved corner (2112, 1416). Rank 1 sits to the right of the title block, 24 px from it, and is exempt from the placement scoring. The tile count never exceeds 50 plus the exit tile.
 - **AC-L7**: `/discover` mounts only tiles in sections inside the viewport plus one section of overscan, never more than about 150 tiles at a time (about 75 on a phone and 110 on a desktop at 15 tiles per 1,024 px square, to be confirmed by the spike), and moves the world with a `translate3d` transform driven by `requestAnimationFrame`.
 - **AC-L8**: Pan works with pointer drag (mouse and touch), the wheel and trackpad, and the arrow keys. A drag longer than 6 px suppresses the click on the tile under the pointer, so a pan that starts on a tile never opens it. The view clamps to the world bounds. Page scroll and pull to refresh do not fight the pan (`touch-action: none` on the canvas only).
 - **AC-L9**: Performance gate: a scripted pan across four adjacent slots, with Chrome's 4x CPU throttling, keeps the 95th percentile frame time at or under 20 ms and mounted tiles at or under 150. It is also checked by hand on one real mid range phone before slice 2.
@@ -61,7 +61,7 @@ A pure function places every tile of a bucket inside its slot, the same way ever
 | Action | Value produced / displayed | Source |
 |---|---|---|
 | Layout | slot origin | world geometry in index.md, from the city and category indexes |
-| Layout | tier | tile `rank` (1 to 4 `lg`, 5 to 20 `md`, 21 to 60 `sm`) |
+| Layout | tier | tile `rank` (1 to 4 `lg`, 5 to 20 `md`, 21 to 50 `sm`) |
 | Layout | shape, jitter, tilt | hash of the tile id (AC-L2) |
 | Layout | caption height | fixed tier token: 14, 57, 68 px (tile design child) |
 | Layout | title block and exit corner | constants in index.md |

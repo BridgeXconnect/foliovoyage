@@ -103,7 +103,7 @@ describe("world geometry", () => {
     expect(EXIT_TILE_CORNER).toEqual({ x: 2112, y: 1416 });
   });
 
-  it("maps rank to tier: 1 to 4 lg, 5 to 20 md, 21 to 60 sm", () => {
+  it("maps rank to tier: 1 to 4 lg, 5 to 20 md, 21 to 50 sm", () => {
     expect([1, 4].map(tierForRank)).toEqual(["lg", "lg"]);
     expect([5, 20].map(tierForRank)).toEqual(["md", "md"]);
     expect([21, MAX_TILES_PER_BUCKET].map(tierForRank)).toEqual(["sm", "sm"]);

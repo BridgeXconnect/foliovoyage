@@ -8,7 +8,7 @@ import type { CanvasImage } from "@folio/shared";
  * the smallest variant at least `minWidth` wide, else the widest, skipping
  * variants of width 0 (the normalizer's "unknown"), else `imageUrl`.
  *
- * `minWidth` is 480 for an `sm` tile (rank 21 to 60) and 640 for `md` and `lg`.
+ * `minWidth` is 480 for an `sm` tile (rank 21 to 50) and 640 for `md` and `lg`.
  * These are source image widths, not slot geometry, so they live here and not in
  * `@folio/shared`; the rank where `sm` starts is pinned to the shared tier
  * boundary by `canvas-categories.spec.ts`.
