@@ -32,6 +32,7 @@ Each child is a flat file in this directory, written to be built from on its own
 - **AC-5**: The three analytics events (`canvas_bucket_enter`, `canvas_tile_click`, `canvas_nav_jump`) go through one helper in `apps/web/src/lib/analytics.ts` and never through an inline `posthog.capture`.
 - **AC-6**: Every tile and the exit tile link through one swappable function each (`tourHref`, `exitHref`), so BRI-205 and the new tour page can change a target in one place.
 - **AC-7**: The canvas runs the performance gate in `0004-canvas-layout-rendering.md` (AC-L9) on a mid range phone before slice 2 starts.
+  - The performance spike passed the gate on an iPhone 16 (95th percentile 17 to 18 ms over pan frames, production build) and confirmed 512 px sections, overscan 1, and the 150 tile cap. The numbers, and what was not measured, are under AC-L9.
 
 ## Decision
 
@@ -63,7 +64,7 @@ The decisions inside that option, with the pick, the reason, and the runner up:
 | Slot (one bucket) | 2400 by 1624 px |
 | City region | 4 columns by 2 rows of slots: 9600 by 3248 px (7 slots used, the eighth stays empty and reserved) |
 | World | 3 city columns by 2 city rows: 28,800 by 6,496 px |
-| Section size | 512 px, overscan 1 section (about 75 mounted tiles on a phone, about 110 on a desktop at 15 tiles per 1,024 px square) |
+| Section size | 512 px, overscan 1 section (at most 52 mounted tiles on a phone and 77 on a desktop, measured in the performance spike) |
 
 Fixed order, so a bucket's position never changes:
 - Cities, row by row: `bangkok`, `kyoto`, `hanoi` (top row), `rome`, `lisbon`, `bali` (bottom row). City `i` sits at column `i mod 3`, row `floor(i / 3)`.
