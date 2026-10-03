@@ -2,6 +2,7 @@ import { Logger } from "@nestjs/common";
 
 import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient } from "./clients/viator.client";
+import type { ViatorProduct } from "./clients/viator.types";
 import {
   extractLocationCandidates,
   type LocationCandidate,
@@ -320,95 +321,15 @@ export class ImportPipeline {
           `arrayBuffers=${toMb(mem.arrayBuffers)}MB`,
       );
 
-      // 1+2. Scope-filter + normalize this page (BRI-170/171): `page.products`
-      //    goes out of scope at the end of this iteration, and `pageDtos`
-      //    holds at most this page's curated survivors — never the whole
-      //    crawl's. The normalizer throws on a product missing a required
-      //    field (defence-in-depth); one bad product must not sink the whole
-      //    nightly run, so it's skipped-and-logged rather than aborting.
-      const pageDtos: TourDTO[] = [];
-      const candidatesByTourId = new Map<string, LocationCandidate[]>();
-      for (const raw of page.products) {
-        const scope = decideIngestScope(raw);
-        if (!scope.ingest) {
-          switch (scope.reason) {
-            case "NOT_CURATED_DESTINATION":
-              skippedNotCurated += 1;
-              break;
-            case "INACTIVE":
-              skippedInactive += 1;
-              break;
-            case "MANUAL_CONFIRMATION":
-              skippedManualConfirmation += 1;
-              break;
-          }
-          continue;
-        }
-
-        try {
-          const dto = normalizeViatorProduct(raw, {
-            fetchedAt: options.fetchedAt,
-          });
-          pageDtos.push(dto);
-          // BRI-218: every location ref the payload carries, in priority order.
-          candidatesByTourId.set(
-            dto.provider_tour_id,
-            extractLocationCandidates(raw),
-          );
-          counts.normalized += 1;
-        } catch (error) {
-          this.logger.warn(
-            `Skipping unnormalizable product: ${messageOf(error)}`,
-          );
-        }
-      }
-
-      if (pageDtos.length > 0) {
-        // 3. Resolve start-location references to coordinates for this page
-        //    (cached across runs and across pages within this run — see
-        //    LocationResolver's persistent cache).
-        const located = await this.resolver.attachLocations(
-          pageDtos,
-          candidatesByTourId,
-        );
-
-        // 3b. Resolve the "from" price per product from
-        //     `/availability/schedules` (BRI-165), for this page's survivors
-        //     only. BRI-170: bounded to this page's curated count (a small
-        //     fraction of ≤500), never one call per product in Viator's
-        //     entire global catalog, and never accumulated across the whole
-        //     crawl before firing.
-        const priced = await this.priceResolver.attachPrices(located);
-
-        // 3c. Convert each tour's supplier-currency "from" price to a USD
-        //     reference price (category/currency promotion plan Task 4), one
-        //     batched FX-rate resolve per page, never per tour.
-        const referenced = await this.referencePriceResolver.attachReferencePrices(priced);
-
-        // 3d. Derive each tour's primary category from its tags (BRI-224).
-        //     No network call of its own — the vocabulary is fetched once per
-        //     segment and reused across every page (see CategoryResolver).
-        const categorized = await this.categoryResolver.attachCategories(referenced);
-
-        // 4. Validate this page. Passing tours proceed to this page's
-        //    upsert; quarantined ones are persisted + counted by the
-        //    validator via the shared stats tally, which spans this segment.
-        const passing: TourDTO[] = [];
-        for (const dto of categorized) {
-          const result = await this.validator.process(dto, stats);
-          if (result.ok) passing.push(dto);
-        }
-
-        if (passing.length > 0) {
-          // 5. Upsert this page's passing tours immediately — unconditional
-          //    and safe (BRI-170: see upsert.ts's class docstring for why
-          //    this doesn't wait for the mass-deletion guard).
-          const batchResult = await this.upsert.upsertBatch(passing, {
-            transactionTimeoutMs: options.transactionTimeoutMs,
-          });
-          counts.upserted += batchResult.upserted;
-        }
-      }
+      const processed = await this.processProducts(
+        page.products,
+        counts,
+        stats,
+        options,
+      );
+      skippedNotCurated += processed.skippedNotCurated;
+      skippedInactive += processed.skippedInactive;
+      skippedManualConfirmation += processed.skippedManualConfirmation;
 
       // BRI-176/BRI-182: stop this segment — leaving the rest for a fresh
       // process (see class docstring) — on whichever of two independent
@@ -456,6 +377,146 @@ export class ImportPipeline {
 
     return { done };
   }
+
+  /**
+   * Run one batch of raw products through every per-page stage — scope filter,
+   * normalize, location, price, reference price, category, validate, upsert.
+   * This is the body {@link runSegment} runs per crawled page, extracted
+   * (BRI-227) so a caller that already holds raw products (the by-code
+   * re-fetch CLI) goes through the identical stages rather than a parallel
+   * copy. `runSegment` calls it unchanged. Mutates `counts.normalized` and
+   * `counts.upserted`, and `stats` (quarantine tally); never touches
+   * `counts.fetched`, the cursor or page fields, which belong to the crawl.
+   *
+   * `products` goes out of scope with the caller's iteration, and only this
+   * batch's curated survivors are ever held as full `TourDTO`s (BRI-170).
+   */
+  async processProducts(
+    products: readonly ViatorProduct[],
+    counts: ImportRunCounts,
+    stats: ImportRunStats,
+    options: Pick<ImportPipelineOptions, "fetchedAt" | "transactionTimeoutMs">,
+  ): Promise<ProcessProductsResult> {
+    const result: ProcessProductsResult = {
+      skippedNotCurated: 0,
+      skippedInactive: 0,
+      skippedManualConfirmation: 0,
+      unnormalizableCodes: [],
+      quarantinedCodes: [],
+      upsertedCodes: [],
+    };
+
+    // 1+2. Scope-filter + normalize (BRI-170/171). The normalizer throws on a
+    //    product missing a required field (defence-in-depth); one bad product
+    //    must not sink the whole nightly run, so it's skipped-and-logged
+    //    rather than aborting.
+    const pageDtos: TourDTO[] = [];
+    const candidatesByTourId = new Map<string, LocationCandidate[]>();
+    for (const raw of products) {
+      const scope = decideIngestScope(raw);
+      if (!scope.ingest) {
+        switch (scope.reason) {
+          case "NOT_CURATED_DESTINATION":
+            result.skippedNotCurated += 1;
+            break;
+          case "INACTIVE":
+            result.skippedInactive += 1;
+            break;
+          case "MANUAL_CONFIRMATION":
+            result.skippedManualConfirmation += 1;
+            break;
+        }
+        continue;
+      }
+
+      try {
+        const dto = normalizeViatorProduct(raw, {
+          fetchedAt: options.fetchedAt,
+        });
+        pageDtos.push(dto);
+        // BRI-218: every location ref the payload carries, in priority order.
+        candidatesByTourId.set(
+          dto.provider_tour_id,
+          extractLocationCandidates(raw),
+        );
+        counts.normalized += 1;
+      } catch (error) {
+        const code = raw.productCode;
+        if (typeof code === "string") result.unnormalizableCodes.push(code);
+        this.logger.warn(
+          `Skipping unnormalizable product: ${messageOf(error)}`,
+        );
+      }
+    }
+
+    if (pageDtos.length === 0) return result;
+
+    // 3. Resolve start-location references to coordinates for this page
+    //    (cached across runs and across pages within this run — see
+    //    LocationResolver's persistent cache).
+    const located = await this.resolver.attachLocations(
+      pageDtos,
+      candidatesByTourId,
+    );
+
+    // 3b. Resolve the "from" price per product from
+    //     `/availability/schedules` (BRI-165), for this page's survivors
+    //     only. BRI-170: bounded to this page's curated count (a small
+    //     fraction of ≤500), never one call per product in Viator's
+    //     entire global catalog, and never accumulated across the whole
+    //     crawl before firing.
+    const priced = await this.priceResolver.attachPrices(located);
+
+    // 3c. Convert each tour's supplier-currency "from" price to a USD
+    //     reference price (category/currency promotion plan Task 4), one
+    //     batched FX-rate resolve per page, never per tour.
+    const referenced =
+      await this.referencePriceResolver.attachReferencePrices(priced);
+
+    // 3d. Derive each tour's primary category from its tags (BRI-224).
+    //     No network call of its own — the vocabulary is fetched once per
+    //     segment and reused across every page (see CategoryResolver).
+    const categorized = await this.categoryResolver.attachCategories(referenced);
+
+    // 4. Validate this page. Passing tours proceed to this page's
+    //    upsert; quarantined ones are persisted + counted by the
+    //    validator via the shared stats tally, which spans this segment.
+    const passing: TourDTO[] = [];
+    for (const dto of categorized) {
+      const outcome = await this.validator.process(dto, stats);
+      if (outcome.ok) passing.push(dto);
+      else result.quarantinedCodes.push(dto.provider_tour_id);
+    }
+
+    if (passing.length > 0) {
+      // 5. Upsert this page's passing tours immediately — unconditional
+      //    and safe (BRI-170: see upsert.ts's class docstring for why
+      //    this doesn't wait for the mass-deletion guard).
+      const batchResult = await this.upsert.upsertBatch(passing, {
+        transactionTimeoutMs: options.transactionTimeoutMs,
+      });
+      counts.upserted += batchResult.upserted;
+      result.upsertedCodes = passing.map((dto) => dto.provider_tour_id);
+    }
+
+    return result;
+  }
+}
+
+/** What {@link ImportPipeline.processProducts} did with one batch. */
+export interface ProcessProductsResult {
+  /** Dropped by the scope filter: not one of the curated destinations. */
+  skippedNotCurated: number;
+  /** Dropped by the scope filter: product is no longer `ACTIVE`. */
+  skippedInactive: number;
+  /** Dropped by the scope filter: manual-confirmation product. */
+  skippedManualConfirmation: number;
+  /** `productCode`s the normalizer threw on (skipped and logged). */
+  unnormalizableCodes: string[];
+  /** `provider_tour_id`s the validator quarantined. */
+  quarantinedCodes: string[];
+  /** `provider_tour_id`s written by the batch upsert. */
+  upsertedCodes: string[];
 }
 
 /** Best-effort message extraction from an unknown thrown value. */

@@ -10,9 +10,52 @@ import {
 } from "../http/fetch-with-backoff";
 import type { RawArchiveStore } from "../storage/raw-archive.store";
 import {
+  viatorBulkResponseSchema,
   viatorModifiedSinceResponseSchema,
   type ViatorProduct,
 } from "./viator.types";
+
+/** Viator's documented maximum for `POST /products/bulk` (`productCodes`). */
+export const VIATOR_BULK_MAX_CODES = 500;
+
+/**
+ * Archive `source` for by-code payloads (BRI-227). A source of its own, so a
+ * re-fetch can never overwrite a nightly crawl's `raw/viator/{date}/{page}.json`;
+ * the key keeps the `raw/{source}/{date}/{n}.json` shape the BRI-218 archive
+ * reader expects, with `n` the numeric batch index.
+ */
+export const REFETCH_ARCHIVE_SOURCE = "viator-refetch";
+
+/** Options for {@link ViatorClient.fetchProductsByCode}. */
+export interface FetchProductsByCodeOptions {
+  /** Numeric batch index; becomes the archive key's `{n}`. */
+  batch: number;
+  /** Archive date partition, `YYYY-MM-DD`. Defaults to today (UTC). */
+  date?: string;
+}
+
+/** One by-code batch, archived and parsed. */
+export interface ViatorCodeBatch {
+  /** Products Viator returned — ACTIVE and INACTIVE alike; the caller decides. */
+  products: ViatorProduct[];
+  /**
+   * Codes Viator refused as invalid (`400 Invalid product code: X`) and the
+   * client dropped from the request before resending. Never deleted anywhere.
+   */
+  rejectedCodes: string[];
+  /**
+   * Every code of the batch, when a 400 could not be attributed to a code in
+   * the batch (unparseable body, or it names a code we did not send). Nothing
+   * was fetched and nothing is archived; the codes are neither invalid nor
+   * missing, just unresolved. Never deleted anywhere.
+   */
+  unresolvedCodes: string[];
+  /** Where the response body was archived, or `null` if nothing was fetched. */
+  archive: { bucket: string; key: string } | null;
+}
+
+/** `{"code":"BAD_REQUEST","message":"Invalid product code: ZZZ"}` (observed 2026-10-02). */
+const INVALID_CODE_RE = /^Invalid product code:\s*(\S+)/;
 
 /**
  * Viator OTA client (ST-6 / BRI-103).
@@ -188,6 +231,106 @@ export class ViatorClient {
     } while (cursor);
   }
 
+  /**
+   * Fetch up to {@link VIATOR_BULK_MAX_CODES} products by code with
+   * `POST /products/bulk` (BRI-227), archive the response body **as returned**
+   * (a bare array, not reshaped) before parsing it, and hand the products back.
+   *
+   * Same retry unit as the crawl ({@link fetchWithBackoff}: request plus body
+   * read, 429/5xx/network errors, `Retry-After`). One difference by-code needs:
+   * observed 2026-10-02, a single invalid code fails the *whole* request with
+   * `400 {"message":"Invalid product code: X"}`. A bad code must not sink 499
+   * good ones, so a 400 naming a code in the request drops that code (recorded
+   * in `rejectedCodes`) and the rest is resent, at most `codes.length` times
+   * (one per code, so it cannot loop). A 400 that does not name a code from
+   * this batch is not guessed at: the whole batch comes back as
+   * `unresolvedCodes`. The 400 itself is never retried (not in the retryable
+   * set), and only 200 responses are archived.
+   *
+   * Policy note: Viator's docs say this endpoint is not for ingesting the
+   * catalogue. It is only used by the one-off BRI-227 repair CLI.
+   */
+  async fetchProductsByCode(
+    codes: readonly string[],
+    options: FetchProductsByCodeOptions,
+  ): Promise<ViatorCodeBatch> {
+    if (codes.length === 0 || codes.length > VIATOR_BULK_MAX_CODES) {
+      throw new Error(
+        `fetchProductsByCode takes 1..${VIATOR_BULK_MAX_CODES} codes, got ${codes.length}.`,
+      );
+    }
+    const date = options.date ?? new Date().toISOString().slice(0, 10);
+    let remaining = [...codes];
+    const rejectedCodes: string[] = [];
+
+    // Each 400 removes one code, so `codes.length` bounds the resends.
+    for (let attempt = 0; attempt <= codes.length && remaining.length > 0; attempt++) {
+      const result = await this.postBulkWithBackoff(remaining);
+
+      if (result.status === 400) {
+        const bad = invalidCodeFrom(result.body);
+        if (bad === undefined || !remaining.includes(bad)) {
+          this.logger.error(
+            `Unattributable 400 for a bulk batch of ${codes.length} code(s); ` +
+              `marking the batch unresolved: ${result.body.slice(0, 300)}`,
+          );
+          return {
+            products: [],
+            rejectedCodes: [],
+            unresolvedCodes: [...codes],
+            archive: null,
+          };
+        }
+        rejectedCodes.push(bad);
+        remaining = remaining.filter((code) => code !== bad);
+        continue;
+      }
+
+      // Archive the raw bytes BEFORE parsing, as the crawl does.
+      const archived = await this.archive.putRawPage(
+        { source: REFETCH_ARCHIVE_SOURCE, date, page: options.batch },
+        result.body,
+      );
+      const products = viatorBulkResponseSchema.parse(JSON.parse(result.body));
+      return { products, rejectedCodes, unresolvedCodes: [], archive: archived };
+    }
+
+    return { products: [], rejectedCodes, unresolvedCodes: [], archive: null };
+  }
+
+  private async postBulkWithBackoff(
+    codes: readonly string[],
+  ): Promise<FetchPageResult> {
+    const url = new URL(
+      `${this.config.baseUrl.replace(/\/+$/, "")}/products/bulk`,
+    );
+    return fetchWithBackoff(
+      () =>
+        this.http.fetch(url, {
+          method: "POST",
+          headers: {
+            ...this.buildHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ productCodes: codes }),
+        }),
+      async (response): Promise<FetchPageResult> => ({
+        status: response.status,
+        body: await response.text(),
+      }),
+      {
+        name: "Viator",
+        logContext: `, bulk batch of ${codes.length} code(s)`,
+        backoff: this.backoff,
+        logger: this.logger,
+        sleep: this.sleep,
+        random: this.random,
+        // A 400 is handed to the caller (see fetchProductsByCode), not thrown.
+        isSuccess: (response) => response.ok || response.status === 400,
+      },
+    );
+  }
+
   /** Build the `/products/modified-since` URL with query params. */
   private buildUrl(params: {
     count: number;
@@ -263,6 +406,18 @@ export class ViatorClient {
     };
     if (ifNoneMatch) headers["If-None-Match"] = ifNoneMatch;
     return headers;
+  }
+}
+
+/** The code a `400 Invalid product code: X` body names, or `undefined`. */
+function invalidCodeFrom(body: string): string | undefined {
+  try {
+    const message = (JSON.parse(body) as { message?: unknown }).message;
+    return typeof message === "string"
+      ? INVALID_CODE_RE.exec(message)?.[1]
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
 

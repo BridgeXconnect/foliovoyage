@@ -271,3 +271,28 @@ describe("ReadOnlyOverlayCache", () => {
     expect((await cache.getMany(["LOC-a"])).get("LOC-a")?.latitude).toBe(1);
   });
 });
+
+describe("backfill-experience-coordinates --source (BRI-227)", () => {
+  const listed = async (argv: string[]) => {
+    const listPageKeys = jest.fn<RawArchiveReader["listPageKeys"]>(async () => []);
+    const reader: RawArchiveReader = { listPageKeys, readPage: async () => [] };
+    const { store } = fakeStore([]);
+    const result = await run(argv, { store, reader, resolver: resolverOf({}), disconnect: async () => {} });
+    return { listPageKeys, result };
+  };
+
+  it("defaults to the viator archive source", async () => {
+    const { listPageKeys } = await listed([]);
+    expect(listPageKeys).toHaveBeenCalledWith("viator");
+  });
+
+  it("--source viator-refetch lists that prefix", async () => {
+    const { listPageKeys } = await listed(["--source", "viator-refetch"]);
+    expect(listPageKeys).toHaveBeenCalledWith("viator-refetch");
+  });
+
+  it("rejects a malformed source", async () => {
+    const { result } = await listed(["--source", "../etc"]);
+    expect(result.code).toBe(1);
+  });
+});

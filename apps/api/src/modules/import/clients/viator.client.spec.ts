@@ -451,3 +451,110 @@ describe("ViatorClient — SSRF enforcement", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+describe("ViatorClient — fetchProductsByCode (BRI-227)", () => {
+  const codesOf = (n: number): string[] => Array.from({ length: n }, (_, i) => `C${i}`);
+  const invalid = (code: string) => ({
+    status: 400,
+    body: JSON.stringify({ code: "BAD_REQUEST", message: `Invalid product code: ${code}` }),
+  });
+  const ok = (codes: string[]) => ({
+    status: 200,
+    body: JSON.stringify(codes.map((productCode) => ({ productCode, status: "ACTIVE" }))),
+  });
+  const sentCodes = (inits: (RequestInit | undefined)[], i: number): string[] =>
+    JSON.parse(String(inits[i]?.body)).productCodes;
+
+  it("posts up to 500 codes and archives the body as returned under viator-refetch", async () => {
+    const codes = codesOf(500);
+    const resp = ok(codes);
+    const { fetchImpl, urls, inits } = queuedFetch([resp]);
+    const { client, archive } = makeClient(fetchImpl);
+
+    const result = await client.fetchProductsByCode(codes, { batch: 3, date: "2026-10-02" });
+
+    expect(urls[0]).toBe("https://api.viator.com/partner/products/bulk");
+    expect(inits[0]?.method).toBe("POST");
+    expect(sentCodes(inits, 0)).toHaveLength(500);
+    expect(result.products).toHaveLength(500);
+    expect(archive.writes).toHaveLength(1);
+    expect(archive.writes[0].ref).toEqual({ source: "viator-refetch", date: "2026-10-02", page: 3 });
+    expect(archive.writes[0].body).toBe(resp.body);
+  });
+
+  it("rejects 0 codes and more than 500", async () => {
+    const { fetchImpl } = queuedFetch([ok([])]);
+    const { client } = makeClient(fetchImpl);
+    await expect(client.fetchProductsByCode([], { batch: 1 })).rejects.toThrow(/1\.\.500/);
+    await expect(client.fetchProductsByCode(codesOf(501), { batch: 1 })).rejects.toThrow(/1\.\.500/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("drops a single invalid code and resends the rest", async () => {
+    const { fetchImpl, inits } = queuedFetch([invalid("C1"), ok(["C0", "C2"])]);
+    const { client, archive, sleep } = makeClient(fetchImpl);
+
+    const result = await client.fetchProductsByCode(["C0", "C1", "C2"], { batch: 1, date: "2026-10-02" });
+
+    expect(result.rejectedCodes).toEqual(["C1"]);
+    expect(result.unresolvedCodes).toEqual([]);
+    expect(result.products.map((p) => p.productCode)).toEqual(["C0", "C2"]);
+    expect(sentCodes(inits, 1)).toEqual(["C0", "C2"]);
+    expect(archive.writes).toHaveLength(1); // the 400 is not archived
+    expect(sleep).not.toHaveBeenCalled(); // and not retried with backoff
+  });
+
+  it("drops several invalid codes in one batch", async () => {
+    const { fetchImpl } = queuedFetch([invalid("C0"), invalid("C2"), ok(["C1"])]);
+    const { client, archive } = makeClient(fetchImpl);
+
+    const result = await client.fetchProductsByCode(["C0", "C1", "C2"], { batch: 4, date: "2026-10-02" });
+
+    expect(result.rejectedCodes).toEqual(["C0", "C2"]);
+    expect(result.products).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(archive.writes.map((w) => w.ref.page)).toEqual([4]);
+  });
+
+  it("marks the whole batch unresolved on an unparseable 400, with no archive write", async () => {
+    const { fetchImpl } = queuedFetch([{ status: 400, body: "<html>nope</html>" }]);
+    const { client, archive } = makeClient(fetchImpl);
+
+    const result = await client.fetchProductsByCode(["A", "B"], { batch: 1 });
+
+    expect(result.unresolvedCodes).toEqual(["A", "B"]);
+    expect(result.products).toEqual([]);
+    expect(result.rejectedCodes).toEqual([]);
+    expect(result.archive).toBeNull();
+    expect(archive.writes).toHaveLength(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the batch unresolved when the 400 names a code that is not in it", async () => {
+    const { fetchImpl } = queuedFetch([invalid("OTHER")]);
+    const { client } = makeClient(fetchImpl);
+    const result = await client.fetchProductsByCode(["A", "B"], { batch: 1 });
+    expect(result.unresolvedCodes).toEqual(["A", "B"]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds the resends: every code invalid ends with no archive and no extra call", async () => {
+    const { fetchImpl } = queuedFetch([invalid("A"), invalid("B")]);
+    const { client, archive } = makeClient(fetchImpl);
+    const result = await client.fetchProductsByCode(["A", "B"], { batch: 1 });
+    expect(result.rejectedCodes).toEqual(["A", "B"]);
+    expect(result.archive).toBeNull();
+    expect(archive.writes).toHaveLength(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // never more than one call per code
+  });
+
+  it("retries a 429 through fetchWithBackoff and then archives the 200", async () => {
+    const { fetchImpl } = queuedFetch([{ status: 429, headers: { "retry-after": "1" } }, ok(["A"])]);
+    const { client, archive, sleep } = makeClient(fetchImpl);
+    const result = await client.fetchProductsByCode(["A"], { batch: 1, date: "2026-10-02" });
+    expect(result.products).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(archive.writes).toHaveLength(1);
+  });
+});
