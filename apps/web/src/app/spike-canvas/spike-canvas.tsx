@@ -210,15 +210,16 @@ function Overlay({ stats, config }: { stats: SpikeStats; config: Config }) {
   const [text, setText] = useState("");
   useEffect(() => {
     const id = setInterval(() => {
-      const now = performance.now();
-      const recent = stats.frames.filter(([t]) => t > now - 5000).map(([, d]) => d);
-      const all = stats.frames.map(([, d]) => d);
+      // Pan frames only: from a pan's first input to 300 ms after its last.
+      const recent = stats.panFrames(performance.now() - 5000);
+      const all = stats.panFrames();
       setText(
         [
           `mounted ${stats.mounted} (max ${stats.maxMounted})`,
-          `last 5 s: p95 ${percentile(recent, 95).toFixed(1)} ms, worst ${Math.max(0, ...recent).toFixed(1)} ms`,
-          `since reset: p95 ${percentile(all, 95).toFixed(1)} ms, worst ${Math.max(0, ...all).toFixed(1)} ms, ${all.length} frames`,
-          `long tasks ${stats.longTasks.length}, clicks ${stats.clicks}`,
+          `pan, last 5 s: p95 ${percentile(recent, 95).toFixed(1)} ms, worst ${Math.max(0, ...recent).toFixed(1)} ms`,
+          `pan, since reset: p95 ${percentile(all, 95).toFixed(1)} ms, worst ${Math.max(0, ...all).toFixed(1)} ms`,
+          `${all.length} pan frames of ${stats.frames.length}, ${stats.windows.length} pans`,
+          `long tasks in pans ${stats.panLongTasks().length}, clicks ${stats.clicks}`,
           `section ${config.sectionSize}, overscan ${config.overscan}, img ${config.imageMode}`,
         ].join("\n"),
       );
@@ -268,6 +269,7 @@ export default function SpikeCanvas() {
       canvas,
       world,
       worldSize: WORLD,
+      onPanInput: stats.panInput,
       onView(view, viewport) {
         const next = sectionRange(view, viewport, WORLD, config);
         if (range && sameRange(range, next)) return;
