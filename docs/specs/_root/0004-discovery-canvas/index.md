@@ -152,6 +152,7 @@ Slice 3, tile design:
 - [ ] Update BRI-225: its text is stale (cursor pagination, price band, real image width and height).
 - [ ] When share cards need the layout on the server, give `@folio/shared` a dual build or a CommonJS entry so the api can call it.
 - [ ] Confirm the BRI-224 backfill ran against production, so `primaryCategoryTagId` is set on live tours. This spec did not verify it.
+- [ ] The category slug and label map has an API local copy (`apps/api/src/canvas/canvas-categories.ts`), pinned to the shared copy and to `category-rule.ts` by a parity test, because the API compiles to CommonJS and cannot import values from `@folio/shared` yet. AC-1's "defined once" applies to slot geometry, which only `@folio/shared` holds. Remove the copy when `@folio/shared` gets a dual build or a CommonJS entry.
 - [ ] Add the Paper caption, leading, and panel tokens to `apps/web/src/app/globals.css`, scoped to the canvas root (details in the tile design child).
 
 ## Rationale

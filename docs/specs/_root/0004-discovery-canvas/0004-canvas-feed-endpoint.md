@@ -107,6 +107,7 @@ The canvas reads two public endpoints. The first returns a small summary of all 
 
 - [ ] Add an edge or app level rate limit for the two public endpoints (the api has none today).
 - [ ] After BRI-224's backfill is confirmed on production, check the bucket counts look sane (no bucket under about 15 tiles for the six cities).
+- [ ] The category slug and label map has an API local copy (`apps/api/src/canvas/canvas-categories.ts`), pinned to the shared copy and to `category-rule.ts` by a parity test, because the API compiles to CommonJS and cannot import values from `@folio/shared` yet. AC-1's "defined once" applies to slot geometry, which only `@folio/shared` holds. Remove the copy when `@folio/shared` gets a dual build or a CommonJS entry.
 
 ## Rationale
 

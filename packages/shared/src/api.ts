@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MAX_TILES_PER_BUCKET } from "./canvas/geometry";
 import type { PriceBand } from "./index";
 
 /**
@@ -15,7 +16,9 @@ import type { PriceBand } from "./index";
  * a new field ahead of the web does not break the site; a missing or
  * wrong-typed field does.
  *
- * Covers `GET /v1/destinations/:country/:city` today. Add further endpoints
+ * Covers `GET /v1/destinations/:country/:city` and the two discovery canvas
+ * feed endpoints (`GET /v1/canvas/buckets` and
+ * `GET /v1/canvas/buckets/:citySlug/:categorySlug`). Add further endpoints
  * here as `apps/web` starts consuming them.
  */
 
@@ -89,3 +92,67 @@ export const destinationResponseSchema = z.object({
   pagination: paginationMetaSchema,
 });
 export type DestinationResponse = z.infer<typeof destinationResponseSchema>;
+
+/**
+ * A tile's picture, picked from `Tour.images` (or `Tour.imageUrl`). `width` and
+ * `height` are null when unknown: a variant reported at width 0, or the plain
+ * `imageUrl` fallback.
+ */
+export const canvasImageSchema = z.object({
+  url: z.string().min(1),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+});
+export type CanvasImage = z.infer<typeof canvasImageSchema>;
+
+/**
+ * One bucket (a city and a category) as the canvas first paint sees it.
+ * `total` is the count of eligible tiles, uncapped, so it can exceed the 60
+ * tiles a bucket carries. `image` is the cover image of the rank 1 tile.
+ */
+export const canvasBucketSummarySchema = z.object({
+  citySlug: z.string(),
+  countrySlug: z.string(),
+  cityName: z.string(),
+  categorySlug: z.string(),
+  categoryLabel: z.string(),
+  total: z.number().int().positive(),
+  image: canvasImageSchema,
+});
+export type CanvasBucketSummary = z.infer<typeof canvasBucketSummarySchema>;
+
+/** `GET /v1/canvas/buckets`: one summary per bucket with at least one eligible tile. */
+export const canvasBucketsResponseSchema = z.object({
+  buckets: z.array(canvasBucketSummarySchema),
+});
+export type CanvasBucketsResponse = z.infer<typeof canvasBucketsResponseSchema>;
+
+/**
+ * One tile: the best tour of one Experience in a bucket. Carries no aiSummary,
+ * no affiliate URL and no tags. `price.amountMinor` is a Postgres BigInt sent as
+ * a JSON number, checked as an integer here.
+ */
+export const canvasTileSchema = z.object({
+  /** The Experience id, so a layout seed and a target page share one key. */
+  id: z.string(),
+  /** The chosen Tour id, so a click is attributed to a tour. */
+  tourId: z.string(),
+  /** 1-based position in the bucket's ranking. */
+  rank: z.number().int().positive(),
+  title: z.string(),
+  image: canvasImageSchema,
+  durationMin: z.number().int().nullable(),
+  price: z.object({
+    amountMinor: z.number().int().nonnegative(),
+    currency: z.string(),
+  }),
+  ratingAvg: z.number().nullable(),
+  ratingCount: z.number().int().nullable(),
+});
+export type CanvasTile = z.infer<typeof canvasTileSchema>;
+
+/** `GET /v1/canvas/buckets/:citySlug/:categorySlug`: the summary fields plus up to 60 ranked tiles. */
+export const canvasBucketResponseSchema = canvasBucketSummarySchema.extend({
+  tiles: z.array(canvasTileSchema).min(1).max(MAX_TILES_PER_BUCKET),
+});
+export type CanvasBucketResponse = z.infer<typeof canvasBucketResponseSchema>;

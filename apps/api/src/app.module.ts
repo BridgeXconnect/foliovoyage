@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
 import { AffiliateModule } from "./affiliate/affiliate.module";
+import { CanvasModule } from "./canvas/canvas.module";
 import { validateEnv } from "./config/env.validation";
 import { DatabaseModule } from "./database/database.module";
 import { DestinationModule } from "./destinations/destination.module";
@@ -24,6 +25,7 @@ import { SearchModule } from "./search/search.module";
     PrismaModule,
     HealthModule,
     DestinationModule,
+    CanvasModule,
     AffiliateModule,
     ImportModule,
     SearchModule,

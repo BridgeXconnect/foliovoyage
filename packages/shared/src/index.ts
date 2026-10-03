@@ -97,3 +97,4 @@ export interface Destination {
   lng: number;
 }
 export * from "./api";
+export * from "./canvas/geometry";
