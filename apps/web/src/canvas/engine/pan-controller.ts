@@ -22,6 +22,12 @@ export interface PanControllerOptions {
   readonly initialView?: Point;
   /** Called once per frame in which the view or the viewport changed, after the transform is written. */
   readonly onView?: (view: Point, viewport: Size) => void;
+  /**
+   * Called on every user input that pans the view (a drag move past the
+   * threshold, a wheel event, an arrow key) and when a panning drag ends. Not
+   * called for `panBy` from code, a tap, or a drag still inside the threshold.
+   */
+  readonly onPanInput?: () => void;
 }
 
 export interface PanController {
@@ -32,7 +38,7 @@ export interface PanController {
 }
 
 export function createPanController(options: PanControllerOptions): PanController {
-  const { canvas, world, worldSize, onView } = options;
+  const { canvas, world, worldSize, onView, onPanInput } = options;
 
   let viewport: Size = { width: canvas.clientWidth, height: canvas.clientHeight };
   let view = clampView(options.initialView ?? { x: 0, y: 0 }, viewport, worldSize);
@@ -68,8 +74,16 @@ export function createPanController(options: PanControllerOptions): PanControlle
     schedule();
   };
 
+  const panByInput = (delta: Point) => {
+    onPanInput?.();
+    panBy(delta);
+  };
+
   const endPointer = () => {
-    if (gesture?.panning) suppressClick = true;
+    if (gesture?.panning) {
+      suppressClick = true;
+      onPanInput?.();
+    }
     pointerId = null;
     gesture = null;
   };
@@ -90,7 +104,7 @@ export function createPanController(options: PanControllerOptions): PanControlle
       // From here the drag belongs to the canvas, even when the pointer leaves it.
       canvas.setPointerCapture(e.pointerId);
     }
-    if (delta.x !== 0 || delta.y !== 0) panBy(delta);
+    if (delta.x !== 0 || delta.y !== 0) panByInput(delta);
   };
 
   const onPointerUp = (e: PointerEvent) => {
@@ -116,14 +130,14 @@ export function createPanController(options: PanControllerOptions): PanControlle
     e.preventDefault();
     // A trackpad pinch arrives as ctrl + wheel. There is no zoom, so it does nothing.
     if (e.ctrlKey) return;
-    panBy(wheelDelta(e, viewport));
+    panByInput(wheelDelta(e, viewport));
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
     const delta = keyDelta(e.key);
     if (!delta) return;
     e.preventDefault();
-    panBy(delta);
+    panByInput(delta);
   };
 
   // Links and images are draggable by default; a native drag would steal the pan.
