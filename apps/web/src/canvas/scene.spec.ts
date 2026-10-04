@@ -3,9 +3,6 @@ import {
   CANVAS_CATEGORIES,
   CANVAS_CITIES,
   EXIT_TILE_CORNER,
-  GRID_SIZE,
-  MARGIN,
-  RANK_ONE_OFFSET,
   SLOT_HEIGHT,
   SLOT_WIDTH,
   TITLE_BLOCK,
@@ -131,24 +128,5 @@ describe("buildScene", () => {
       expect(b.y + b.h).toBeLessThanOrEqual(REGION_SIZE.height);
       if (item.kind === "tour" && item.rot !== 0) expect(b.w).toBeGreaterThan(item.rect.w);
     });
-  });
-
-  it("puts every tile upright on its grid spot with tilt off (perf switch tilt=0)", () => {
-    const states = new Map<string, BucketState>(
-      CANVAS_CATEGORIES.map((c) => [c.slug, { status: "ready", data: bucket(c.slug, 50) }]),
-    );
-    const tilted = buildScene(bangkok, summaries, (slug) => states.get(slug)!);
-    expect(tilted.items.some((i) => i.kind === "tour" && i.rot !== 0)).toBe(true);
-
-    const scene = buildScene(bangkok, summaries, (slug) => states.get(slug)!, { tilt: false });
-    const pinned = { x: TITLE_BLOCK.x + TITLE_BLOCK.width + RANK_ONE_OFFSET, y: TITLE_BLOCK.y };
-    for (const item of scene.items) {
-      if (item.kind !== "tour") continue;
-      expect(item.rot).toBe(0);
-      const x = item.rect.x - item.slot.origin.x;
-      const y = item.rect.y - item.slot.origin.y;
-      const onGrid = (x - MARGIN) % GRID_SIZE === 0 && (y - MARGIN) % GRID_SIZE === 0;
-      expect(onGrid || (x === pinned.x && y === pinned.y)).toBe(true);
-    }
   });
 });

@@ -20,18 +20,13 @@ import {
   EXIT_TILE_CORNER,
   EXIT_TILE_HEIGHT,
   EXIT_TILE_WIDTH,
-  JITTER,
   LANDSCAPE_RATIO,
   RANK_ONE_OFFSET,
   SLOT_HEIGHT,
   SLOT_WIDTH,
   TIER_PHOTO_WIDTH,
-  TILT_DEGREES,
-  TILT_STEPS_PER_DEGREE,
   TITLE_BLOCK,
-  fnv1a,
   layoutBucket,
-  mulberry32,
   slotOriginByIndex,
   type CanvasBucketResponse,
   type CanvasBucketSummary,
@@ -150,33 +145,11 @@ function layoutFor(city: CanvasCity, data: CanvasBucketResponse): LayoutResult {
   return layout;
 }
 
-/**
- * The jitter and tilt `layoutBucket` seeded for a tile, drawn the same way
- * (`seedTile` in the shared layout), so the perf switch `tilt=0` can take them
- * back out. A tile the layout straightened has rot 0 and no jitter; a tile whose
- * seeded tilt rounds to 0 can't be told apart from one, so its jitter is taken
- * out too (at most `JITTER` px off for such a tile, in a perf run only).
- */
-function seededLook(id: string): { jx: number; jy: number; rot: number } {
-  const rand = mulberry32(fnv1a(id));
-  const jx = Math.round((rand() * 2 - 1) * JITTER) + 0;
-  const jy = Math.round((rand() * 2 - 1) * JITTER) + 0;
-  const rot = Math.round((rand() * 2 - 1) * TILT_DEGREES * TILT_STEPS_PER_DEGREE) / TILT_STEPS_PER_DEGREE + 0;
-  return { jx, jy, rot };
-}
-
-export interface SceneOptions {
-  /** False for the perf switch `tilt=0`: every tile upright and on its grid spot. */
-  readonly tilt?: boolean;
-}
-
 export function buildScene(
   city: CanvasCity,
   summaries: readonly CanvasBucketSummary[],
   stateOf: (categorySlug: string) => BucketState,
-  options: SceneOptions = {},
 ): Scene {
-  const tilt = options.tilt ?? true;
   const items: SceneItem[] = [];
   for (const slot of citySlots(city)) {
     const summary = summaries.find((s) => s.categorySlug === slot.categorySlug);
@@ -195,20 +168,15 @@ export function buildScene(
       for (const p of layout.tiles) {
         const tile = byId.get(p.id);
         if (!tile) continue;
-        let rect = offset(p, slot.origin);
-        if (!tilt) {
-          const seeded = seededLook(p.id);
-          if (p.rot === seeded.rot) rect = { ...rect, x: rect.x - seeded.jx, y: rect.y - seeded.jy };
-        }
         items.push({
           kind: "tour",
           key: `${prefix}/${p.id}`,
           slot,
-          rect,
+          rect: offset(p, slot.origin),
           tile,
           tier: p.tier,
           shape: p.shape,
-          rot: tilt ? p.rot : 0,
+          rot: p.rot,
         });
       }
     } else if (summary) {

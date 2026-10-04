@@ -9,27 +9,19 @@
  * through, and the inertia params in effect. `auto=1` runs the scripted 30 s pan
  * through the controller's `panBy`, then freezes on the result, which is also
  * left on `window.__canvasPerf.autoResult` for Playwright.
- *
- * While `waiting` is set (the `prefetch=all` switch loading buckets) the
- * countdown holds. The last line names the ablation switches in effect, and an
- * INVALID line lists any switch the page didn't understand.
  */
 
 import { useEffect, useState, type RefObject } from "react";
 import { CITY_REGION_SLOT_COLUMNS, SLOT_HEIGHT, SLOT_WIDTH } from "@folio/shared";
-import type { PanController } from "../engine";
+import type { InertiaConfig, PanController } from "../engine";
 import { AUTO_COUNTDOWN_MS, AUTO_RUN_MS, autoPanPosition } from "./auto-pan";
-import { describeSwitches, type PerfParams } from "./params";
 import { PAN_TAIL_MS, startRecorder, type PanStats, type PanSummary } from "./stats";
 
 interface Props {
   controllerRef: RefObject<PanController | null>;
   canvasRef: RefObject<HTMLElement | null>;
-  params: PerfParams;
-  /** Set while the scripted pan must not start yet, with what it waits for. */
-  waiting: string | null;
-  /** An extra line about the switches, shown above them. */
-  note: string | null;
+  auto: boolean;
+  inertia: InertiaConfig;
   onStats: (stats: PanStats | null) => void;
 }
 
@@ -46,12 +38,8 @@ function lines(s: PanSummary, clicks: number, mounted: number): string[] {
   ];
 }
 
-export default function PerfOverlay({ controllerRef, canvasRef, params, waiting, note, onStats }: Props) {
-  const { auto, inertia } = params;
+export default function PerfOverlay({ controllerRef, canvasRef, auto, inertia, onStats }: Props) {
   const [stats, setStats] = useState<PanStats | null>(null);
-  // Latched, so a bucket retried during the run can't cancel it.
-  const [released, setReleased] = useState(waiting === null);
-  if (waiting === null && !released) setReleased(true);
   const [live, setLive] = useState<string[]>([]);
   const [autoPhase, setAutoPhase] = useState<AutoPhase>({ phase: auto ? "countdown" : "off", left: 3 } as AutoPhase);
   const [result, setResult] = useState<string[] | null>(null);
@@ -73,7 +61,7 @@ export default function PerfOverlay({ controllerRef, canvasRef, params, waiting,
   }, [onStats]);
 
   useEffect(() => {
-    if (!auto || !stats || !released) return;
+    if (!auto || !stats) return;
     let raf = 0;
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -140,19 +128,15 @@ export default function PerfOverlay({ controllerRef, canvasRef, params, waiting,
       cancelAnimationFrame(raf);
       timers.forEach(clearTimeout);
     };
-  }, [auto, stats, released, controllerRef, canvasRef]);
+  }, [auto, stats, controllerRef, canvasRef]);
 
   const status =
-    auto && !released ? `auto pan waits: ${waiting}` :
     autoPhase.phase === "countdown" ? `auto pan starts in ${autoPhase.left} s` :
     autoPhase.phase === "running" ? `auto pan running, ${autoPhase.left} s left` :
     autoPhase.phase === "done" ? "auto pan result (frozen)" : null;
 
   return (
     <div className="pointer-events-none fixed top-2 left-2 z-10 max-w-[calc(100vw-1rem)] rounded-lg bg-ink/85 px-3 py-2 font-mono text-[11px] leading-4 text-surface">
-      {params.invalid.length ? (
-        <p className="font-semibold text-[#ff8a80]">INVALID: {params.invalid.join(", ")} (ignored)</p>
-      ) : null}
       {status ? <p className="font-semibold">{status}</p> : null}
       {(result ?? live).map((line) => (
         <p key={line.slice(0, 8)}>{line}</p>
@@ -160,8 +144,6 @@ export default function PerfOverlay({ controllerRef, canvasRef, params, waiting,
       <p>
         tau {inertia.tau} · window {inertia.velocityWindow} · vmax {inertia.maxVelocity}
       </p>
-      {note ? <p>{note}</p> : null}
-      <p>{describeSwitches(params)}</p>
       {!auto ? (
         <button
           type="button"

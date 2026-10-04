@@ -11,13 +11,11 @@
  * desktop only (Tailwind's `hover:` applies only where the device can hover), and
  * keyboard focus shows the same outline.
  *
- * `look` carries three of the perf mode switches (`perf/params.ts`): `radius=0`
- * drops the photo's rounded clip, `captions=off` hides the caption block while
- * keeping its space, and `captiontilt=0` moves a tile's rotation from the link
- * onto the photo alone. The photo sits at the link's top left corner and both
- * rotate about that corner, so the photo's outline is the same either way; the
- * caption then stays upright in its normal place below the photo, with the
- * tile's jitter still in the link's position. Outside perf mode all are on.
+ * Tilt rotates the photo only, about the tile's top left corner (where the photo
+ * sits), so the photo's outline is the one the layout seeded. The caption stays
+ * upright in its place below the photo, and nothing inside it is ever
+ * transformed: on the iPhone 16 rotated caption text cost about 8 ms of pan p95
+ * (spec 0004 tile design). The seeded jitter is already in the tile's position.
  */
 
 import { memo, type MouseEvent } from "react";
@@ -50,32 +48,11 @@ const hideBrokenImage = (e: { currentTarget: HTMLImageElement }) => {
   e.currentTarget.style.visibility = "hidden";
 };
 
-/** The parts of a tile the perf switches can turn off. */
-export interface TileLook {
-  readonly radius: boolean;
-  readonly captions: boolean;
-  readonly captionTilt: boolean;
-}
-
-export const FULL_LOOK: TileLook = { radius: true, captions: true, captionTilt: true };
-
-/** A tile's rotation, about its top left corner. */
-const rotated = (rot: number) => ({ transform: `rotate(${rot}deg)`, transformOrigin: "0 0" });
-
-interface PhotoProps {
-  url: string;
-  width: number;
-  height: number;
-  radius: boolean;
-  /** Degrees, for `captiontilt=0`; 0 leaves the photo unrotated. */
-  rot?: number;
-}
-
-function Photo({ url, width, height, radius, rot = 0 }: PhotoProps) {
+function Photo({ url, width, height, rot = 0 }: { url: string; width: number; height: number; rot?: number }) {
   return (
     <div
-      className={radius ? "overflow-hidden rounded-lg bg-surface" : "bg-surface"}
-      style={rot ? { width, height, ...rotated(rot) } : { width, height }}
+      className="overflow-hidden rounded-lg bg-surface"
+      style={rot ? { width, height, transform: `rotate(${rot}deg)`, transformOrigin: "0 0" } : { width, height }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- the feed's tier sized variant, used as is */}
       <img
@@ -99,10 +76,9 @@ interface Props {
   index: number;
   city: CanvasCity;
   onActivate: ActivateHandler;
-  look: TileLook;
 }
 
-function CanvasItemView({ item, index, city, onActivate, look }: Props) {
+function CanvasItemView({ item, index, city, onActivate }: Props) {
   const { x, y, w, h } = item.rect;
   const place = { position: "absolute", left: x, top: y, width: w } as const;
 
@@ -121,7 +97,7 @@ function CanvasItemView({ item, index, city, onActivate, look }: Props) {
     case "placeholder":
       return (
         <div data-item={index} aria-hidden style={place}>
-          <Photo url={item.image.url} width={w} height={h} radius={look.radius} />
+          <Photo url={item.image.url} width={w} height={h} />
         </div>
       );
 
@@ -141,7 +117,6 @@ function CanvasItemView({ item, index, city, onActivate, look }: Props) {
 
     case "tour": {
       const { tile, tier, shape, rot } = item;
-      const photoOnly = rot !== 0 && !look.captionTilt;
       const photoHeight = shape === "1:1" ? w : (w * LANDSCAPE_RATIO.height) / LANDSCAPE_RATIO.width;
       const meta =
         tier === "sm"
@@ -160,13 +135,10 @@ function CanvasItemView({ item, index, city, onActivate, look }: Props) {
           draggable={false}
           onClick={(e) => onActivate(item, e)}
           className={`group block ${FOCUS}`}
-          style={rot && !photoOnly ? { ...place, ...rotated(rot) } : place}
+          style={place}
         >
-          <Photo url={tile.image.url} width={w} height={photoHeight} radius={look.radius} rot={photoOnly ? rot : 0} />
-          <div
-            className={`overflow-hidden ${CAPTION_HEIGHT[tier]}`}
-            style={look.captions ? { marginTop: TIER_CAPTION_GAP[tier] } : { marginTop: TIER_CAPTION_GAP[tier], visibility: "hidden" }}
-          >
+          <Photo url={tile.image.url} width={w} height={photoHeight} rot={rot} />
+          <div className={`overflow-hidden ${CAPTION_HEIGHT[tier]}`} style={{ marginTop: TIER_CAPTION_GAP[tier] }}>
             <p className={`text-ink group-hover:text-accent group-focus-visible:text-accent ${TITLE_TYPE[tier]}`}>
               {tile.title}
             </p>
