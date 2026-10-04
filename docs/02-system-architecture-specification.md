@@ -130,7 +130,8 @@ Priority = MoSCoW. IDs are stable and never reused. Traced to `BG-*`.
 - **FR-AUTH-3 (Should):** OAuth (Google) for public accounts.
 
 ## 2.7 Affiliate, Analytics, SEO
-- **FR-AFF-1 (Must):** Every affiliate CTA routes through `/go/:tourId`, which logs the click **before** a 302 to the provider deep link. _(BG-2)_
+- **FR-AFF-1 (Must):** Every affiliate CTA routes through `/go/:tourId`, which logs the click and then 302s to the provider deep link: the row is written before the redirect when the api answers within 1.5 s, best effort afterwards. _(BG-2)_
+  - _Deliberate trade-off for the api cold start (spec 0005, AC-11): a slow api no longer blocks the visitor, and the same POST finishes in the background._
 - **FR-AFF-2 (Must):** Build provider-correct deep links with configured affiliate ID.
 - **FR-AFF-3 (Should):** Broken/expired links fall back to provider search + flag for review.
 - **FR-ANALYTICS-1 (Must):** Record page views, searches (incl. zero-result), filter usage, pin clicks, affiliate clicks as structured events.
@@ -377,7 +378,7 @@ User → CTA → GET /go/:tourId → INSERT affiliate_click → build deep link 
 
 - **AffiliateProvider config:** partner ID, deep-link template, tracking params, commission rate.
 - **Deep-link builder:** provider-correct URLs (FR-AFF-2), validated against provider spec.
-- **Click logging:** append-only `affiliate_clicks`, written **before** redirect (FR-AFF-1).
+- **Click logging:** append-only `affiliate_clicks`, written before the redirect when the api answers within 1.5 s, best effort afterwards (FR-AFF-1).
 - **Redirect:** `/go/:tourId`, `noindex`, < 200 ms (NFR-PERF-4).
 - **Attribution:** reconcile OTA network reports (CSV/API) into `affiliate_earnings` (future) for revenue analytics; we can't see actual bookings, so commission is estimated then confirmed.
 - **Fallback:** missing/expired URL → provider search + flag (FR-AFF-3). Scheduled link-health job pings a sample.
