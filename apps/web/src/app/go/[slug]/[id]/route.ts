@@ -4,6 +4,7 @@ import links from "@/data/viator-links.json";
 import healthReport from "@/data/link-health-report.json";
 import { findExperienceDetail } from "@/lib/experience-detail";
 import { isFlaggedUnhealthy, type LinkHealthReport } from "@/lib/link-health";
+import { isViatorHost } from "@/lib/viator-url";
 import {
   extractAccountAffiliateParams,
   buildProviderFallbackUrl,
@@ -33,14 +34,8 @@ type LinkEntry = { affiliateUrl?: string; provider?: string };
 const registry = links as Record<string, LinkEntry>;
 const report = healthReport as LinkHealthReport;
 
-/** Only ever redirect to the provider's own host. */
-function isAllowedTarget(url: string): boolean {
-  try {
-    return new URL(url).hostname.endsWith("viator.com");
-  } catch {
-    return false;
-  }
-}
+/** Only ever redirect to the provider's own host (strict: https, viator.com or a subdomain). */
+const isAllowedTarget = isViatorHost;
 
 export async function GET(
   request: Request,
