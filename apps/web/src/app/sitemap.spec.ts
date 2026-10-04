@@ -32,4 +32,13 @@ describe("sitemap", () => {
     const urls = new Set(sitemap().map((r) => r.url));
     expect(urls.has(`${site.url}/search`)).toBe(true);
   });
+
+  // Spec 0005: the tour pages and the canvas are noindex until the AI copy
+  // passes its evaluation. Listing them is a separate, later change.
+  it("lists no /tours/ page and no /discover page", () => {
+    for (const { url } of sitemap()) {
+      expect(url).not.toContain("/tours/");
+      expect(url).not.toContain("/discover");
+    }
+  });
 });
