@@ -10,7 +10,10 @@
  * stay in a slot for `canvas_bucket_enter`. Only items in the section range are
  * mounted, so only their images load.
  *
- * `?perf=1` lazily loads the pan frame overlay; see `perf/PerfOverlay.tsx`.
+ * `?perf=1` lazily loads the pan frame overlay; see `perf/PerfOverlay.tsx`. Its
+ * ablation switches (`perf/params.ts`) change the tile look and the scene here;
+ * with `prefetch=all` every bucket is requested at load and the scripted pan
+ * waits until all of them have settled, so no bucket arrives during the run.
  */
 
 import dynamic from "next/dynamic";
@@ -18,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { SECTION_OVERSCAN, SECTION_SIZE, type CanvasBucketSummary, type CanvasCity } from "@folio/shared";
 import { trackCanvasBucketEnter, trackCanvasTileClick } from "@/lib/analytics";
 import { createBucketStore } from "./bucket-store";
-import { CanvasItem, type ActivateHandler } from "./CanvasItem";
+import { CanvasItem, FULL_LOOK, type ActivateHandler, type TileLook } from "./CanvasItem";
 import {
   buildSectionIndex,
   createPanController,
@@ -72,11 +75,30 @@ export default function DiscoverCanvas({
 
   const version = useSyncExternalStore(store.subscribe, store.version, () => 0);
   const slots = useMemo(() => citySlots(city), [city]);
+  const tilt = perf?.ablation.tilt ?? true;
   const scene = useMemo(
-    () => buildScene(city, summaries, (category) => store.get(city.slug, category)),
+    () => buildScene(city, summaries, (category) => store.get(city.slug, category), { tilt }),
     // `version` changes whenever a bucket's state does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [city, summaries, version],
+    [city, summaries, version, tilt],
+  );
+  const look = useMemo<TileLook>(
+    () => (perf ? { radius: perf.ablation.radius, captions: perf.ablation.captions } : FULL_LOOK),
+    [perf],
+  );
+  // `prefetch=all`: how many of the city's buckets have settled (loaded, empty or
+  // failed), and how many of those loaded. A failed one is fetched again on
+  // approach, so it could still arrive mid run; the overlay shows the count.
+  const prefetch = useMemo(
+    () => {
+      const statuses = slots.map((slot) => store.get(city.slug, slot.categorySlug).status);
+      return {
+        settled: statuses.filter((s) => s !== "idle" && s !== "loading").length,
+        loaded: statuses.filter((s) => s === "ready" || s === "empty").length,
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [city, slots, version],
   );
   const index = useMemo(() => buildSectionIndex(scene.bounds, SECTION_SIZE), [scene]);
   const mounted = useMemo(() => itemsInRange(index, range), [index, range]);
@@ -95,6 +117,7 @@ export default function DiscoverCanvas({
     if (!canvas || !world) return;
     const params = parsePerfParams(window.location.search);
     setPerf(params);
+    if (params.ablation.prefetch) for (const slot of slots) store.request(city.slug, slot.categorySlug);
 
     let lastView: Point | null = null;
     let centreSlot: Slot | null = slotAt(slots, {
@@ -205,7 +228,14 @@ export default function DiscoverCanvas({
       >
         <div ref={worldRef} className="absolute top-0 left-0 h-0 w-0" onFocus={onFocus}>
           {mounted.map((i) => (
-            <CanvasItem key={scene.items[i].key} item={scene.items[i]} index={i} city={city} onActivate={onActivate} />
+            <CanvasItem
+              key={scene.items[i].key}
+              item={scene.items[i]}
+              index={i}
+              city={city}
+              onActivate={onActivate}
+              look={look}
+            />
           ))}
         </div>
       </div>
@@ -213,8 +243,13 @@ export default function DiscoverCanvas({
         <PerfOverlay
           controllerRef={controllerRef}
           canvasRef={canvasRef}
-          auto={perf.auto}
-          inertia={perf.inertia}
+          params={perf}
+          waiting={
+            perf.ablation.prefetch && prefetch.settled < slots.length
+              ? `prefetching buckets, ${prefetch.settled} of ${slots.length}`
+              : null
+          }
+          note={perf.ablation.prefetch ? `${prefetch.loaded} of ${slots.length} buckets loaded before the run` : null}
           onStats={onStats}
         />
       ) : null}

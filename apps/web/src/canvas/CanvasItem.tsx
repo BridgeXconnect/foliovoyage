@@ -10,6 +10,10 @@
  * No transitions and no animation: a tile never springs or scales. Hover is
  * desktop only (Tailwind's `hover:` applies only where the device can hover), and
  * keyboard focus shows the same outline.
+ *
+ * `look` carries two of the perf mode ablation switches (`perf/params.ts`):
+ * `radius=0` drops the photo's rounded clip, and `captions=off` hides the
+ * caption block while keeping its space. Outside perf mode both are on.
  */
 
 import { memo, type MouseEvent } from "react";
@@ -42,9 +46,17 @@ const hideBrokenImage = (e: { currentTarget: HTMLImageElement }) => {
   e.currentTarget.style.visibility = "hidden";
 };
 
-function Photo({ url, width, height }: { url: string; width: number; height: number }) {
+/** The parts of a tile the perf switches can turn off. */
+export interface TileLook {
+  readonly radius: boolean;
+  readonly captions: boolean;
+}
+
+export const FULL_LOOK: TileLook = { radius: true, captions: true };
+
+function Photo({ url, width, height, radius }: { url: string; width: number; height: number; radius: boolean }) {
   return (
-    <div className="overflow-hidden rounded-lg bg-surface" style={{ width, height }}>
+    <div className={radius ? "overflow-hidden rounded-lg bg-surface" : "bg-surface"} style={{ width, height }}>
       {/* eslint-disable-next-line @next/next/no-img-element -- the feed's tier sized variant, used as is */}
       <img
         src={url}
@@ -67,9 +79,10 @@ interface Props {
   index: number;
   city: CanvasCity;
   onActivate: ActivateHandler;
+  look: TileLook;
 }
 
-function CanvasItemView({ item, index, city, onActivate }: Props) {
+function CanvasItemView({ item, index, city, onActivate, look }: Props) {
   const { x, y, w, h } = item.rect;
   const place = { position: "absolute", left: x, top: y, width: w } as const;
 
@@ -88,7 +101,7 @@ function CanvasItemView({ item, index, city, onActivate }: Props) {
     case "placeholder":
       return (
         <div data-item={index} aria-hidden style={place}>
-          <Photo url={item.image.url} width={w} height={h} />
+          <Photo url={item.image.url} width={w} height={h} radius={look.radius} />
         </div>
       );
 
@@ -128,8 +141,11 @@ function CanvasItemView({ item, index, city, onActivate }: Props) {
           className={`group block ${FOCUS}`}
           style={rot ? { ...place, transform: `rotate(${rot}deg)`, transformOrigin: "0 0" } : place}
         >
-          <Photo url={tile.image.url} width={w} height={photoHeight} />
-          <div className={`overflow-hidden ${CAPTION_HEIGHT[tier]}`} style={{ marginTop: TIER_CAPTION_GAP[tier] }}>
+          <Photo url={tile.image.url} width={w} height={photoHeight} radius={look.radius} />
+          <div
+            className={`overflow-hidden ${CAPTION_HEIGHT[tier]}`}
+            style={look.captions ? { marginTop: TIER_CAPTION_GAP[tier] } : { marginTop: TIER_CAPTION_GAP[tier], visibility: "hidden" }}
+          >
             <p className={`text-ink group-hover:text-accent group-focus-visible:text-accent ${TITLE_TYPE[tier]}`}>
               {tile.title}
             </p>
