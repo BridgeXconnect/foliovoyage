@@ -126,13 +126,20 @@ export function trackCanvasBucketEnter(input: {
   });
 }
 
-/** A canvas tile or the exit tile was activated. `rank` is null for the exit tile. */
+/**
+ * A canvas tile or the exit tile was activated. `rank` is null for the exit
+ * tile. A tour tile also carries the Experience and Tour ids (spec 0005,
+ * AC-14), so the funnel can join the click to the tour page view; the exit
+ * tile has neither, so both are null.
+ */
 export function trackCanvasTileClick(input: {
   city: string;
   category: string;
   rank: number | null;
   tier: "lg" | "md" | "sm";
   tileKind: "tour" | "exit";
+  experienceId?: string;
+  tourId?: string;
 }): void {
   posthog.capture("canvas_tile_click", {
     city: input.city,
@@ -140,6 +147,8 @@ export function trackCanvasTileClick(input: {
     rank: input.rank,
     tier: input.tier,
     tile_kind: input.tileKind,
+    experience_id: input.experienceId ?? null,
+    tour_id: input.tourId ?? null,
   });
 }
 

@@ -101,7 +101,7 @@ The wire types for the feed live in `packages/shared/src/api.ts` as Zod schemas 
 | Event | When | Properties |
 |---|---|---|
 | `canvas_bucket_enter` | The view's centre moves into a bucket slot and stays 600 ms | `city`, `category` (slugs), `source` (`pan`, `minimap`, `search`, `link`) |
-| `canvas_tile_click` | A tile or the exit tile is activated | `city`, `category` (slugs), `rank` (`null` for the exit tile), `tier`, `tile_kind` (`tour` or `exit`) |
+| `canvas_tile_click` | A tile or the exit tile is activated | `city`, `category` (slugs), `rank` (`null` for the exit tile), `tier`, `tile_kind` (`tour` or `exit`), `experience_id` and `tour_id` (`null` for the exit tile) |
 | `canvas_nav_jump` | The minimap or search moves the view | `from_bucket`, `to_bucket` (both `city.category` slugs), `method` (`minimap` or `search`) |
 
 The helpers are `trackCanvasBucketEnter`, `trackCanvasTileClick`, and `trackCanvasNavJump`.
@@ -145,7 +145,7 @@ Slice 3, tile design:
 
 ## Follow-up
 
-- [ ] Enrol a scope row and write a spec for the new DB backed tour page (`noindex`, keyed on the Experience id, with its own click logging beside `/go`). Slice 1's done when (a tile click opens that tour's page) depends on it. Until then `tourHref` points at a placeholder.
+- [x] Enrol a scope row and write a spec for the new DB backed tour page (spec 0005). A tile click now opens that tour's page: `tourHref` points at `/tours/:experienceId`.
 - [ ] Designer decision: the exit tile copy ("All N in {City} · {Category}") promises a category and count the unfiltered city page does not show. Change the copy or add a filtered view (BRI-205 may cover it).
 - [ ] Designer decision: the 9 search result row separators on `line-strong` are an unreviewed judgment call.
 - [ ] Designer decision: confirm the city order, category order, and category labels in the world geometry above.
