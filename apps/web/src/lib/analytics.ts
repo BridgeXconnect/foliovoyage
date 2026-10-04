@@ -38,6 +38,8 @@ export type AffiliateClickInput = AffiliateClickContext & {
   priceBand?: string;
   hasRating?: boolean;
   freeCancel?: boolean;
+  /** Which surface the CTA sits on, e.g. `tour_page`. Omitted by older cards. */
+  source?: string;
 };
 
 /** Capture a click on a live affiliate booking link. */
@@ -53,6 +55,7 @@ export function trackAffiliateClick(input: AffiliateClickInput): void {
     city: input.city,
     country: input.country,
     destination_slug: input.destinationSlug,
+    source: input.source,
   });
 }
 
@@ -150,5 +153,43 @@ export function trackCanvasNavJump(input: {
     from_bucket: input.fromBucket,
     to_bucket: input.toBucket,
     method: input.method,
+  });
+}
+
+/**
+ * Database tour page events (spec 0005, AC-14). `category` and `from` come only
+ * from a validated `from` value (see `parseFrom`), else null; never the raw
+ * query string. No free text and no URLs.
+ */
+export function trackTourPageViewed(input: {
+  experienceId: string;
+  tourId: string;
+  city: string;
+  category: string | null;
+  from: string | null;
+}): void {
+  posthog.capture("tour_page_viewed", {
+    experience_id: input.experienceId,
+    tour_id: input.tourId,
+    city: input.city,
+    category: input.category,
+    from: input.from,
+  });
+}
+
+/**
+ * The "no longer available" page rendered. The reason (unknown, unpublished,
+ * removed, malformed) is not known in the browser, so it goes to the server log
+ * line instead; here only the validated `from` parts are sent.
+ */
+export function trackTourPageNotFound(input: {
+  city: string | null;
+  category: string | null;
+  from: string | null;
+}): void {
+  posthog.capture("tour_page_not_found", {
+    city: input.city,
+    category: input.category,
+    from: input.from,
   });
 }

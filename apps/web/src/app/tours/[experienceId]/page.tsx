@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TourPageView } from "@/components/tour/TourPageView";
-import { fetchExperiencePage } from "@/lib/experience-api";
+import { fetchExperiencePage, fetchExperiencePageResult } from "@/lib/experience-api";
 import { isViatorHost } from "@/lib/viator-url";
 
 /**
@@ -43,10 +43,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TourPage({ params }: Props) {
   const { experienceId } = await params;
-  const page = await fetchExperiencePage(experienceId);
-  if (!page) notFound();
+  const result = await fetchExperiencePageResult(experienceId);
+  if (!result.found) {
+    // The reason is known only here, so it goes to the server log (there is no
+    // server side PostHog client). The id is safe to log only after it passed
+    // the cuid check, so a malformed one is left out.
+    console.log(
+      `event=tour_page_not_found reason=${result.reason}${result.reason === "malformed" ? "" : ` experience_id=${experienceId}`}`,
+    );
+    notFound();
+  }
 
-  const { affiliateUrl, ...tour } = page;
+  const { affiliateUrl, ...tour } = result.page;
   const bookLabel = isViatorHost(affiliateUrl) ? "Book on Viator" : "Search on Viator";
 
   return (

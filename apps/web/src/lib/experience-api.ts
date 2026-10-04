@@ -17,23 +17,62 @@ const EXPERIENCE_ID = /^c[a-z0-9]{20,32}$/;
 export const isExperienceId = (id: string): boolean => EXPERIENCE_ID.test(id);
 
 /**
- * The page data for one Experience, or `null` when the id is malformed (no
- * fetch is made) or the api answers 404. Any other failure throws: a network
- * error, a 5xx, or a body that no longer matches the shared contract. Throwing
- * lets ISR keep the last good page, and an error is never cached as a 404.
+ * Why a tour page is "no longer available". The api tells its three 404 cases
+ * apart in the problem+json `detail`; a failed id check is `malformed`. This is
+ * only ever logged (`event=tour_page_not_found reason=...`), never sent to
+ * PostHog, and carries no free text.
  */
+export type NotFoundReason = "unknown" | "unpublished" | "removed" | "malformed";
+
+export type ExperiencePageResult =
+  | { found: true; page: ExperiencePage }
+  | { found: false; reason: NotFoundReason };
+
+/**
+ * Maps the api's 404 `detail` to a reason. The strings mirror `NOT_FOUND_DETAIL`
+ * in `apps/api/src/experiences/experiences.service.ts`; anything unrecognised
+ * (or a body that is not JSON) is `unknown`.
+ */
+export function notFoundReason(detail: unknown): NotFoundReason {
+  const text = typeof detail === "string" ? detail.toLowerCase() : "";
+  if (text.includes("not published")) return "unpublished";
+  if (text.includes("no live tour")) return "removed";
+  return "unknown";
+}
+
+/**
+ * The page data for one Experience, or the reason it is not available. A
+ * malformed id makes no fetch. Only a definitive api 404 is `found: false`; any
+ * other failure throws (a network error, a 5xx, or a body that no longer
+ * matches the shared contract), so ISR keeps the last good page and an error is
+ * never cached as a 404.
+ */
+export async function fetchExperiencePageResult(
+  experienceId: string,
+  base = API_BASE_URL,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ExperiencePageResult> {
+  if (!isExperienceId(experienceId)) return { found: false, reason: "malformed" };
+  const res = await fetchImpl(`${base}/v1/experiences/${encodeURIComponent(experienceId)}`, {
+    next: { revalidate: 900 },
+  });
+  if (res.status === 404) {
+    const body: unknown = await res.json().catch(() => null);
+    const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : undefined;
+    return { found: false, reason: notFoundReason(detail) };
+  }
+  if (!res.ok) throw new Error(`Failed to fetch experience ${experienceId}: ${res.status} ${res.statusText}`);
+  const parsed = experiencePageSchema.safeParse(await res.json());
+  if (!parsed.success) throw new Error(`Unexpected response for experience ${experienceId}: ${parsed.error.message}`);
+  return { found: true, page: parsed.data };
+}
+
+/** The page data, or `null` when it is not available (the reason is dropped). */
 export async function fetchExperiencePage(
   experienceId: string,
   base = API_BASE_URL,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ExperiencePage | null> {
-  if (!isExperienceId(experienceId)) return null;
-  const res = await fetchImpl(`${base}/v1/experiences/${encodeURIComponent(experienceId)}`, {
-    next: { revalidate: 900 },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Failed to fetch experience ${experienceId}: ${res.status} ${res.statusText}`);
-  const parsed = experiencePageSchema.safeParse(await res.json());
-  if (!parsed.success) throw new Error(`Unexpected response for experience ${experienceId}: ${parsed.error.message}`);
-  return parsed.data;
+  const result = await fetchExperiencePageResult(experienceId, base, fetchImpl);
+  return result.found ? result.page : null;
 }

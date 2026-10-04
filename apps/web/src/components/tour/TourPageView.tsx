@@ -1,6 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import type { ExperiencePage } from "@folio/shared";
 import { formatDuration, formatPrice } from "@/canvas/format";
+import { BookButton } from "@/components/tour/BookButton";
+import { CityBackLink, TourBackLink } from "@/components/tour/TourBackLink";
+import { TourPageViewed } from "@/components/tour/TourPageViewed";
 import { TourRating } from "@/components/tour/TourRating";
 
 /**
@@ -33,7 +37,15 @@ export function TourPageView({ tour, bookLabel }: TourPageViewProps) {
 
   return (
     <article className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:py-14">
-      <h1 className="text-[28px] font-semibold leading-tight sm:text-[36px]">{tour.title}</h1>
+      {/* The static HTML always has the city link; the client swaps in the canvas link (spec 0005, AC-13). */}
+      <Suspense fallback={<CityBackLink citySlug={tour.city.slug} cityName={tour.city.name} />}>
+        <TourBackLink citySlug={tour.city.slug} cityName={tour.city.name} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <TourPageViewed experienceId={tour.experienceId} tourId={tour.tourId} citySlug={tour.city.slug} />
+      </Suspense>
+
+      <h1 className="mt-4 text-[28px] font-semibold leading-tight sm:text-[36px]">{tour.title}</h1>
 
       <TourRating experienceId={tour.experienceId} />
 
@@ -83,14 +95,12 @@ export function TourPageView({ tour, bookLabel }: TourPageViewProps) {
       )}
 
       <div className="mt-8">
-        <a
-          href={`/go/tours/${encodeURIComponent(tour.experienceId)}`}
-          target="_blank"
-          rel="sponsored nofollow noopener"
-          className="inline-block rounded-lg bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-ink"
-        >
-          {bookLabel}
-        </a>
+        <BookButton
+          experienceId={tour.experienceId}
+          title={tour.title}
+          citySlug={tour.city.slug}
+          label={bookLabel}
+        />
         <p className="mt-3 text-sm text-muted">
           We may earn a commission if you book.{" "}
           <Link href="/legal/disclosure" className="underline">

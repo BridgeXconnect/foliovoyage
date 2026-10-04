@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
+jest.mock("next/navigation", () => {
+  const actual = jest.requireActual<typeof import("next/navigation")>("next/navigation");
+  // Client hooks have no router in a node render; a real static prerender suspends here.
+  return { ...actual, useSearchParams: () => ({ get: () => null }) };
+});
 import TourPage, { dynamicParams, generateMetadata, revalidate } from "@/app/tours/[experienceId]/page";
 
 const ID = "cmtodmrst0hdlqu18h454evr4";
@@ -177,5 +182,54 @@ describe("tour page metadata", () => {
   it("throws on an api 500", async () => {
     answer({}, 500);
     await expect(generateMetadata({ params: Promise.resolve({ experienceId: ID }) })).rejects.toThrow();
+  });
+});
+
+describe("tour page, not found reason log line", () => {
+  const problem = (detail: string) => ({ type: "about:blank", title: "Not Found", status: 404, detail });
+  const run = async (id: string) => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    await expect(TourPage({ params: Promise.resolve({ experienceId: id }) })).rejects.toMatchObject({
+      digest: expect.stringContaining("404"),
+    });
+    const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("event=tour_page_not_found"));
+    log.mockRestore();
+    return lines;
+  };
+
+  it.each([
+    ["unknown", "No experience found with this id"],
+    ["unpublished", "This experience is not published"],
+    ["removed", "This experience has no live tour"],
+  ])("logs reason=%s for the api's matching 404", async (reason, detail) => {
+    answer(problem(detail), 404);
+    expect(await run(ID)).toEqual([`event=tour_page_not_found reason=${reason} experience_id=${ID}`]);
+  });
+
+  it("logs reason=unknown for a 404 whose body is not problem+json", async () => {
+    fetchMock.mockImplementation(async () => new Response("Not Found", { status: 404 }));
+    expect(await run(ID)).toEqual([`event=tour_page_not_found reason=unknown experience_id=${ID}`]);
+  });
+
+  it("logs reason=malformed for a failed id check, with no fetch and without echoing the id", async () => {
+    expect(await run("../etc/passwd")).toEqual(["event=tour_page_not_found reason=malformed"]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("logs nothing for an api 500 (a transient error is never a not found)", async () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    answer({}, 500);
+    await expect(TourPage({ params: Promise.resolve({ experienceId: ID }) })).rejects.toThrow();
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
+
+describe("tour page, back link in the server HTML", () => {
+  it("always renders the city fallback, whatever the query", async () => {
+    const { html } = await render();
+    expect(html).toContain('href="/destinations/bangkok"');
+    expect(html).toContain("← Back to Bangkok");
+    expect(html).not.toContain("/discover?at=");
   });
 });
