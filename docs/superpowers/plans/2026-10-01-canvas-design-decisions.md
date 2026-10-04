@@ -1,5 +1,7 @@
 # Discovery canvas: design decisions from the 1 Oct Paper session
 
+> **Status: partly superseded by spec 0004.** Where they differ, the spec wins. Known differences: the per-bucket cap is 50 (not 60); rank tiers are 1 to 4, 5 to 20, 21 to 50; the exit tile reads "Explore {City} →"; tilt applies to the photo only, never to caption text; sections are 512 px with overscan 1; release inertia is part of Slice 1.
+
 **Epic:** EP-20 (BRI-223) · **Paper file:** `01M3VHFY502GXVVB8RJ9VW1QBH` (via the `paper-desktop` server)
 **Save to:** `docs/superpowers/plans/2026-10-01-canvas-design-decisions.md`
 **Feeds:** `/architect discovery canvas`, alongside `2026-09-27-canvas-design-brief.md`. Where the two disagree, this file wins, because it is later.
