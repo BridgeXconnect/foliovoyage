@@ -42,13 +42,16 @@ describe("parsePerfParams", () => {
     expect(parsePerfParams("?perf=1&tilt=0").ablation).toEqual({ ...NO_ABLATION, tilt: false });
     expect(parsePerfParams("?perf=1&captions=off").ablation).toEqual({ ...NO_ABLATION, captions: false });
     expect(parsePerfParams("?perf=1&prefetch=all").ablation).toEqual({ ...NO_ABLATION, prefetch: true });
-    expect(parsePerfParams("?perf=1&radius=1&tilt=1&captions=on&prefetch=near").ablation).toEqual(NO_ABLATION);
+    expect(parsePerfParams("?perf=1&captiontilt=0").ablation).toEqual({ ...NO_ABLATION, captionTilt: false });
+    expect(parsePerfParams("?perf=1&radius=1&tilt=1&captions=on&prefetch=near&captiontilt=1").ablation).toEqual(
+      NO_ABLATION,
+    );
   });
 
   it("turns radius, tilt and captions off together with flat=1", () => {
     const p = parsePerfParams("?perf=1&flat=1");
     expect(p.flat).toBe(true);
-    expect(p.ablation).toEqual({ radius: false, tilt: false, captions: false, prefetch: false });
+    expect(p.ablation).toEqual({ radius: false, tilt: false, captions: false, prefetch: false, captionTilt: true });
     expect(p.invalid).toEqual([]);
   });
 
@@ -57,6 +60,15 @@ describe("parsePerfParams", () => {
     expect(p.ablation).toEqual(NO_ABLATION);
     expect(p.invalid).toEqual(["img=1x", "radius=2", "captions=0", "prefetch=yes"]);
     expect(parsePerfParams("?perf=1&flat=1&tilt=1").invalid).toEqual(["tilt=1"]);
+    expect(parsePerfParams("?perf=1&captiontilt=no").invalid).toEqual(["captiontilt=no"]);
+  });
+
+  it("flags captiontilt when nothing is left to rotate", () => {
+    for (const search of ["?perf=1&tilt=0&captiontilt=0", "?perf=1&flat=1&captiontilt=0"]) {
+      const p = parsePerfParams(search);
+      expect(p.ablation.captionTilt).toBe(true);
+      expect(p.invalid).toEqual(["captiontilt=0"]);
+    }
   });
 });
 
@@ -64,6 +76,7 @@ describe("describeSwitches", () => {
   it("names the switches in effect", () => {
     expect(describeSwitches(parsePerfParams("?perf=1"))).toBe("switches: none");
     expect(describeSwitches(parsePerfParams("?perf=1&radius=0&prefetch=all"))).toBe("switches: radius=0 prefetch=all");
+    expect(describeSwitches(parsePerfParams("?perf=1&captiontilt=0"))).toBe("switches: captiontilt=0");
     expect(describeSwitches(parsePerfParams("?perf=1&flat=1"))).toBe(
       "switches: flat=1 (radius=0 tilt=0 captions=off)",
     );

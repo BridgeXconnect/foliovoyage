@@ -9,9 +9,12 @@
  * pays for during a pan: `radius=0` (no rounded clip on the photo), `tilt=0` (no
  * rotation and no jitter), `captions=off` (captions hidden, space kept),
  * `prefetch=all` (every bucket loaded and laid out before the scripted pan), and
- * `flat=1` (radius, tilt and captions off together). A value the page doesn't
- * know, or a switch that contradicts `flat=1`, is listed in `invalid`, shown
- * as INVALID and ignored.
+ * `flat=1` (radius, tilt and captions off together). `captiontilt=0` is the
+ * candidate fix rather than an ablation: the photo keeps its tilt and the caption
+ * stays upright, since the matrix showed rotated caption text is what a phone
+ * pays for. A value the page doesn't know, a switch that contradicts `flat=1`,
+ * or `captiontilt` alongside `tilt=0` or `flat=1` (nothing left to rotate) is
+ * listed in `invalid`, shown as INVALID and ignored.
  */
 
 import { DEFAULT_INERTIA, type InertiaConfig } from "../engine/motion";
@@ -25,9 +28,11 @@ export interface Ablation {
   readonly captions: boolean;
   /** True with `prefetch=all`: every bucket is loaded before the scripted pan starts. */
   readonly prefetch: boolean;
+  /** False with `captiontilt=0`: only the photo is rotated, the caption stays upright. */
+  readonly captionTilt: boolean;
 }
 
-export const NO_ABLATION: Ablation = { radius: true, tilt: true, captions: true, prefetch: false };
+export const NO_ABLATION: Ablation = { radius: true, tilt: true, captions: true, prefetch: false, captionTilt: true };
 
 export interface PerfParams {
   readonly perf: boolean;
@@ -56,6 +61,7 @@ const SWITCHES = {
   captions: ["on", "off"],
   prefetch: ["near", "all"],
   flat: ["0", "1"],
+  captiontilt: ["1", "0"],
 } as const;
 
 export function parsePerfParams(search: string | URLSearchParams): PerfParams {
@@ -95,16 +101,18 @@ export function parsePerfParams(search: string | URLSearchParams): PerfParams {
     return flat || ablated(key);
   };
 
+  const radius = !one("radius");
+  const tilt = !one("tilt");
+  const captions = !one("captions");
+  let captionTilt = true;
+  if (!tilt && params.has("captiontilt")) invalid.push(`captiontilt=${params.get("captiontilt")}`);
+  else captionTilt = !ablated("captiontilt");
+
   return {
     perf: true,
     auto: params.get("auto") === "1",
     inertia: { tau: read("tau"), velocityWindow: read("velocityWindow"), maxVelocity: read("maxVelocity") },
-    ablation: {
-      radius: !one("radius"),
-      tilt: !one("tilt"),
-      captions: !one("captions"),
-      prefetch: ablated("prefetch"),
-    },
+    ablation: { radius, tilt, captions, prefetch: ablated("prefetch"), captionTilt },
     flat,
     invalid,
   };
@@ -118,6 +126,7 @@ export function describeSwitches(p: PerfParams): string {
     if (!p.ablation.radius) on.push("radius=0");
     if (!p.ablation.tilt) on.push("tilt=0");
     if (!p.ablation.captions) on.push("captions=off");
+    if (!p.ablation.captionTilt) on.push("captiontilt=0");
   }
   if (p.ablation.prefetch) on.push("prefetch=all");
   return `switches: ${on.length ? on.join(" ") : "none"}`;

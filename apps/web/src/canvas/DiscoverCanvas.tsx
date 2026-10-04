@@ -83,7 +83,10 @@ export default function DiscoverCanvas({
     [city, summaries, version, tilt],
   );
   const look = useMemo<TileLook>(
-    () => (perf ? { radius: perf.ablation.radius, captions: perf.ablation.captions } : FULL_LOOK),
+    () =>
+      perf
+        ? { radius: perf.ablation.radius, captions: perf.ablation.captions, captionTilt: perf.ablation.captionTilt }
+        : FULL_LOOK,
     [perf],
   );
   // `prefetch=all`: how many of the city's buckets have settled (loaded, empty or
