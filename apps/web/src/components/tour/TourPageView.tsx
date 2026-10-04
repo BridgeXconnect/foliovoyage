@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ExperiencePage } from "@folio/shared";
 import { formatDuration, formatPrice } from "@/canvas/format";
+import { TourRating } from "@/components/tour/TourRating";
 
 /**
  * The tour page body (spec 0005, AC-4). Placeholder styling only; the designer's
@@ -34,8 +35,7 @@ export function TourPageView({ tour, bookLabel }: TourPageViewProps) {
     <article className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:py-14">
       <h1 className="text-[28px] font-semibold leading-tight sm:text-[36px]">{tour.title}</h1>
 
-      {/* RATING PLACEHOLDER (spec 0005 task 5): the rating loads in the browser from a
-          robots blocked script, never from the server. Nothing renders here yet. */}
+      <TourRating experienceId={tour.experienceId} />
 
       {image && (
         <div

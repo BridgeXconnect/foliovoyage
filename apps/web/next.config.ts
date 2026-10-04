@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        // The rating script (spec 0005, AC-6) is a plain file under public/. A
+        // public file would otherwise get no CDN max age, so set it here.
+        source: "/protected/tour-rating.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "public, s-maxage=900, stale-while-revalidate=86400" },
+          { key: "X-Robots-Tag", value: "noindex" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
