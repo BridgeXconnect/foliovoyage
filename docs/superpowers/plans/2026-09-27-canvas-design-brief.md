@@ -1,5 +1,7 @@
 # Discovery canvas: design brief for `/scope` and `/architect`
 
+> **Status: partly superseded by spec 0004.** Where they differ, the spec wins. Known differences: the per-bucket cap is 50 (not 60); rank tiers are 1 to 4, 5 to 20, 21 to 50; the exit tile reads "Explore {City} →"; tilt applies to the photo only, never to caption text; sections are 512 px with overscan 1; release inertia is part of Slice 1.
+
 **Date:** 2026-09-27 · **Epic:** EP-20 (BRI-223) · **Owner:** Roy
 **Save to:** `docs/superpowers/plans/2026-09-27-canvas-design-brief.md` (commit it with the spec PR so the spec's `rationale.md` can cite it)
 
