@@ -156,3 +156,55 @@ export const canvasBucketResponseSchema = canvasBucketSummarySchema.extend({
   tiles: z.array(canvasTileSchema).min(1).max(MAX_TILES_PER_BUCKET),
 });
 export type CanvasBucketResponse = z.infer<typeof canvasBucketResponseSchema>;
+
+/**
+ * The page data for one Experience's tour page (`GET /v1/experiences/:id`, spec
+ * 0005 AC-1). The Tour shown is the Experience's live Tour with the lowest id.
+ *
+ * Carries no rating of any kind: the rating is protected content under Viator's
+ * rules and travels on its own route ({@link experienceRatingSchema}). A spec
+ * pins that no rating key appears here.
+ *
+ * `price.amountMinor` is a Postgres BigInt sent as a JSON number, checked as an
+ * integer. `cancellationDescription` is the provider's text exactly as stored.
+ * `affiliateUrl` is read by the web server only and never reaches client props.
+ */
+export const experiencePageSchema = z.object({
+  experienceId: z.string(),
+  tourId: z.string(),
+  title: z.string(),
+  /** The largest available variant. `width` and `height` are null when unknown. */
+  image: canvasImageSchema.extend({ alt: z.string() }).nullable(),
+  durationMin: z.number().int().nullable(),
+  price: z
+    .object({
+      amountMinor: z.number().int().nonnegative(),
+      currency: z.string(),
+    })
+    .nullable(),
+  cancellationDescription: z.string().nullable(),
+  /** The AI copy when it is valid, else the provider description as plain text. */
+  summary: z
+    .object({
+      kind: z.enum(["ai", "provider"]),
+      text: z.string().min(1),
+    })
+    .nullable(),
+  affiliateUrl: z.string().nullable(),
+  city: z.object({
+    slug: z.string(),
+    countrySlug: z.string(),
+    name: z.string(),
+  }),
+});
+export type ExperiencePage = z.infer<typeof experiencePageSchema>;
+
+/**
+ * `GET /v1/experiences/:id/rating` (spec 0005 AC-2): the same Tour's imported
+ * aggregate rating and nothing else. Both are null for an unrated tour.
+ */
+export const experienceRatingSchema = z.object({
+  ratingAvg: z.number().nullable(),
+  ratingCount: z.number().int().nullable(),
+});
+export type ExperienceRating = z.infer<typeof experienceRatingSchema>;
