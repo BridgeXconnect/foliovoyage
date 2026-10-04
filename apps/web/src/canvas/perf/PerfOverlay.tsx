@@ -87,6 +87,7 @@ export default function PerfOverlay({ controllerRef, canvasRef, auto, inertia, o
       const spanY = SLOT_HEIGHT - canvas.clientHeight;
       let start = 0;
       let last = { x: 0, y: 0 };
+      let shownLeft = -1;
       const step = (t: number) => {
         if (cancelled) return;
         if (!start) {
@@ -99,7 +100,13 @@ export default function PerfOverlay({ controllerRef, canvasRef, auto, inertia, o
         controller.panBy({ x: p.x - last.x, y: p.y - last.y });
         last = p;
         if (elapsed < AUTO_RUN_MS) {
-          setAutoPhase({ phase: "running", left: Math.ceil((AUTO_RUN_MS - elapsed) / 1000) });
+          // Only when the seconds change: a new state object every frame would
+          // re-render the overlay on every frame of the run it is measuring.
+          const left = Math.ceil((AUTO_RUN_MS - elapsed) / 1000);
+          if (left !== shownLeft) {
+            shownLeft = left;
+            setAutoPhase({ phase: "running", left });
+          }
           raf = requestAnimationFrame(step);
           return;
         }
