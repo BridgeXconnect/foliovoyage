@@ -161,12 +161,12 @@ The build approach is Tracer Bullet: one thin thread from the database to Viator
 7. Add the back link as a small client component reading `from` with `useSearchParams` inside `Suspense`, validated against the shared lists, satisfies **AC-13**, **AC-15**
 8. Add the analytics: ids on `canvas_tile_click`, the `trackTourPageViewed` helper and its call, `source: "tour_page"` on the booking event, satisfies **AC-14**
 9. Add the sitemap exclusion test, satisfies **AC-7**
-10. Switch `tourHref` to the new page with its unit test, then click a tile in a production build, satisfies **AC-16**
+10. Switch `tourHref` to the new page with its unit test, then click a tile in a production build, satisfies **AC-16** (done: the switch and its tests; a production build served real tile hrefs that open the tour page; the in browser tap through is part of the iPhone check)
 11. Run the iPhone 16 check on a production build, satisfies **AC-17**
 
 The page's go live (task 10) depends on `Disallow: /api/canvas/` being in `robots.txt`, a one line change (date field in Follow-up). The canvas page's server HTML carries no rating, but the chunk that loads it is not a robots blocked file, so the canvas cannot meet Viator's literal wording on its own.
 
-Until task 10 ships, `tourHref` keeps pointing at `/destinations/:citySlug`.
+Task 10 has shipped: `tourHref` points at the tour page, and the exit tile still opens the city page. The pages stay hidden behind the site gate. Task 11 (the iPhone 16 check, AC-17) is still open, so the status stays In Progress.
 
 ## Consequences
 

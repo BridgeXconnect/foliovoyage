@@ -34,7 +34,7 @@ A pure function places every tile of a bucket inside its slot, the same way ever
 - **AC-L10**: The server fetches the bucket summaries (up to 42) for first paint, and a slot with no tiles yet shows a placeholder with the summary's representative `image` and the title block. The client fetches a bucket's tiles through the web proxy route (see index.md) when its slot comes within one viewport of the visible area (the viewport expanded by 1× on each side), caches it in memory, and never fetches the same bucket twice in a session. A failed fetch leaves the slot's placeholder and retries on the next move into range.
 - **AC-L11**: A tile is a real link (`<a href={tourHref(tile)}>`), reachable by keyboard, and activating it fires `canvas_tile_click`. Tab moves through the current bucket's mounted tiles in rank order, then the jump controls, so keyboard users reach other buckets through the minimap and search. Focus moving to an off screen tile pans the view to keep it visible. With `prefers-reduced-motion` all animated moves are instant.
 - **AC-L12**: `/discover` is `noindex`, left out of the sitemap, and its pan, culler, and tile code load only on that route.
-- **AC-L13**: `tourHref(tile)` and `exitHref(city)` are the only places that build a tile's target. `exitHref` returns `/destinations/:slug` today. Until the new tour page exists, `tourHref` returns `/destinations/:citySlug`.
+- **AC-L13**: `tourHref(tile)` and `exitHref(city)` are the only places that build a tile's target. `exitHref` returns `/destinations/:slug`. `tourHref` returns `/tours/:experienceId?from=:citySlug.:categorySlug` (spec 0005, AC-16); a tile with no Experience id throws.
 - **AC-L14**: Mobile first: the first slice is built and checked at phone width before desktop polish.
 - **AC-L15**: The world element is a zero size transformed container whose children are absolutely positioned, with no background and no `will-change` on a large box, so it never allocates a 28,800 px layer.
 - **AC-L16**: The client bucket fetch goes through the route handler `/api/canvas/buckets/[city]/[cat]` in `apps/web`, which proxies the api and passes the cache headers through. CORS is not enabled on the api.
@@ -75,7 +75,7 @@ A pure function places every tile of a bucket inside its slot, the same way ever
 | Layout | title block and exit corner | constants in index.md |
 | Layout | photo width and height | tier size constant and shape, not the source image |
 | Culler | visible sections | view offset, viewport size, 512 px section size, overscan 1 |
-| Page | tile link | `tourHref(tile)`, then the new tour page |
+| Page | tile link | `tourHref(tile)`: the tour page `/tours/:experienceId`, with the bucket key as `from` |
 | Page | exit link | `exitHref(city)` |
 | Page | title block text | bucket summary `categoryLabel`, `cityName`, `total` |
 

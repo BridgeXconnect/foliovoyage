@@ -68,7 +68,8 @@ Canvas tiles for tours that live only in the database have no page to open today
   - [ ] The ISR page, its 404, and the `/go/tours` click redirect with fallback and ledger timeout (AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-15)
   - [ ] Protected rating path: blocked script, JSON proxy, robots rule, View Source test (AC-2, AC-6)
   - [ ] Back link and analytics events (AC-13, AC-14)
-  - [ ] Switch `tourHref` once `Disallow: /api/canvas/` is in `robots.txt`, then the iPhone 16 check (AC-16, AC-17)
+  - [x] Switch `tourHref` (the `Disallow: /api/canvas/` rule was already in `robots.txt`) (AC-16)
+  - [ ] The iPhone 16 check (AC-17)
 - [ ] Verify it: `/check verify database tour page`
 - [ ] Test it: `/test database tour page`
 
