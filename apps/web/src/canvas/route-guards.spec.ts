@@ -46,12 +46,17 @@ describe("/discover route guards", () => {
   });
 
   it("keeps the canvas code out of every other route", () => {
+    // `canvas/format` is the one exception: pure caption text helpers (no pan, culler or
+    // tile code), shared with the tour page (spec 0005) so price and duration read the same.
+    const SHARED_PURE = /from\s+["']@\/canvas\/format["']/g;
     const offenders = sourceFiles(SRC)
       .filter((file) => {
         const rel = relative(SRC, file);
         return !rel.startsWith("canvas/") && !rel.startsWith("app/discover/");
       })
-      .filter((file) => /from\s+["'](@\/canvas|\.\.?\/(\.\.\/)*canvas)(\/|["'])/.test(readFileSync(file, "utf8")))
+      .filter((file) =>
+        /from\s+["'](@\/canvas|\.\.?\/(\.\.\/)*canvas)(\/|["'])/.test(readFileSync(file, "utf8").replace(SHARED_PURE, "")),
+      )
       .map((file) => relative(SRC, file));
     expect(offenders).toEqual([]);
   });
