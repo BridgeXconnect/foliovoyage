@@ -106,6 +106,9 @@ describe("tour page", () => {
 
   it("never lets the affiliate URL or a rating reach the HTML or the element tree", async () => {
     const { html, tree } = await render();
+    // Only the empty placeholder, keyed by the experience id, is in the server output.
+    expect(html).toMatch(new RegExp(`<div data-tour-rating="${ID}"[^>]*></div>`));
+    expect(html).not.toContain("6,756");
     for (const out of [html, tree]) {
       expect(out).not.toContain("viator.com/tours");
       expect(out).not.toContain("pid=P1");
