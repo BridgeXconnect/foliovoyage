@@ -22,7 +22,7 @@ export interface DestinationQuery {
 }
 
 /** The fields `resolveAiSummary` needs off the Experience's first linked Tour. */
-interface TourAiSummaryInput {
+export interface TourAiSummaryInput {
   title: string;
   description: string | null;
   durationMin: number | null;
@@ -40,7 +40,7 @@ interface TourAiSummaryInput {
  * stale copy until the next generation run), and the tour is still eligible.
  * Null in every other case, including "no row yet" and "no linked tour".
  */
-function resolveAiSummary(tour: TourAiSummaryInput | undefined): string | null {
+export function resolveAiSummary(tour: TourAiSummaryInput | undefined): string | null {
   if (!tour?.tourCopy || tour.tourCopy.status !== "published") return null;
   const currentHash = computeGroundingHash({
     title: tour.title,

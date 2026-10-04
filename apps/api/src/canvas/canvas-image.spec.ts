@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { TIER_LAST_RANK } from "@folio/shared";
 
-import { pickImage } from "./canvas-image";
+import { pickImage, pickLargestImage } from "./canvas-image";
 
 const v = (width: number, height = Math.round(width * 0.66)) => ({
   url: `https://img.test/${width}.jpg`,
@@ -78,5 +78,37 @@ describe("pickImage (AC-F7)", () => {
     expect(pickImage(null, null, 1)).toBeNull();
     expect(pickImage("nope", null, 1)).toBeNull();
     expect(pickImage([{ isCover: true, variants: [{ width: 500 }, { url: "", width: 500 }] }], null, 1)).toBeNull();
+  });
+});
+
+describe("pickLargestImage (spec 0005, tour page)", () => {
+  it("takes the widest variant of the cover entry, not the smallest wide enough one", () => {
+    const images = [{ isCover: true, variants: [v(200), v(720), v(480), v(674)] }];
+    expect(pickLargestImage(images, "https://img.test/plain.jpg")).toEqual({
+      url: "https://img.test/720.jpg",
+      width: 720,
+      height: 475,
+    });
+  });
+
+  it("prefers the cover entry, else the first", () => {
+    expect(pickLargestImage([{ variants: [v(900)] }, { isCover: true, variants: [v(300)] }], null)?.width).toBe(300);
+    expect(pickLargestImage([{ variants: [v(900)] }, { variants: [v(1200)] }], null)?.width).toBe(900);
+  });
+
+  it("skips variants of unknown width, then falls back to imageUrl with unknown size", () => {
+    const images = [{ isCover: true, variants: [{ url: "https://img.test/zero.jpg", width: 0, height: 0 }] }];
+    expect(pickLargestImage(images, "https://img.test/plain.jpg")).toEqual({
+      url: "https://img.test/plain.jpg",
+      width: null,
+      height: null,
+    });
+  });
+
+  it("uses any variant url as a last resort, and returns null when there is nothing", () => {
+    const images = [{ isCover: true, variants: [{ url: "https://img.test/zero.jpg", width: 0, height: 0 }] }];
+    expect(pickLargestImage(images, null)).toEqual({ url: "https://img.test/zero.jpg", width: null, height: null });
+    expect(pickLargestImage([], null)).toBeNull();
+    expect(pickLargestImage("not an array", "")).toBeNull();
   });
 });

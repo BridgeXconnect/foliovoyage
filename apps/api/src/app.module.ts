@@ -6,6 +6,7 @@ import { CanvasModule } from "./canvas/canvas.module";
 import { validateEnv } from "./config/env.validation";
 import { DatabaseModule } from "./database/database.module";
 import { DestinationModule } from "./destinations/destination.module";
+import { ExperiencesModule } from "./experiences/experiences.module";
 import { HealthModule } from "./health/health.module";
 import { ImportModule } from "./modules/import/import.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -26,6 +27,7 @@ import { SearchModule } from "./search/search.module";
     HealthModule,
     DestinationModule,
     CanvasModule,
+    ExperiencesModule,
     AffiliateModule,
     ImportModule,
     SearchModule,
