@@ -68,11 +68,11 @@ Canvas tiles for tours that live only in the database have no page to open today
   - [ ] The ISR page, its 404, and the `/go/tours` click redirect with fallback and ledger timeout (AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-15)
   - [ ] Protected rating path: blocked script, JSON proxy, robots rule, View Source test (AC-2, AC-6)
   - [ ] Back link and analytics events (AC-13, AC-14)
-  - [ ] Switch `tourHref` once the canvas rating leak is fixed, then the iPhone 16 check (AC-16, AC-17)
+  - [ ] Switch `tourHref` once `Disallow: /api/canvas/` is in `robots.txt`, then the iPhone 16 check (AC-16, AC-17)
 - [ ] Verify it: `/check verify database tour page`
 - [ ] Test it: `/test database tour page`
 
-### 17. Keep the canvas rating out of unblocked responses (from spec 0005) · planned · needs a decision · Beta
-The canvas JSON route (`/api/canvas/buckets/...`) sends `ratingAvg` and `ratingCount` on a path `robots.txt` does not block, and large tiles render the rating. Viator treats the rating as protected content (BRI-204 reply, 2026-09-21), so it must load from a robots blocked path or not show on tiles. This blocks the `tourHref` switch in row 16.
+### 17. Block the canvas rating path in robots.txt (from spec 0005) · planned · needs a decision · Beta
+The canvas page HTML carries no rating, but the chunk that loads it is not a robots blocked file (it is `noindex` and behind the site gate). Viator treats the rating as protected content (BRI-204 reply, 2026-09-21). Add `Disallow: /api/canvas/` to `robots.txt` (a one line change that gates the `tourHref` switch in row 16), and before the canvas is ever made indexable, give it the blocked script treatment or drop the rating from the `lg` tile.
 **Done when:** no canvas response on an unblocked path carries a rating, and any rating the canvas shows loads through the `/protected/` path.
 - [ ] Design it (spec): `/architect canvas rating protected content`

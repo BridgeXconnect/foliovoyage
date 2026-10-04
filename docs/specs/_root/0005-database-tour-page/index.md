@@ -19,17 +19,17 @@ A canvas tile for a tour that lives only in the database has no page to open tod
 - **AC-1**: `GET /v1/experiences/:id` returns the page data for a published Experience with at least one live Tour (`deletedAt` null): `experienceId`, `tourId`, `title`, `image {url, width, height, alt}` or `null` (`width` and `height` are `null` when unknown), `durationMin`, `price {amountMinor, currency}` or `null`, `cancellationDescription` or `null`, `summary {kind: "ai" | "provider", text}` or `null`, `affiliateUrl` or `null`, and `city {slug, countrySlug, name}`. It returns no rating field. The Tour used is the live Tour with the lowest `id`.
 - **AC-2**: `GET /v1/experiences/:id/rating` returns `{ratingAvg, ratingCount}` (each a number or `null`) for the same Tour as AC-1.
 - **AC-3**: Both endpoints return 404 `application/problem+json` through `ProblemDetailsFilter` when the Experience does not exist, is not `published`, or has no live Tour, with a different `detail` for each case. Every response from both, 404s included, carries `Cache-Control: public, s-maxage=900, stale-while-revalidate=86400`, set by the controller. Both bodies parse against Zod schemas in `@folio/shared` (`packages/shared/src/api.ts`).
-- **AC-4**: `/tours/:experienceId` renders the title (from `Tour.title`), the cover image, the price as "From {formatted price}" (no per person label) with the note "Final price shown by Viator at booking.", the duration, the cancellation text exactly as stored, the summary text, an affiliate disclosure link to `/legal/disclosure`, and one "Book on Viator" button. A missing price, image, duration, cancellation text, or summary hides that element only; the button always shows.
+- **AC-4**: `/tours/:experienceId` renders the title (from `Tour.title`), the cover image, the price as "From {formatted price}" (no per person label) with the note "Final price shown by Viator at booking.", the duration, the cancellation text exactly as stored, the summary text, an affiliate disclosure link to `/legal/disclosure`, and one "Book on Viator" button whose `href` is `/go/tours/:experienceId`. A missing price, image, duration, cancellation text, or summary hides that element only; the button always shows.
 - **AC-5**: The summary is the AI copy when `resolveAiSummary` returns it (published, grounding hash still valid, Tour still eligible), else the provider `Tour.description` as plain text: tags removed, entities decoded, `<br>` and `<p>` turned into paragraph breaks, rendered as paragraphs with no truncation. When nothing is left after stripping, `summary` is `null` and nothing shows. The page never shows both.
-- **AC-6**: No rating value (average or count) appears anywhere in the server HTML, the RSC payload, or any inline script of `/tours/:experienceId`. The rating appears only after `/protected/tour-rating.js` loads in the browser and fetches `/protected/tours/:experienceId/rating.json`. A small client component injects that script on every mount, so a client side navigation to a second tour page also gets its rating. `robots.txt` disallows `/protected/` in both gate states: the gated branch already returns `disallow: /`, and the open branch gets an explicit `/protected/` rule.
+- **AC-6**: No rating value (average or count) appears anywhere in the server HTML, the RSC payload, or any inline script of `/tours/:experienceId`. The rating appears only after `/protected/tour-rating.js` loads in the browser and fetches `/protected/tours/:experienceId/rating.json`. A small client component injects that script on every mount, so a client side navigation to a second tour page also gets its rating. `robots.txt` disallows `/protected/` in both gate states: the gated branch already returns `disallow: /`, and the open branch gets an explicit `/protected/` rule. A test reads the built `robots.txt` and fails if `/protected/` or `/api/canvas/` is crawlable. The page's go live also requires `Disallow: /api/canvas/` in `robots.txt` (Follow-up, with a date field).
 - **AC-7**: The page is `noindex, nofollow` (`metadata.robots {index: false, follow: false}`) and absent from `sitemap.xml`.
 - **AC-8**: An unknown, unpublished, or tourless `experienceId`, or one that is not a cuid, renders a 404 page (HTTP status 404) with a link back to `/discover`. The page calls `notFound()` only on an api 404 or a failed id check. An api 5xx or network error throws, so ISR keeps serving the last good page instead of caching an error.
-- **AC-9**: `GET /go/tours/:experienceId` logs an `AffiliateClick` with `tourId` set to the database `Tour.id`, then redirects 302 to `affiliateUrl` with `campaign` set to `canvas-tour` through `URL.searchParams.set` (replacing any existing `campaign`, every other part unchanged), with `Cache-Control: no-store` and `X-Robots-Tag: noindex`. It only redirects to an `https` URL whose host is `viator.com` or ends with `.viator.com`.
-- **AC-10**: When `affiliateUrl` is `null` or not a Viator URL, `/go/tours/:experienceId` redirects to `buildProviderFallbackUrl(city.slug, links, extractAccountAffiliateParams(links))`, where `links` is the static `viator-links.json` import. That gives the Viator destination page when the static registry knows the city, else the account root page (both with `campaign=affiliate-fallback`). It logs the click with `providerId` `viator-search-fallback`, and the page button reads "Search on Viator" instead. An unknown or malformed `experienceId` returns 404 and logs nothing.
-- **AC-11**: The click log POST is awaited for at most 1.5 seconds. On timeout or error the redirect still happens and the failure goes to `console.error`. The visitor never sees an error because of the ledger.
+- **AC-9**: `GET /go/tours/:experienceId` logs an `AffiliateClick` with `tourId` set to the database `Tour.id`, then redirects 302 to `affiliateUrl` with `campaign` set to `canvas-tour` by string handling, never `URL.searchParams.set` (which re-serializes the whole query and can re-encode other parameters). An existing `campaign=` has only its value replaced. Otherwise `campaign=canvas-tour` is appended with `?` when there is no query string, or `&` when there is, placed before any `#` fragment. Every other byte, the fragment and percent encoded characters and `+` included, stays as it was. The response carries `Cache-Control: no-store` and `X-Robots-Tag: noindex`. It only redirects to an `https` URL whose host is `viator.com` or ends with `.viator.com`.
+- **AC-10**: When `affiliateUrl` is `null` or not a Viator URL, `/go/tours/:experienceId` redirects to `buildProviderFallbackUrl(city.slug, links, extractAccountAffiliateParams(links))`, where `links` is the static `viator-links.json` import. That gives the Viator destination page when the static registry knows the city, else the account root page (both with `campaign=affiliate-fallback`). It logs the click with `providerId` `viator-search-fallback`, writes a `console.error` each time the fallback fires, and the page button reads "Search on Viator" instead. An unknown or malformed `experienceId` returns 404 and logs nothing.
+- **AC-11**: The route races the click log POST against a 1.5 second timer. If the POST answers first, the row is written before the redirect. If the timer wins, the route redirects and the same POST finishes in the background through Next's `after()`, and a `tour_click_log_slow` event is recorded. There is one POST per click, no retries, no duplicates. A POST error goes to `console.error`. The visitor never sees an error because of the ledger. This changes FR-AFF-1 to read "written before the redirect when the api answers within 1.5 s, best effort afterwards", a deliberate trade off for the api cold start (BRI-237).
 - **AC-12**: `/go/tours/...` reaches the new route, never `/go/[slug]/[id]`, and no destination slug in `destinations.ts` equals `tours`. A test pins both.
 - **AC-13**: The back link reads "Back to {City} · {Category}" and points to `/discover?at=<city>.<category>` when the page URL carries a `from` value (split on the first dot, `<citySlug>.<categorySlug>`) whose city equals the tour's `city.slug` and whose category is in `CANVAS_CATEGORIES`. Otherwise it reads "Back to {City}" and points to `/destinations/:citySlug`.
-- **AC-14**: `canvas_tile_click` gains `experience_id` and `tour_id`. A new `tour_page_viewed` event fires once per mount (guarded against the strict mode double run) with `{experience_id, tour_id, city, category, from}`. The button fires `experience_booking_clicked` through `trackAffiliateClick` with `experience_id` and `source: "tour_page"`. All three go through helpers in `apps/web/src/lib/analytics.ts`, never an inline `posthog.capture`.
+- **AC-14**: `canvas_tile_click` gains `experience_id` and `tour_id`. A new `tour_page_viewed` event fires once per mount (guarded against the strict mode double run) with `{experience_id, tour_id, city, category, from}`. The button fires `experience_booking_clicked` through `trackAffiliateClick` with `experience_id` and `source: "tour_page"`. All three go through helpers in `apps/web/src/lib/analytics.ts`, never an inline `posthog.capture`. The `canvas_tile_click` change ships in the same PR as the page. `from` is logged only after validation (a valid city key and category key), never raw. A `tour_page_not_found` event carries a `reason` of `unknown`, `unpublished`, `removed`, or `malformed`, and no free text. The funnel is: tile click, then page view (same session and `experience_id`), then booking click, with the server ledger as the count for the last step.
 - **AC-15**: The page uses ISR (incremental static regeneration: built on first request, then served from cache and rebuilt in the background) with `revalidate = 900`. The page itself reads no request data (no `searchParams`, cookies, or headers on the server), so it stays cacheable. Its api fetch uses `next: { revalidate: 900 }`, and `generateMetadata` makes the identical fetch so Next dedupes it. Any id that passes the cuid check may create a cache entry, which is accepted.
 - **AC-16**: `tourHref` returns `/tours/${tile.id}?from=${citySlug}.${categorySlug}`, a unit test pins it, and a click on a canvas tile in a production build opens the tour page.
 - **AC-17**: On an iPhone 16 with a production build (the 0004 AC-L9 method, Low Power Mode off): tile to page to button to Viator works, the back link returns to the canvas, and the rating appears.
@@ -46,11 +46,12 @@ A canvas tile for a tour that lives only in the database has no page to open tod
 | Indexing | `noindex` until AI copy plus the editorial stamp | Thin provider text would be a duplicate content page. The flip is per page, in a later ticket | Index from day one |
 | Rating | Loaded in the browser by `/protected/tour-rating.js`, path blocked in `robots.txt` | Viator's rule: protected content never in page source, loaded by an external script that is itself blocked. `noindex` alone does not satisfy it | Leave the rating out entirely |
 | Body text | AI copy replaces the provider description when valid | One text block, no duplication, the AI copy is the reason the page will later be indexed | Show both |
-| Fields | Title, cover image, price, duration, verbatim cancellation text, summary text | The minimum to decide, and each is a standard field Viator allows | Add inclusions, exclusions, gallery |
-| Price | `priceMinor` with `currency`, as returned | Viator requires price to stay live and unmodified. Converting would modify it | `priceReferenceMinor` in USD (the canvas tile price) |
+| Fields | Title, cover image, price, duration, verbatim cancellation text, summary text | The minimum to decide, and each is a standard field Viator allows. Planned next, in order: inclusions and exclusions (after the BRI-227 refetch), the gallery, then more AI copy surfaces | Add inclusions, exclusions, gallery now |
+| Price | `priceMinor` with `currency`, as returned | Viator requires price to stay live and unmodified. Converting would modify it. The canvas tile shows our USD reference price while the page shows the supplier's currency, a known mismatch (see Follow-up) | `priceReferenceMinor` in USD (the canvas tile price) |
 | Button | `/go/tours/:experienceId` | Logs every click on our server before leaving, the same pattern as `/go/[slug]/[id]` | Link straight to Viator and log only in PostHog |
 | Missing link | The existing Viator fallback (destination page, else account root) | Keeps the visitor moving and keeps attribution | Hide the button |
-| Click log wait | Await, abort after 1.5 seconds | Ledger completeness without letting a slow api block the visitor | Fire and forget |
+| Click log wait | Race the POST against a 1.5 second timer. If the timer wins, redirect and let the same POST finish in the background with `after()` | Ledger completeness without letting a slow api block the visitor, and no lost row on a cold start | Abort after 1.5 seconds, or fire and forget |
+| Permanent URL | `/tours/:experienceId` never stops working | Shared links and the ledger depend on it. If a readable slug segment is added later, the id only form redirects to it | Slug only URLs |
 | Back link | `?from=<city>.<category>` read in the browser | Returns to the bucket. Reading it in the browser keeps the page ISR | Browser history back |
 | Caching | ISR, 15 minutes, matching `s-maxage=900` on the api | Price and availability change daily at most. Cheap at any traffic | `force-dynamic` with `no-store` (the existing DB page pattern) |
 | API shape | Two endpoints, page data and rating | The rating must travel a separate, robots blocked route | One endpoint with the rating inside |
@@ -68,6 +69,8 @@ A canvas tile for a tour that lives only in the database has no page to open tod
 
 Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experience with more than one Tour, 6 Experiences with no live Tour, 840 live linked Tours all with a Viator `affiliateUrl` and a `cancellationPolicy`, 1 published `TourCopy`.
 
+Production counts: 30,578 Experiences and 30,573 live Tours. Each Experience that has a live Tour has exactly one, and none is unlinked. 5 Experiences have no live Tour and 2 are drafts. All 30,578 Experience ids match `^c[a-z0-9]{24}$` (25 characters).
+
 **API surface**:
 | Endpoint | Method | Key inputs | Key outputs | Auth | Key errors |
 |---|---|---|---|---|---|
@@ -83,9 +86,9 @@ Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experien
 | Action | Value produced / displayed | Source |
 |---|---|---|
 | Page data | `title` | `Tour.title` of the chosen Tour (not `Experience.title`) |
-| Page data | `image.url`, `width`, `height` | `Tour.images` through the canvas image picker (`apps/api/src/canvas/canvas-image.ts`) with a new constant `MIN_WIDTH_PAGE = 1024`, else the widest variant, else `Tour.imageUrl`. `width` and `height` are `null` when unknown |
+| Page data | `image.url`, `width`, `height` | `Tour.images` through the canvas image picker (`apps/api/src/canvas/canvas-image.ts`) and takes the largest available variant, never built by rewriting a URL (Viator's largest variant is about 720 px wide, typically 674×446 or 720×480, so a fixed minimum such as 1024 cannot be met), else `Tour.imageUrl`. `width` and `height` are `null` when unknown |
 | Page data | `image.alt` | `Tour.imageAlt`, else `Tour.title` |
-| Page | image element | `next/image` when the host matches `**.tripadvisor.com` (allowed in `next.config`) and both dimensions are known, else a plain `<img>` with a fixed aspect ratio box. Loaded with priority (it is the main image) |
+| Page | image element | A plain `<img>` for every image, as the canvas does, with a fixed aspect ratio box when both dimensions are known. Loaded with priority (it is the main image). No `next/image` and no `next.config` change: it would need `remotePatterns`, run about 16,000 tours through Vercel's optimizer (a usage limit and a cost), and create re-hosted copies of Viator's images that their content terms may not allow |
 | Page data | `price` | `Tour.priceMinor` (sent as a JSON integer) and `Tour.currency`. `null` when either is null |
 | Page | formatted price | `formatPrice(amountMinor, currency)` from `apps/web/src/canvas/format.ts` (already handles each currency's minor unit), shown with a capital "From" |
 | Page data | `durationMin` | `Tour.durationMin`, formatted by `formatDuration` from `apps/web/src/canvas/format.ts` |
@@ -96,13 +99,13 @@ Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experien
 | Page data | `affiliateUrl` | `Tour.affiliateUrl` |
 | Page data | `city` | the Experience's `City` |
 | Rating | `ratingAvg`, `ratingCount` | `Tour.ratingAvg`, `Tour.ratingCount` of the same chosen Tour |
-| Redirect | target URL | `affiliateUrl` with `searchParams.set("campaign", "canvas-tour")`, else `buildProviderFallbackUrl(city.slug, links, extractAccountAffiliateParams(links))` from `apps/web/src/lib/affiliate-fallback.ts`, `links` being the static `viator-links.json` import (destination page or account root) |
+| Redirect | target URL | `affiliateUrl` with `campaign` replaced or appended by string handling (AC-9), else `buildProviderFallbackUrl(city.slug, links, extractAccountAffiliateParams(links))` from `apps/web/src/lib/affiliate-fallback.ts`, `links` being the static `viator-links.json` import (destination page or account root) |
 | Redirect | experience data | the same api fetch as the page, `next: { revalidate: 900 }`, so `affiliateUrl` can be up to 15 minutes stale (accepted) |
 | Redirect | click row `tourId` | `tourId` from the page data |
 | Redirect | click row `providerId` | `"viator"`, or `"viator-search-fallback"` on the fallback |
 | Redirect | `referrer`, `userAgent`, `ip` | request headers, as in `/go/[slug]/[id]`. No `sessionId`, same as that route |
 | Page | back link label and target | `from` read in the browser, split on the first dot, accepted only when its city equals the tour's `city.slug` and its category is in `CANVAS_CATEGORIES` (`@folio/shared`). City name from page data, category label from the shared category map |
-| Web routes | id check | a cuid pattern (`/^c[a-z0-9]{20,32}$/`) checked before any fetch, plus `encodeURIComponent` in every api URL. A failing id is a 404 |
+| Web routes | id check | a cuid pattern (`/^c[a-z0-9]{20,32}$/`) checked before any fetch, plus `encodeURIComponent` in every api URL. A failing id is a 404. Evidence: all 30,578 production Experience ids match `^c[a-z0-9]{24}$`, so the check cannot reject a real tour |
 | Page | button label | "Book on Viator" when `affiliateUrl` is a Viator URL, else "Search on Viator" (same check as the redirect) |
 | `tour_page_viewed` | `category` | the category part of `from`, `null` when `from` is absent or invalid |
 | `canvas_tile_click` | `experience_id`, `tour_id` | the tile's `id` and `tourId` (already on `CanvasTile`) |
@@ -111,7 +114,10 @@ Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experien
 - No rating value ever appears in server rendered output of `/tours/*` (AC-6).
 - The page and the redirect pick the same Tour for an Experience, because both read the same endpoint.
 - The redirect target host is always `viator.com` or a subdomain of it, over `https`.
-- `affiliateUrl` is used verbatim. Only `campaign` is appended (allowed by Viator: alphanumeric and dashes).
+- `affiliateUrl` is used verbatim. Only `campaign` is replaced or appended (allowed by Viator: alphanumeric and dashes), by string handling, so every other byte is unchanged.
+- `affiliateUrl` is read by the server page and the redirect only. It never appears in client props, HTML, the RSC payload, or analytics. The button's `href` is `/go/tours/:experienceId` and its label is decided server side. A test on the built HTML pins this.
+- Provider text (the stripped description, the cancellation text) is rendered as text. `dangerouslySetInnerHTML` is never used for it.
+- If the page ever finds an Experience with more than one live Tour, it logs a warning once. The lowest id rule stays on purpose.
 - Price, cancellation text, and availability are never altered or rewritten.
 - The page server code reads no request data, so ISR holds.
 - No web route sends a path id to the api without the cuid check and encoding.
@@ -130,9 +136,13 @@ Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experien
 - Protected content: the HTML and RSC payload of a rated tour contain neither the average nor the count, `robots.txt` disallows `/protected/` with the gate on and off, and the rating fills after a client side navigation to a second tour, verifies **AC-6**
 - Summary: valid AI copy replaces the description, a stale grounding hash falls back to the description, markup in the description is stripped, verifies **AC-5**
 - Fallback: a null and a non Viator `affiliateUrl` both redirect with `viator-search-fallback` (to the destination page for a city in the static registry, to the account root for one that is not), and the button reads "Search on Viator", verifies **AC-10**
-- Campaign: a URL that already has `campaign=x` ends with exactly one `campaign=canvas-tour`, and `evilviator.com` is refused, verifies **AC-9**
+- Campaign: cases for no query string, a query without `campaign`, a query with `campaign` already present, a fragment, and percent encoded characters plus a `+` (the output equals the input except for the campaign value), and `evilviator.com` is refused, verifies **AC-9**
+- Affiliate URL stays on the server: the built HTML and RSC payload of a tour page do not contain the `affiliateUrl`, verifies the key invariant
+- Price display: one tour each in JPY, VND, and a two decimal currency through `formatPrice`, using production shaped rows (Kyoto, Hanoi, Bali), verifies **AC-4**
+- Not available: real production shaped rows (an Experience with no live Tour, a draft) render the 404 page, not only invented ids, and `cancellationDescription` renders verbatim with its line breaks, verifies **AC-3**, **AC-4**, **AC-8**
+- View Source: View Source on a built tour page, searching for the rating, finds nothing (manual check from Viator's rule), and the built `robots.txt` test fails if `/protected/` or `/api/canvas/` is crawlable, verifies **AC-6**
 - Error handling: an api 500 throws instead of rendering the 404, and a malformed id 404s without a fetch, verifies **AC-8**
-- Ledger timeout: a click POST that hangs past 1.5 seconds still produces the redirect and a `console.error`, verifies **AC-11**
+- Ledger timeout: a click POST that hangs past 1.5 seconds still produces the redirect and a `tour_click_log_slow` event, the same POST completes in the background, and exactly one POST is sent, verifies **AC-11**
 - Routing: `/go/tours/x` hits the new handler, and no destination slug is `tours`, verifies **AC-12**
 - Back link: a valid `from` links to `/discover?at=…`, while a missing one, an invalid one, or one naming another city links to the city page, verifies **AC-13**
 - Indexing: the page has `noindex, nofollow` and the sitemap has no `/tours/` URL, verifies **AC-7**
@@ -143,9 +153,9 @@ Dev counts (read only, 2026-10-04): 846 Experiences (845 published), no Experien
 The build approach is Tracer Bullet: one thin thread from the database to Viator first, then thicken.
 
 1. Add `experiencePageSchema` and `experienceRatingSchema` to `@folio/shared` with contract tests, satisfies **AC-3**
-2. Add the api `experiences` module: `GET /v1/experiences/:id` (lowest id live Tour, price, image pick with `MIN_WIDTH_PAGE`, verbatim cancellation, summary through `resolveAiSummary`, the AC-5 description stripper), the three 404 cases through `ProblemDetailsFilter`, and the cache header on every response, with unit and integration tests, satisfies **AC-1**, **AC-3**, **AC-5**
+2. Add the api `experiences` module: `GET /v1/experiences/:id` (lowest id live Tour, price, largest variant image pick, verbatim cancellation, summary through `resolveAiSummary`, the AC-5 description stripper), the three 404 cases through `ProblemDetailsFilter`, and the cache header on every response, with unit and integration tests, satisfies **AC-1**, **AC-3**, **AC-5**
 3. Add `apps/web/src/app/tours/[experienceId]/page.tsx` with ISR (`revalidate = 900`, `dynamicParams` true, no `generateStaticParams`), the cuid check, `notFound()` on an api 404 only, `noindex` metadata and title, placeholder styling only, the fields with their hide rules, the disclosure link, and the button, satisfies **AC-4**, **AC-7**, **AC-8**, **AC-15**
-4. Add `apps/web/src/app/go/tours/[experienceId]/route.ts`: cuid check, strict Viator host check, `campaign` set, city search fallback, click POST awaited with a 1.5 second abort, 302 with `no-store` and `X-Robots-Tag: noindex`, plus the routing priority test and the `tours` slug check, satisfies **AC-9**, **AC-10**, **AC-11**, **AC-12** (end of the tracer thread: database to page to Viator)
+4. Add `apps/web/src/app/go/tours/[experienceId]/route.ts`: cuid check, strict Viator host check, `campaign` set, city search fallback, click POST raced against a 1.5 second timer and finished with `after()`, 302 with `no-store` and `X-Robots-Tag: noindex`, plus the routing priority test and the `tours` slug check, satisfies **AC-9**, **AC-10**, **AC-11**, **AC-12** (end of the tracer thread: database to page to Viator)
 5. Add the rating path: `GET /v1/experiences/:id/rating`, the web `/protected/tours/[experienceId]/rating.json` proxy, `public/protected/tour-rating.js` with its mounting client component, the `/protected/` rule in the open branch of `robots.ts`, and the View Source test, satisfies **AC-2**, **AC-3**, **AC-6**
 6. Add the 404 page for the route (`not-found.tsx` under `tours/[experienceId]`) with a link to `/discover`, satisfies **AC-8**
 7. Add the back link as a small client component reading `from` with `useSearchParams` inside `Suspense`, validated against the shared lists, satisfies **AC-13**, **AC-15**
@@ -154,7 +164,7 @@ The build approach is Tracer Bullet: one thin thread from the database to Viator
 10. Switch `tourHref` to the new page with its unit test, then click a tile in a production build, satisfies **AC-16**
 11. Run the iPhone 16 check on a production build, satisfies **AC-17**
 
-The page does not go live (task 10) until the canvas rating leak in Follow-up is fixed, because shipping a compliant page beside a non compliant canvas changes nothing for Viator's rule.
+The page's go live (task 10) depends on `Disallow: /api/canvas/` being in `robots.txt`, a one line change (date field in Follow-up). The canvas page's server HTML carries no rating, but the chunk that loads it is not a robots blocked file, so the canvas cannot meet Viator's literal wording on its own.
 
 Until task 10 ships, `tourHref` keeps pointing at `/destinations/:citySlug`.
 
@@ -170,25 +180,29 @@ Until task 10 ships, `tourHref` keeps pointing at `/destinations/:citySlug`.
 - The rating appears a moment after the page, and not at all without JavaScript.
 - Prices can be up to 15 minutes behind the database (and the database is refreshed nightly). The "final price on Viator" note covers this.
 - A 404 is also cached for 15 minutes, so a newly linked Experience can 404 briefly.
-- The page Tour (lowest id) can differ from the canvas tile Tour (best score) if an Experience ever gains a second Tour. Dev has none today.
+- The page Tour (lowest id) can differ from the canvas tile Tour (best score) if an Experience ever gains a second Tour. Neither dev nor production has one today.
+- A tour removed upstream can still redirect to Viator for up to 15 minutes plus the time until the next import. Viator's own page handles an unavailable product. An always live redirect was rejected because it would stall the booking click on a cold start.
+- The click row is best effort after 1.5 seconds (FR-AFF-1 wording change, see AC-11).
+- The canvas tile shows our USD reference price and the page shows the supplier's currency, so a visitor can see two different amounts.
 - The `campaign` value is fixed at `canvas-tour`, so a later link from search or a city page would need its own value.
 - The back link uses `?at=`, which does nothing until the canvas position URL (scope row 14) ships. Until then it opens the canvas at its default spot.
 
 **Neutral**:
+- `/tours/:experienceId` is permanent. A later readable slug segment must redirect the id only form to it, and the id only form never stops working.
 - A second click route (`/go/tours`) now sits beside `/go/[slug]/[id]`. Both log to the same ledger.
 - `/protected/` is a new robots blocked path that later protected content can reuse.
 - The `docs/06` line that calls the aggregate rating safe is now known to be stale.
 
 ## Follow-up
 
-- [ ] **Blocks task 10.** The canvas JSON route (`/api/canvas/buckets/...`) ships `ratingAvg` and `ratingCount` on an unblocked path, and `CanvasItem` renders the rating on `lg` tiles. Under Viator's protected content rule this needs a fix in spec 0004 (move the rating behind `/protected/` or drop it from the tile) before `tourHref` switches.
+- [ ] **Blocks task 10.** Add `Disallow: /api/canvas/` to `robots.txt` (one line; date field: ____). Then, before the canvas is ever made indexable, give it the same blocked script treatment, or drop the rating from the `lg` tile.
 - [ ] Fix the host check in `/go/[slug]/[id]/route.ts`: `endsWith("viator.com")` accepts `evilviator.com`.
 - [ ] Update `docs/06-viator-api-integration-guide.md` line 63: the aggregate rating is protected content, per Viator's 2026-09-21 reply (BRI-204).
 - [ ] Add a rate limit to the public api endpoints (shared with the canvas feed Follow-up).
-- [ ] Check on production (read only) that no Experience has more than one live Tour.
 - [ ] A separate ticket for the per page index flip: valid AI copy, the BRI-201 golden stamp, and the browser loaded rating all required; it also adds those pages to the sitemap.
 - [ ] Decide whether `campaign` becomes source specific when another surface links to the page.
-- [ ] Open design items for the designer (the build ships placeholder styling only): section order and layout; header and footer; how price, duration, and cancellation are presented; the rating placeholder and its loading state; the button style; the back link; the 404 page; the cover image crop and aspect ratio; the mobile layout.
+- [ ] Price currency: find what Viator's docs say about showing a converted currency. If unclear, ask Viator's partner team alongside the `/products/bulk` question. Until then the tile shows our USD reference price and the page shows the supplier's currency.
+- [ ] Open design items for the designer (the build ships placeholder styling only): section order and layout; header and footer; how price, duration, and cancellation are presented; the rating placeholder and its loading state; the button style; the back link; the 404 page; the cover image crop and aspect ratio (the hero is limited to about 720 source pixels and will look soft at full width on a 3× phone); a label for AI written copy, and whether Viator requires one; the mobile layout.
 
 ## Rationale
 
