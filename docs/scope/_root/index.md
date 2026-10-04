@@ -28,7 +28,8 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 13 | Canvas layout and rendering (region layout, culler, pan) | Canvas slice 1 | in-progress |
 | 14 | Canvas navigation (minimap, bucket search, shareable position URLs) | Canvas slice 2 | in-progress |
 | 15 | Canvas tile design (tile shape rules, hover caption, visual direction) | Canvas slice 3 | in-progress |
-| 16 | New database backed tour page for canvas tiles (from spec 0004) | Canvas follow up | planned |
+| 16 | New database backed tour page for canvas tiles (from spec 0004) | Canvas follow up | in-progress |
+| 17 | Block the canvas rating path in robots.txt (from spec 0005) | Canvas follow up | planned |
 
 ## Epics
 

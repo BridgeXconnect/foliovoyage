@@ -59,7 +59,20 @@ How a tile looks: size and shape rules that work within the photo crops the prov
 
 ## Follow-ups from spec 0004
 
-### 16. New database backed tour page for canvas tiles (from spec 0004) · planned · needs a decision · Beta
+### 16. New database backed tour page for canvas tiles (from spec 0004) · in-progress · Beta
 Canvas tiles for tours that live only in the database have no page to open today (the only tour page and the `/go` redirect serve hand authored static content). This is a new `noindex` page linked through `tourHref`.
 **Done when:** a canvas tile for a database only tour opens a page with the tour's details and a tracked affiliate link.
-- [ ] Design it (spec): `/architect new database backed tour page`
+- [x] Design it (spec): [0005](../../specs/_root/0005-database-tour-page/index.md)
+- [ ] Build it: `/develop database tour page`
+  - [ ] Shared Zod schemas and the api page data and rating endpoints, with the 404 cases and cache headers (AC-1, AC-2, AC-3, AC-5)
+  - [ ] The ISR page, its 404, and the `/go/tours` click redirect with fallback and ledger timeout (AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-15)
+  - [ ] Protected rating path: blocked script, JSON proxy, robots rule, View Source test (AC-2, AC-6)
+  - [ ] Back link and analytics events (AC-13, AC-14)
+  - [ ] Switch `tourHref` once `Disallow: /api/canvas/` is in `robots.txt`, then the iPhone 16 check (AC-16, AC-17)
+- [ ] Verify it: `/check verify database tour page`
+- [ ] Test it: `/test database tour page`
+
+### 17. Block the canvas rating path in robots.txt (from spec 0005) · planned · needs a decision · Beta
+The canvas page HTML carries no rating, but the chunk that loads it is not a robots blocked file (it is `noindex` and behind the site gate). Viator treats the rating as protected content (BRI-204 reply, 2026-09-21). Add `Disallow: /api/canvas/` to `robots.txt` (a one line change that gates the `tourHref` switch in row 16), and before the canvas is ever made indexable, give it the blocked script treatment or drop the rating from the `lg` tile.
+**Done when:** no canvas response on an unblocked path carries a rating, and any rating the canvas shows loads through the `/protected/` path.
+- [ ] Design it (spec): `/architect canvas rating protected content`
