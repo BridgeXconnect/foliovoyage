@@ -163,6 +163,7 @@ export default function DiscoverCanvas({
         rank: item.kind === "tour" ? item.tile.rank : null,
         tier: item.kind === "tour" ? item.tier : "md",
         tileKind: item.kind,
+        ...(item.kind === "tour" ? { experienceId: item.tile.id, tourId: item.tile.tourId } : {}),
       });
       const stats = statsRef.current;
       if (stats) {

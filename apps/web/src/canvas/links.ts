@@ -1,16 +1,26 @@
 /**
  * The only two places that build a canvas link target (spec 0004, AC-L13).
- * When the tour page exists, `tourHref` changes here and nowhere else.
+ * A tour tile opens the database tour page (spec 0005, AC-16); the exit tile
+ * stays on the city page.
  */
 
 import type { CanvasCity, CanvasTile } from "@folio/shared";
 
 /** A tile plus the city its bucket belongs to. */
-export type TileRef = Pick<CanvasTile, "id" | "tourId"> & { readonly citySlug: string };
+export type TileRef = Pick<CanvasTile, "id"> & {
+  readonly citySlug: string;
+  readonly categorySlug: string;
+};
 
-/** Until the tour page exists, a tile opens its city's destination page. */
+/**
+ * A tile opens `/tours/:experienceId?from=<city>.<category>`. Both slugs are
+ * the tile's bucket keys from the shared lists, never free text. A tile with no
+ * Experience id throws, so a bad tile fails loudly instead of linking to
+ * `/tours/undefined`.
+ */
 export function tourHref(tile: TileRef): string {
-  return `/destinations/${tile.citySlug}`;
+  if (!tile.id) throw new Error("tourHref: tile has no Experience id");
+  return `/tours/${encodeURIComponent(tile.id)}?from=${tile.citySlug}.${tile.categorySlug}`;
 }
 
 /** The exit tile opens the city's destination page. */

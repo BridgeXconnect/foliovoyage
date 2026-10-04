@@ -131,7 +131,7 @@ function CanvasItemView({ item, index, city, onActivate }: Props) {
       return (
         <a
           data-item={index}
-          href={tourHref({ ...tile, citySlug: city.slug })}
+          href={tourHref({ id: tile.id, citySlug: city.slug, categorySlug: item.slot.categorySlug })}
           draggable={false}
           onClick={(e) => onActivate(item, e)}
           className={`group block ${FOCUS}`}
