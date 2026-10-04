@@ -35,6 +35,7 @@ A tile is a photo with a caption below it, in one of three tiers by rank: large 
 | Caption height | Explicit tokens 14, 57, 68 px | The md and sm values come from fractional line heights (36.8 and 13.8 px) that render rounded, so formulas would be fragile | Derive from line height |
 | Tier contents | `lg` four fields, `md` three, `sm` title | Bigger tiles earn more words | Same content on all |
 | Shape | Seeded per tour, about 30% 1:1 | A category driven shape would make a bucket uniform | By category or by duration |
+| Tilt | The photo only, about the tile's top left corner; the caption is always upright and untransformed. The ±1.5° tilt and the seeded jitter are otherwise unchanged | Rotated caption text cost about 8 ms of pan p95 on the iPhone 16: p95 26 ms with the whole tile rotated, 18 ms with the photo only, 17 ms with no tilt (layout child, AC-L9) | The whole tile rotated, caption included |
 | Hover | Desktop only, accent outline and accent title | Touch has no hover, so a tap is direct | A hover caption on touch |
 | Exit tile | `md` 3:2, solid accent, the only one | One clear way out of a bucket | A quiet text link |
 | Textures | None | Scrapped on 1 Oct | Texture packs |
@@ -63,6 +64,7 @@ Caption arithmetic (for reference, not for code): `lg` is 2 × 23 + 4 + 18 = 68.
 **Key invariants**:
 - Caption height depends only on tier.
 - Tile code holds no colour, font, or radius literal.
+- No transform on text: a caption and everything inside it are never rotated, scaled, or otherwise transformed. Only the photo carries the tilt.
 
 **Security model**: public, no user data. Titles come from the provider and are rendered as text, never as HTML.
 
