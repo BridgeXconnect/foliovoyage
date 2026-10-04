@@ -20,7 +20,10 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       // BRI-136: the affiliate redirect hop is first-party analytics, not content.
       // It is noindex per-response too; disallowing keeps crawlers off it entirely.
-      disallow: "/go/",
+      // Spec 0005: protected content (the tour rating) and its script load from
+      // /protected/, and the canvas feed carries ratings too, so both stay out of
+      // crawlers. /tours/ itself is not disallowed: its noindex tag must stay readable.
+      disallow: ["/go/", "/protected/", "/api/canvas/"],
     },
     sitemap: `${site.url}/sitemap.xml`,
     host: site.url,
