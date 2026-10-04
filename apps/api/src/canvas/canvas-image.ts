@@ -77,3 +77,28 @@ export function pickImage(images: unknown, imageUrl: string | null, rank: number
   }
   return null;
 }
+
+/**
+ * The picture for a tour's own page (spec 0005): the widest variant of the cover
+ * entry, never built by rewriting a url. Viator's largest variant is about 720 px
+ * wide, so there is no minimum to meet; the page wants the best it has. Falls
+ * back the same way {@link pickImage} does: `imageUrl` (size unknown), then any
+ * variant url on any entry, then null. Does not change {@link pickImage}.
+ */
+export function pickLargestImage(images: unknown, imageUrl: string | null): CanvasImage | null {
+  const entries = Array.isArray(images) ? images : [];
+  const entry = entries.find((e) => isRecord(e) && e.isCover === true) ?? entries[0];
+
+  const sized = variantsOf(entry).filter((v) => v.width > 0);
+  if (sized.length > 0) {
+    return toImage(sized.reduce((best, v) => (v.width > best.width ? v : best)));
+  }
+
+  if (imageUrl) return { url: imageUrl, width: null, height: null };
+
+  for (const e of entries) {
+    const [first] = variantsOf(e);
+    if (first) return { url: first.url, width: null, height: null };
+  }
+  return null;
+}
