@@ -4,7 +4,7 @@ import { SchedulerRegistry } from "@nestjs/schedule";
 import { CronJob } from "cron";
 
 import type { Env } from "../../config/env.validation";
-import { ImportRunService } from "./import-run.service";
+import { ImportAlreadyRunningError, ImportRunService } from "./import-run.service";
 
 /**
  * Nightly import scheduler (ST-10 / BRI-107).

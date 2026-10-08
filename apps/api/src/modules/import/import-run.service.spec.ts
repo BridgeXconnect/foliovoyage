@@ -1001,6 +1001,23 @@ describe("ImportRunService", () => {
       expect(run.cursorAtStart).toBeNull();
     });
 
+    it("drops a modifiedSince passed alongside full", async () => {
+      const seen: Array<string | undefined> = [];
+      const runner: SegmentRunner = {
+        async runSegment(runId: string, modifiedSince?: string) {
+          seen.push(modifiedSince);
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, { ...row, status: "succeeded", finishedAt: new Date() });
+          return { exitCode: 0 };
+        },
+      };
+      await new ImportRunService(store, runner, { fullRunMinFetched: 1 }).execute("manual", {
+        full: true,
+        modifiedSince: "2026-01-01T00:00:00Z",
+      });
+      expect(seen).toEqual([undefined]);
+    });
+
     it("fails before any segment (client) call when the floor is missing", async () => {
       const runner = capture();
       const service = new ImportRunService(store, runner, CONFIG);
