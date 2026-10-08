@@ -195,6 +195,21 @@ that env var in Vercel's project settings, not this repo, for the current value.
     image, an affiliate link and a positive USD reference price) to published;
     `segment-worker.cli.ts` calls it during each run. It checks completeness
     only, not quality, so editorial review (M7) is still separate.
+  - **Crawl log and completeness guard** (BRI-227, `crawl-log.ts`,
+    `completeness-guard.ts`). Every page request logs one `[crawl] ts=… run=…
+    trigger=… page=… cursor_sent=… cursor_received=… status=… products=…
+    total=… attempts=…` line (cursors truncated to head…tail(len); full values
+    at `debug`, which the CLIs' logger config drops, so the archived page in R2
+    is the lossless record), plus `[crawl] start` / `[crawl] end` lines with an
+    explicit `stop_reason`. A **full** run (`cursorAtStart` null and no
+    `modifiedSince`) that reaches end-of-feed is checked in `segment-worker.cli.ts`
+    before soft-delete/linking: raw `fetched` must reach `IMPORT_FULL_RUN_MIN_FETCHED`
+    if set, else `IMPORT_FULL_RUN_MIN_PCT` (default 90) of the largest `fetched` of
+    any earlier succeeded full run, else the check skips with a warning. Failure
+    marks the row `failed`, clears `lastCursor` (so the nightly keeps resuming from
+    the last good run) and makes `trigger-import` exit 1. Delta runs are exempt.
+    `Tour` rows are not the baseline: they are the curated subset, `fetched` is
+    the whole catalogue.
   - `TourValidator` (`validator.ts`) then `TourUpsertService` (`upsert.ts`) —
     validate/quarantine, then idempotent per-page upsert; a once-per-run
     `finalizeGuardedSoftDelete` handles soft-deletes behind a mass-deletion

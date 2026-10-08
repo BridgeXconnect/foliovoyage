@@ -148,11 +148,19 @@ export interface ViatorPage {
   etag?: string;
   /** Where the raw bytes were archived. */
   archive: { bucket: string; key: string };
+  /** Cursor this page's request carried (BRI-227); absent on a from-scratch first page. */
+  cursorSent?: string;
+  /** HTTP status of the response that was accepted (BRI-227). */
+  status?: number;
+  /** HTTP attempts it took, retries included; 1 means no retry (BRI-227). */
+  attempts?: number;
 }
 
 /** Result of a single HTTP page fetch (post-retry). */
 interface FetchPageResult {
   status: number;
+  /** Attempts made by the retry helper, counted by the request closure. */
+  attempts?: number;
   /** Raw response body text (archived verbatim). */
   body: string;
   /** `ETag` response header, if the endpoint provided one. */
@@ -222,6 +230,9 @@ export class ViatorClient {
         nextCursor: parsed.nextCursor,
         etag: result.etag,
         archive: archived,
+        cursorSent: cursor,
+        status: result.status,
+        attempts: result.attempts,
       };
 
       // Empty/absent nextCursor ends the crawl.
@@ -370,12 +381,17 @@ export class ViatorClient {
     url: URL,
     ifNoneMatch?: string,
   ): Promise<FetchPageResult> {
-    return fetchWithBackoff(
-      () =>
-        this.http.fetch(url, {
+    // The helper does not expose how many attempts it made; the request
+    // closure runs once per attempt, so count there (BRI-227).
+    let attempts = 0;
+    const result = await fetchWithBackoff(
+      () => {
+        attempts += 1;
+        return this.http.fetch(url, {
           method: "GET",
           headers: this.buildHeaders(ifNoneMatch),
-        }),
+        });
+      },
       // The body read is inside the retry unit (BRI-182 diagnostic session,
       // 2026-09-02 — this method previously only wrapped the `fetch()` call).
       async (response): Promise<FetchPageResult> =>
@@ -396,6 +412,7 @@ export class ViatorClient {
         isSuccess: (response) => response.ok || response.status === 304,
       },
     );
+    return { ...result, attempts };
   }
 
   private buildHeaders(ifNoneMatch?: string): Record<string, string> {

@@ -5,6 +5,7 @@ import {
   ImportRunService,
   type ImportRunPrisma,
 } from "./import-run.service";
+import { applyCompletenessGuard } from "./completeness-guard";
 import type { SegmentRunner, SegmentRunResult } from "./segment-runner";
 
 /**
@@ -102,8 +103,10 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         provider?: string;
         status?: ImportRun["status"] | { not: ImportRun["status"] };
         lastCursor?: { not: null };
+        cursorAtStart?: null;
+        id?: { not: string };
       };
-      orderBy?: { startedAt: "desc" | "asc" };
+      orderBy?: { startedAt?: "desc" | "asc"; fetched?: "desc" };
     }): Promise<ImportRun | null> => {
       const matches = (row: ImportRun): boolean => {
         if (where.provider !== undefined && row.provider !== where.provider) {
@@ -119,6 +122,10 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         if (where.lastCursor?.not === null && row.lastCursor === null) {
           return false;
         }
+        if (where.cursorAtStart === null && row.cursorAtStart !== null) {
+          return false;
+        }
+        if (where.id && row.id === where.id.not) return false;
         return true;
       };
 
@@ -127,6 +134,8 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         candidates = candidates.sort(
           (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
         );
+      } else if (orderBy?.fetched === "desc") {
+        candidates = candidates.sort((a, b) => b.fetched - a.fetched);
       } else if (orderBy?.startedAt === "asc") {
         candidates = candidates.sort(
           (a, b) => a.startedAt.getTime() - b.startedAt.getTime(),
@@ -781,6 +790,49 @@ describe("ImportRunService", () => {
 
       expect(run.cursor).toBe("cursor-xyz");
       expect(run.cursorAtStart).toBe("cursor-abc");
+    });
+  });
+  describe("BRI-227: a completeness-guard failure does not advance the resume cursor", () => {
+    it("the next run resumes from the last good run's cursor, not the failed truncated one's", async () => {
+      store.seed({
+        id: "good",
+        status: "succeeded",
+        fetched: 250_000,
+        lastCursor: "GOOD-CURSOR",
+        startedAt: new Date("2026-10-01T03:00:00Z"),
+      });
+      // A truncated full run: it saw a cursor on its last page, then ended early.
+      store.seed({
+        id: "truncated",
+        status: "running",
+        fetched: 10_500,
+        lastPage: 21,
+        lastCursor: "TRUNCATED-CURSOR",
+        startedAt: new Date("2026-10-09T10:00:00Z"),
+      });
+
+      const failed = await applyCompletenessGuard(
+        store,
+        store.rows.get("truncated")!,
+        { minPct: 90 },
+        { log: () => undefined, warn: () => undefined, error: () => undefined },
+      );
+
+      expect(failed).toBe(true);
+      const row = store.rows.get("truncated")!;
+      expect(row.status).toBe("failed");
+      expect(row.lastCursor).toBeNull();
+      expect(row.error).toContain("Completeness guard failed");
+
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) =>
+            rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
+          result: { exitCode: 0 },
+        },
+      ]);
+      const next = await new ImportRunService(store, runner, CONFIG).execute("scheduled");
+      expect(next.cursorAtStart).toBe("GOOD-CURSOR");
     });
   });
 });

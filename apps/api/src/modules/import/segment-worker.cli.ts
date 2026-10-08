@@ -5,6 +5,8 @@ import { ConfigService } from "@nestjs/config";
 import type { Env } from "../../config/env.validation";
 import { PrismaService } from "../../prisma/prisma.service";
 import { setDbRetryProfile } from "../../prisma/transient-retry";
+import { applyCompletenessGuard } from "./completeness-guard";
+import { formatCrawlEndLine, type StopReason } from "./crawl-log";
 import { ExperienceAutoPromoter } from "./experience-auto-promoter";
 import { ExperienceLinker } from "./experience-linker";
 import { ImportSegmentWorkerModule } from "./import-segment-worker.module";
@@ -83,6 +85,11 @@ async function main(): Promise<void> {
         restartMemoryThresholdBytes: memoryThresholdBytes(config),
         startCursor: run.cursor ?? undefined,
         startPage: run.lastPage ?? undefined,
+        runContext: {
+          runId: run.id,
+          trigger: run.trigger,
+          fetchedBefore: run.fetched,
+        },
       });
       segmentDone = result.done;
     } catch (error) {
@@ -90,7 +97,7 @@ async function main(): Promise<void> {
       // `counts` still holds this segment's real partial progress up to the
       // failure — persist it as increments, same as a clean segment would,
       // then record the run as failed.
-      await prisma.importRun.update({
+      const failed = await prisma.importRun.update({
         where: { id: runId },
         data: {
           ...incrementData(counts),
@@ -100,10 +107,11 @@ async function main(): Promise<void> {
         },
       });
       logger.error(`Import run ${runId} failed: ${messageOf(error)}`);
+      logRunEnd(logger, failed, "error", messageOf(error));
       return;
     }
 
-    await prisma.importRun.update({
+    const afterSegment = await prisma.importRun.update({
       where: { id: runId },
       data: incrementData(counts),
     });
@@ -118,6 +126,30 @@ async function main(): Promise<void> {
 
     // This segment reached the crawl's true end — finalize the whole run,
     // exactly once.
+
+    // BRI-227: before anything is soft-deleted, linked or promoted, check a
+    // full run did not end suspiciously early (delta runs are exempt inside).
+    const guardFailed = await applyCompletenessGuard(
+      prisma,
+      afterSegment,
+      {
+        minPct: config.get("IMPORT_FULL_RUN_MIN_PCT", { infer: true }),
+        minFetched: config.get("IMPORT_FULL_RUN_MIN_FETCHED", { infer: true }),
+      },
+      logger,
+      modifiedSince,
+    );
+    if (guardFailed) {
+      // The guard already wrote the failed row; its numbers are in `afterSegment`.
+      logRunEnd(
+        logger,
+        { ...afterSegment, status: "failed" },
+        "guard-failure",
+        "completeness guard",
+      );
+      return;
+    }
+
     if (run.cursorAtStart === null) {
       // Full crawl — this run saw (or attempted to see) the complete active
       // catalogue, so it's safe to reconcile deletions against it.
@@ -141,7 +173,7 @@ async function main(): Promise<void> {
         // Task 8: auto-promote eligible drafts after every successful run,
         // right after linking — never on the aborted/failed branches below.
         const promotion = await autoPromoter.promoteEligible(run.provider);
-        await prisma.importRun.update({
+        const succeeded = await prisma.importRun.update({
           where: { id: runId },
           data: {
             status: "succeeded",
@@ -149,21 +181,23 @@ async function main(): Promise<void> {
             finishedAt: new Date(),
           },
         });
+        logRunEnd(logger, succeeded, "end-of-feed");
         logger.log(
           `Import run ${runId} succeeded — experiences created ${link.created}, ` +
             `linked ${link.linked}, auto-promoted ${promotion.promoted}.`,
         );
       } catch (error) {
         if (error instanceof MassDeletionAbortError) {
-          await prisma.importRun.update({
+          const aborted = await prisma.importRun.update({
             where: { id: runId },
             data: { status: "aborted", error: error.message, finishedAt: new Date() },
           });
           logger.warn(
             `Import run ${runId} aborted by mass-deletion guard: ${error.message}`,
           );
+          logRunEnd(logger, aborted, "mass-deletion-guard", error.message);
         } else {
-          await prisma.importRun.update({
+          const failed = await prisma.importRun.update({
             where: { id: runId },
             data: {
               status: "failed",
@@ -172,6 +206,7 @@ async function main(): Promise<void> {
             },
           });
           logger.error(`Import run ${runId} failed: ${messageOf(error)}`);
+          logRunEnd(logger, failed, "error", messageOf(error));
         }
       }
     } else {
@@ -183,10 +218,11 @@ async function main(): Promise<void> {
       const link = await linker.linkRun(run.provider);
       // Task 8: same auto-promotion as the full-crawl branch above.
       const promotion = await autoPromoter.promoteEligible(run.provider);
-      await prisma.importRun.update({
+      const succeeded = await prisma.importRun.update({
         where: { id: runId },
         data: { status: "succeeded", softDeleted: 0, finishedAt: new Date() },
       });
+      logRunEnd(logger, succeeded, "end-of-feed");
       logger.log(
         `Import run ${runId} succeeded (delta run — soft-delete reconciliation ` +
           `skipped) — experiences created ${link.created}, linked ${link.linked}, ` +
@@ -212,6 +248,40 @@ function parseArgs(argv: string[]): {
     throw new Error("segment-worker.cli.ts requires --runId <id>");
   }
   return { runId, modifiedSince };
+}
+
+/** The single per-run end line (BRI-227): why the loop stopped, totals, duration. */
+function logRunEnd(
+  logger: Logger,
+  row: {
+    id: string;
+    trigger: string;
+    status: string;
+    lastPage: number | null;
+    fetched: number;
+    startedAt: Date;
+  },
+  reason: StopReason,
+  detail?: string,
+): void {
+  // A log line must never change a run's outcome.
+  try {
+    logger.log(
+      formatCrawlEndLine({
+        now: new Date(),
+        runId: row.id,
+        trigger: row.trigger,
+        status: row.status,
+        reason,
+        pages: row.lastPage,
+        products: row.fetched,
+        startedAt: row.startedAt,
+        detail,
+      }),
+    );
+  } catch {
+    // swallowed on purpose
+  }
 }
 
 /** Best-effort message extraction from an unknown thrown value. */
