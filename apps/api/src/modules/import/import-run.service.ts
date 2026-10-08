@@ -262,6 +262,10 @@ export class ImportRunService {
     options: ExecuteOptions = {},
   ): Promise<ImportRun> {
     const floor = this.config.fullRunMinFetched;
+    if (options.full) {
+      // `full` means no modifiedSince, whatever the caller also passed.
+      options = { ...options, modifiedSince: undefined };
+    }
     if (options.full && floor === undefined) {
       throw new FullRunFloorMissingError();
     }
