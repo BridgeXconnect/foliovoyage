@@ -181,6 +181,41 @@ this skill. If a new planning/execution skill gets installed, commit
 `.agents/skills/<name>/` and `.claude/skills/<name>` the same way, or a fresh
 `git worktree add` won't have it.
 
+## Agent skills
+
+Installed from `mattpocock/skills`, pinned by `skills-lock.json`. Update deliberately (`npx skills update`, in its own PR), never as a side effect of other work.
+
+- **`code-review`.** Run it on every non-trivial diff before the PR is merged. CodeRabbit is on the free tier and rate-limited, so its passing check can mean no review happened. Review against this file, the relevant `apps/*/AGENTS.md`, and the task's plan or spec (`docs/superpowers/plans/`, `docs/specs/`).
+- **`prototype`.** Answers a design or behaviour question with throwaway code. Use it only when the session's prompt asks for a prototype.
+- **`diagnosing-bugs`.** For hard bugs, starting from a failing repro. Import-pipeline repros run against Doppler `dev`, never `prd`.
+
+**Rules that override any skill's instructions:**
+
+- **No tracker writes.** Linear is owned by the planning chat, which carries the cross-session context. Skills may read Linear; they never create, edit, comment on, label or close issues. PR bodies use the `Fixes BRI-xxx` / `Contributes to BRI-xxx` line the session's prompt specifies.
+- **Inline, one task per session.** Implementation never fans out to subagents. Read-only subagents that change nothing (such as `code-review`'s two review axes) are fine.
+- **Stay in scope.** Inside an implementation task, don't start a prototype or a bug-diagnosis loop unprompted. Report the need instead.
+- **Deliberately not adopted; don't install:** `setup-matt-pocock-skills`, `grill-with-docs`, `to-spec`, `to-tickets`, `implement`, `implement-spec`, `triage`, `wayfinder`, `handoff`. Planning runs through `/scope` → `/architect` → `/develop` and the planning chat. Handoffs are the dated handoff docs.
+
+**Prototypes:**
+
+- They live outside this repo, in `~/dev/canvas-Gallery` (canvas work: `atlas-layouts/`), on their own branch. They are never merged into this repo, and app code never imports them.
+- Data comes from Doppler `dev` only, read-only. The pattern is `atlas-layouts/scripts/export-bucket.mjs`, which refuses any other config.
+- A prototype round ends in two places: its README in canvas-Gallery records the rules and results, and the epic map records what was learned (items move from Open to Decided or Parked).
+- The `prototype` skill's own placement steps don't apply here: no prototype code in this repo, no `?variant=` switchers in app routes, no throwaway branch in this repo, no pointer comment on the issue. The rules above win; the skill's question → throwaway → answer loop still applies.
+
+**Epic maps (for epics whose end state is still unclear):**
+
+- **One living map per epic,** in `docs/superpowers/plans/`, with these sections: Decided, Open, Parked, and Known doc inconsistencies.
+- **Every Open item has:**
+  - a stable ID (`O<n>`, never renumbered);
+  - a type: `grilling` (Roy's call), `prototype`, `research` (answered by reading or measuring) or `task` (a human must do it);
+  - a status: proposed, evidence pending or ready;
+  - what it blocks.
+- **Who edits it.** The planning chat owns the map's structure and decisions. A Claude Code session edits only the items its task resolved, and lists those edits in its report.
+- **Current maps:** EP-21 bucket discovery (inherits shelved EP-20's map) → `docs/superpowers/plans/2026-10-05-canvas-ideation-decisions.md`.
+
+**Design tools:** Paper (MCP server `paper-desktop`) is paused as of 8 Oct 2026. Don't use it unless a prompt asks. Its outputs are captured in spec 0004 and `docs/superpowers/plans/2026-10-03-paper-04-resume-status.md`: the token names, the caption heights 68/57/14 and the clearance result.
+
 ## Docs hierarchy
 
 `docs/` holds three living documents derived from
@@ -216,3 +251,4 @@ throwaway values for a container destroyed at job end.
 - [apps/api/AGENTS.md](apps/api/AGENTS.md): NestJS modular monolith — config/versioning/errors conventions, the ingest pipeline stage by stage, Railway deployment, API commands
 - [apps/web/AGENTS.md](apps/web/AGENTS.md): Next.js 15 App Router — data fetching, the two-content-system routing, PostHog analytics, web commands
 - [packages/shared/AGENTS.md](packages/shared/AGENTS.md): `@folio/shared` — cross-cutting domain types
+- [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md): Linear team/project, read-only rule for agents, where specs and plans live
