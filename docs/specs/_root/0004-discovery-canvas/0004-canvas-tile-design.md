@@ -1,5 +1,7 @@
 # 0004. Canvas tile design (child of 0004 discovery canvas)
 
+> **Superseded 8 Oct 2026 (BRI-245).** The canvas view was shelved and removed. Kept for history; do not build from it.
+
 Scope row 15. Governed by [index.md](index.md). This spec fixes the rules that code and tests depend on. The visual direction is the designer's call and goes into `design.md`.
 
 ## Summary

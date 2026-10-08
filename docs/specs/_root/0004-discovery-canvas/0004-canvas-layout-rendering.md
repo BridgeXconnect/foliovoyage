@@ -1,5 +1,7 @@
 # 0004. Canvas layout and rendering (child of 0004 discovery canvas)
 
+> **Superseded 8 Oct 2026 (BRI-245).** The canvas view was shelved and removed. Kept for history; do not build from it.
+
 Scope row 13. Governed by [index.md](index.md): the world geometry, tile tiers, and analytics events are defined there and in the tile design child.
 
 ## Summary

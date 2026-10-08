@@ -1,10 +1,12 @@
 # Scope: discovery canvas (EP-20, BRI-223)
 
+> **Shelved 8 Oct 2026 (BRI-245).** The canvas view (rows 13 to 15) was removed. The feed (row 12) and the database tour page (row 16) stay and feed EP-21 (BRI-244); see [the EP-21 map](../../superpowers/plans/2026-10-05-canvas-ideation-decisions.md).
+
 A Pinterest style discovery surface that pans freely in every direction, with tours at fixed positions clustered by city and category. It is the main top of funnel discovery surface, so its features run at the Beta tier (the project default is Alpha). Design input: [the canvas design brief](../../superpowers/plans/2026-09-27-canvas-design-brief.md). Decisions made since: [the canvas design decisions](../../superpowers/plans/2026-10-01-canvas-design-decisions.md). What it lists under Decided is settled; `/architect` should confirm or override only what it lists under Recommended and Ask Roy. See the legend in [index.md](index.md#legend) for the status words and the feature lifecycle.
 
 ## Slice 1: thin thread, one city
 
-### 12. Canvas feed endpoint (BRI-225) · in-progress · Beta
+### 12. Canvas feed endpoint (BRI-225) · in-progress · Beta · in force, feeds EP-21 (BRI-244)
 The server feed the canvas reads: a small summary of every city and category bucket for first paint, and one bucket's ranked tours on request. It applies the feed rules (no Travel & Transportation Services, no tours without a primary category) and ranks each bucket.
 **Done when:** the feed serves bucket summaries and a bucket's tours for the six cities, the exclusion and ranking rules apply, and a bucket loads without paging through the whole catalogue.
 - [x] Design it (spec): [0004 feed endpoint](../../specs/_root/0004-discovery-canvas/0004-canvas-feed-endpoint.md), umbrella [0004](../../specs/_root/0004-discovery-canvas/index.md)
@@ -16,7 +18,7 @@ The server feed the canvas reads: a small summary of every city and category buc
 - [ ] Verify it: `/check verify`
 - [ ] Test it: `/test`
 
-### 13. Canvas layout and rendering (region layout, culler, pan) · in-progress · Beta
+### 13. Canvas layout and rendering (region layout, culler, pan) · shelved · Beta (shelved 8 Oct 2026; view removed under BRI-245)
 A pure layout that gives every tile a stable position inside its city and category region, and a discovery page that pans freely and mounts only the tiles near the viewport. Bangkok first, then all six cities.
 **Done when:** a discovery page shows Bangkok's buckets with free pan and only nearby tiles mounted, and a tile click opens that tour's own page.
 - [x] Design it (spec): [0004 layout and rendering](../../specs/_root/0004-discovery-canvas/0004-canvas-layout-rendering.md), umbrella [0004](../../specs/_root/0004-discovery-canvas/index.md)
@@ -31,7 +33,7 @@ A pure layout that gives every tile a stable position inside its city and catego
 
 ## Slice 2: all six cities
 
-### 14. Canvas navigation (minimap, bucket search, shareable position URLs) · in-progress · Beta
+### 14. Canvas navigation (minimap, bucket search, shareable position URLs) · shelved · Beta (shelved 8 Oct 2026; view removed under BRI-245; never built)
 Ways to travel between regions on a canvas that pans but does not zoom: a minimap, a search that jumps to a bucket, and a position kept in the page address so a shared link reopens the same spot.
 **Done when:** picking a region on the minimap or a result in the search moves the view to that bucket, and a copied link reopens the same position.
 - [x] Design it (spec): [0004 navigation](../../specs/_root/0004-discovery-canvas/0004-canvas-navigation.md), umbrella [0004](../../specs/_root/0004-discovery-canvas/index.md)
@@ -45,7 +47,7 @@ Ways to travel between regions on a canvas that pans but does not zoom: a minima
 
 ## Slice 3: tile design
 
-### 15. Canvas tile design (tile shape rules, hover caption, visual direction) · in-progress · Beta
+### 15. Canvas tile design (tile shape rules, hover caption, visual direction) · shelved · Beta (shelved 8 Oct 2026; view removed under BRI-245)
 How a tile looks: size and shape rules that work within the photo crops the provider offers, a hover caption, and the visual direction, which becomes `design.md`.
 **Done when:** `design.md` is written and tiles follow its size and shape rules, with a hover caption.
 - [x] Design it (spec): [0004 tile design](../../specs/_root/0004-discovery-canvas/0004-canvas-tile-design.md), umbrella [0004](../../specs/_root/0004-discovery-canvas/index.md)
@@ -61,19 +63,19 @@ How a tile looks: size and shape rules that work within the photo crops the prov
 
 ### 16. New database backed tour page for canvas tiles (from spec 0004) · in-progress · Beta
 Canvas tiles for tours that live only in the database have no page to open today (the only tour page and the `/go` redirect serve hand authored static content). This is a new `noindex` page linked through `tourHref`.
-**Done when:** a canvas tile for a database only tour opens a page with the tour's details and a tracked affiliate link.
+**Done when:** a bucket tile for a database only tour opens a page with the tour's details and a tracked affiliate link.
 - [x] Design it (spec): [0005](../../specs/_root/0005-database-tour-page/index.md)
-- [ ] Build it: `/develop database tour page`
-  - [ ] Shared Zod schemas and the api page data and rating endpoints, with the 404 cases and cache headers (AC-1, AC-2, AC-3, AC-5)
-  - [ ] The ISR page, its 404, and the `/go/tours` click redirect with fallback and ledger timeout (AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-15)
-  - [ ] Protected rating path: blocked script, JSON proxy, robots rule, View Source test (AC-2, AC-6)
-  - [ ] Back link and analytics events (AC-13, AC-14)
+- [x] Build it: `/develop database tour page`
+  - [x] Shared Zod schemas and the api page data and rating endpoints, with the 404 cases and cache headers (AC-1, AC-2, AC-3, AC-5)
+  - [x] The ISR page, its 404, and the `/go/tours` click redirect with fallback and ledger timeout (AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-15)
+  - [x] Protected rating path: blocked script, JSON proxy, robots rule, View Source test (AC-2, AC-6)
+  - [x] Back link and analytics events (AC-13, AC-14); the back link now always goes to the city page (BRI-245)
   - [x] Switch `tourHref` (the `Disallow: /api/canvas/` rule was already in `robots.txt`) (AC-16)
   - [ ] The iPhone 16 check (AC-17)
 - [ ] Verify it: `/check verify database tour page`
 - [ ] Test it: `/test database tour page`
 
-### 17. Block the canvas rating path in robots.txt (from spec 0005) · planned · needs a decision · Beta
+### 17. Block the canvas rating path in robots.txt (from spec 0005) · done · Beta (shipped in #116: `Disallow: /api/canvas/` in `robots.ts`)
 The canvas page HTML carries no rating, but the chunk that loads it is not a robots blocked file (it is `noindex` and behind the site gate). Viator treats the rating as protected content (BRI-204 reply, 2026-09-21). Add `Disallow: /api/canvas/` to `robots.txt` (a one line change that gates the `tourHref` switch in row 16), and before the canvas is ever made indexable, give it the blocked script treatment or drop the rating from the `lg` tile.
 **Done when:** no canvas response on an unblocked path carries a rating, and any rating the canvas shows loads through the `/protected/` path.
-- [ ] Design it (spec): `/architect canvas rating protected content`
+- [x] Design it (spec): skipped; settled in spec 0005 and shipped in #116

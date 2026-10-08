@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { formatDuration, formatPrice, formatRating } from "./format";
+import { formatDuration, formatPrice } from "./format";
 
 describe("formatDuration", () => {
   it("formats minutes, hours and whole days", () => {
@@ -26,17 +26,5 @@ describe("formatPrice", () => {
 
   it("falls back for an unknown currency code", () => {
     expect(formatPrice(3500, "??")).toBe("from 35.00 ??");
-  });
-});
-
-describe("formatRating", () => {
-  it("formats the average and the count", () => {
-    expect(formatRating(4.78, 1234)).toBe("★ 4.8 (1,234)");
-  });
-
-  it("is null without a rating", () => {
-    expect(formatRating(null, 10)).toBeNull();
-    expect(formatRating(4.5, 0)).toBeNull();
-    expect(formatRating(4.5, null)).toBeNull();
   });
 });

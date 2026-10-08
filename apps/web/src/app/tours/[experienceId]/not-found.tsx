@@ -25,8 +25,8 @@ export default function TourNotFound() {
         <Suspense
           fallback={
             <p className="mt-4 text-[15px] text-ink-soft">
-              <Link href="/discover" className="underline">
-                Discover more tours
+              <Link href="/destinations" className="underline">
+                Browse all destinations
               </Link>
             </p>
           }

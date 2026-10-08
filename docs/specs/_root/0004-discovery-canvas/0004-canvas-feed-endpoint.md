@@ -1,5 +1,7 @@
 # 0004. Canvas feed endpoint (child of 0004 discovery canvas)
 
+> **In force; feeds EP-21 (BRI-244).** The view that consumed this feed was removed on 8 Oct 2026 (BRI-245); the endpoints, the proxy route and their tests stay.
+
 Scope row 12, BRI-225. Governed by [index.md](index.md): world geometry, shared types, and the cross child contract live there.
 
 ## Summary

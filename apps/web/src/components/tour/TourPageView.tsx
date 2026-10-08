@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import type { ExperiencePage } from "@folio/shared";
-import { formatDuration, formatPrice } from "@/canvas/format";
+import { formatDuration, formatPrice } from "@/lib/format";
 import { BookButton } from "@/components/tour/BookButton";
-import { CityBackLink, TourBackLink } from "@/components/tour/TourBackLink";
+import { CityBackLink } from "@/components/tour/CityBackLink";
 import { TourPageViewed } from "@/components/tour/TourPageViewed";
 import { TourRating } from "@/components/tour/TourRating";
 
@@ -37,10 +37,7 @@ export function TourPageView({ tour, bookLabel }: TourPageViewProps) {
 
   return (
     <article className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:py-14">
-      {/* The static HTML always has the city link; the client swaps in the canvas link (spec 0005, AC-13). */}
-      <Suspense fallback={<CityBackLink citySlug={tour.city.slug} cityName={tour.city.name} />}>
-        <TourBackLink citySlug={tour.city.slug} cityName={tour.city.name} />
-      </Suspense>
+      <CityBackLink citySlug={tour.city.slug} cityName={tour.city.name} />
       <Suspense fallback={null}>
         <TourPageViewed experienceId={tour.experienceId} tourId={tour.tourId} citySlug={tour.city.slug} />
       </Suspense>

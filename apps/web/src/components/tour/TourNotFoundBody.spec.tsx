@@ -39,22 +39,23 @@ const mount = () =>
   );
 
 describe("TourNotFoundBody", () => {
-  it("links to /discover only when there is no valid from", () => {
+  it("links to /destinations only when there is no valid from", () => {
     mount();
-    expect(hrefs()).toEqual(["/discover"]);
+    expect(hrefs()).toEqual(["/destinations"]);
   });
 
   it("adds the city page link for a valid from", () => {
     mockFrom = "kyoto.art-culture";
     mount();
-    expect(hrefs()).toEqual(["/discover", "/destinations/kyoto"]);
+    expect(hrefs()).toEqual(["/destinations", "/destinations/kyoto"]);
     expect(host.textContent).toContain("Explore Kyoto");
+    expect(host.textContent).toContain("Browse all destinations");
   });
 
   it.each([["garbage"], ["kyoto.nonsense"], ["atlantis.art-culture"]])("ignores an invalid from (%s)", (from) => {
     mockFrom = from;
     mount();
-    expect(hrefs()).toEqual(["/discover"]);
+    expect(hrefs()).toEqual(["/destinations"]);
     expect(host.innerHTML).not.toContain(from);
   });
 
