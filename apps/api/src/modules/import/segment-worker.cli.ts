@@ -140,10 +140,13 @@ async function main(): Promise<void> {
       modifiedSince,
     );
     if (guardFailed) {
-      const failed = await prisma.importRun.findUniqueOrThrow({
-        where: { id: runId },
-      });
-      logRunEnd(logger, failed, "guard-failure", failed.error ?? undefined);
+      // The guard already wrote the failed row; its numbers are in `afterSegment`.
+      logRunEnd(
+        logger,
+        { ...afterSegment, status: "failed" },
+        "guard-failure",
+        "completeness guard",
+      );
       return;
     }
 
@@ -170,7 +173,7 @@ async function main(): Promise<void> {
         // Task 8: auto-promote eligible drafts after every successful run,
         // right after linking — never on the aborted/failed branches below.
         const promotion = await autoPromoter.promoteEligible(run.provider);
-        await prisma.importRun.update({
+        const succeeded = await prisma.importRun.update({
           where: { id: runId },
           data: {
             status: "succeeded",
@@ -178,32 +181,23 @@ async function main(): Promise<void> {
             finishedAt: new Date(),
           },
         });
-        logRunEnd(
-          logger,
-          await prisma.importRun.findUniqueOrThrow({ where: { id: runId } }),
-          "end-of-feed",
-        );
+        logRunEnd(logger, succeeded, "end-of-feed");
         logger.log(
           `Import run ${runId} succeeded — experiences created ${link.created}, ` +
             `linked ${link.linked}, auto-promoted ${promotion.promoted}.`,
         );
       } catch (error) {
         if (error instanceof MassDeletionAbortError) {
-          await prisma.importRun.update({
+          const aborted = await prisma.importRun.update({
             where: { id: runId },
             data: { status: "aborted", error: error.message, finishedAt: new Date() },
           });
           logger.warn(
             `Import run ${runId} aborted by mass-deletion guard: ${error.message}`,
           );
-          logRunEnd(
-            logger,
-            await prisma.importRun.findUniqueOrThrow({ where: { id: runId } }),
-            "mass-deletion-guard",
-            error.message,
-          );
+          logRunEnd(logger, aborted, "mass-deletion-guard", error.message);
         } else {
-          await prisma.importRun.update({
+          const failed = await prisma.importRun.update({
             where: { id: runId },
             data: {
               status: "failed",
@@ -212,12 +206,7 @@ async function main(): Promise<void> {
             },
           });
           logger.error(`Import run ${runId} failed: ${messageOf(error)}`);
-          logRunEnd(
-            logger,
-            await prisma.importRun.findUniqueOrThrow({ where: { id: runId } }),
-            "error",
-            messageOf(error),
-          );
+          logRunEnd(logger, failed, "error", messageOf(error));
         }
       }
     } else {
@@ -229,15 +218,11 @@ async function main(): Promise<void> {
       const link = await linker.linkRun(run.provider);
       // Task 8: same auto-promotion as the full-crawl branch above.
       const promotion = await autoPromoter.promoteEligible(run.provider);
-      await prisma.importRun.update({
+      const succeeded = await prisma.importRun.update({
         where: { id: runId },
         data: { status: "succeeded", softDeleted: 0, finishedAt: new Date() },
       });
-      logRunEnd(
-        logger,
-        await prisma.importRun.findUniqueOrThrow({ where: { id: runId } }),
-        "end-of-feed",
-      );
+      logRunEnd(logger, succeeded, "end-of-feed");
       logger.log(
         `Import run ${runId} succeeded (delta run — soft-delete reconciliation ` +
           `skipped) — experiences created ${link.created}, linked ${link.linked}, ` +
@@ -279,19 +264,24 @@ function logRunEnd(
   reason: StopReason,
   detail?: string,
 ): void {
-  logger.log(
-    formatCrawlEndLine({
-      now: new Date(),
-      runId: row.id,
-      trigger: row.trigger,
-      status: row.status,
-      reason,
-      pages: row.lastPage,
-      products: row.fetched,
-      startedAt: row.startedAt,
-      detail,
-    }),
-  );
+  // A log line must never change a run's outcome.
+  try {
+    logger.log(
+      formatCrawlEndLine({
+        now: new Date(),
+        runId: row.id,
+        trigger: row.trigger,
+        status: row.status,
+        reason,
+        pages: row.lastPage,
+        products: row.fetched,
+        startedAt: row.startedAt,
+        detail,
+      }),
+    );
+  } catch {
+    // swallowed on purpose
+  }
 }
 
 /** Best-effort message extraction from an unknown thrown value. */

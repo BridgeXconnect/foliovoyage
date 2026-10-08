@@ -251,7 +251,10 @@ export const envSchema = z.object({
    * the history-derived floor above, which is the only option on a database
    * with no earlier succeeded full run (otherwise the guard skips, logged).
    */
-  IMPORT_FULL_RUN_MIN_FETCHED: z.coerce.number().int().positive().optional(),
+  IMPORT_FULL_RUN_MIN_FETCHED: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().optional(),
+  ),
 
   // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
 
