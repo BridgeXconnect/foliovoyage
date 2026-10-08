@@ -1,5 +1,7 @@
 # 0004. Canvas navigation (child of 0004 discovery canvas)
 
+> **Superseded 8 Oct 2026 (BRI-245).** The canvas view was shelved and removed. This sub-spec was never built. Kept for history; do not build from it.
+
 Scope row 14. Governed by [index.md](index.md): the world geometry and the analytics events live there.
 
 ## Summary

@@ -1,7 +1,7 @@
 # 0004. Discovery canvas (EP-20)
 
 **Date**: 2026-10-03
-**Status**: In Progress
+**Status**: Partly superseded. The canvas view (layout, tile design, navigation, `/discover`) was shelved and removed on 8 Oct 2026 (BRI-245). The feed endpoints, the city and category lists, and AC-3 stay in force and feed EP-21 (BRI-244).
 
 ## Summary
 
@@ -11,10 +11,10 @@ The discovery canvas is one big surface you pan around freely, where tours sit a
 
 Each child is a flat file in this directory, written to be built from on its own, with a short inline rationale.
 
-- [0004-canvas-feed-endpoint.md](0004-canvas-feed-endpoint.md): the two read endpoints that serve bucket summaries and one bucket's 50 ranked tiles (scope row 12, BRI-225). Supports the data decisions: ranking in SQL, no migration, no pagination.
-- [0004-canvas-layout-rendering.md](0004-canvas-layout-rendering.md): the pure layout function, its property test, the pan and culler engine, the `/discover` page, and the performance spike (scope row 13). Supports the layout and performance decisions.
-- [0004-canvas-tile-design.md](0004-canvas-tile-design.md): tile tiers, shapes, caption heights, hover, the exit tile, tokens, and the `design.md` handoff (scope row 15). Supports the tile decisions.
-- [0004-canvas-navigation.md](0004-canvas-navigation.md): minimap, bucket search, and the position URL (scope row 14). Supports the position URL decision.
+- [0004-canvas-feed-endpoint.md](0004-canvas-feed-endpoint.md) **(in force; feeds EP-21, BRI-244)**: the two read endpoints that serve bucket summaries and one bucket's 50 ranked tiles (scope row 12, BRI-225). Supports the data decisions: ranking in SQL, no migration, no pagination.
+- [0004-canvas-layout-rendering.md](0004-canvas-layout-rendering.md) **(superseded 8 Oct 2026)**: the pure layout function, its property test, the pan and culler engine, the `/discover` page, and the performance spike (scope row 13). Supports the layout and performance decisions.
+- [0004-canvas-tile-design.md](0004-canvas-tile-design.md) **(superseded 8 Oct 2026)**: tile tiers, shapes, caption heights, hover, the exit tile, tokens, and the `design.md` handoff (scope row 15). Supports the tile decisions.
+- [0004-canvas-navigation.md](0004-canvas-navigation.md) **(superseded 8 Oct 2026; never built)**: minimap, bucket search, and the position URL (scope row 14). Supports the position URL decision.
 
 ## Requirements
 
@@ -25,13 +25,13 @@ Each child is a flat file in this directory, written to be built from on its own
 - As Roy, I want the canvas to feel smooth on a phone and to log how people use it so that I can judge it as the main top of funnel surface.
 
 **Acceptance criteria** (the umbrella contract; each child holds its own detailed criteria, prefixed `AC-F`, `AC-L`, `AC-T`, `AC-N`):
-- **AC-1**: The world geometry in this file (slot, region, and world sizes, the city and category orders) is defined once, in `@folio/shared`, and the layout, the minimap, the search jump, and the position URL all read it from there. No other file hard codes a slot position.
-- **AC-2**: A bucket's tiles have the same positions on every device, every load, and every run for the same feed data. Nothing in the layout reads the DOM, fonts, the viewport, or the clock.
-- **AC-3**: Only the seven shown categories and the six curated cities appear. Category 21914 (Travel & Transportation Services) and tours with a null primary category never appear in any feed response.
-- **AC-4**: `/discover` is `noindex`, absent from the sitemap, and its heavy script loads only on that route.
-- **AC-5**: The three analytics events (`canvas_bucket_enter`, `canvas_tile_click`, `canvas_nav_jump`) go through one helper in `apps/web/src/lib/analytics.ts` and never through an inline `posthog.capture`.
-- **AC-6**: Every tile and the exit tile link through one swappable function each (`tourHref`, `exitHref`), so BRI-205 and the new tour page can change a target in one place.
-- **AC-7**: The canvas runs the performance gate in `0004-canvas-layout-rendering.md` (AC-L9) on a mid range phone before slice 2 starts.
+- **AC-1** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: The world geometry in this file (slot, region, and world sizes, the city and category orders) is defined once, in `@folio/shared`, and the layout, the minimap, the search jump, and the position URL all read it from there. No other file hard codes a slot position.
+- **AC-2** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: A bucket's tiles have the same positions on every device, every load, and every run for the same feed data. Nothing in the layout reads the DOM, fonts, the viewport, or the clock.
+- **AC-3** (in force, feed rule): Only the seven shown categories and the six curated cities appear. Category 21914 (Travel & Transportation Services) and tours with a null primary category never appear in any feed response.
+- **AC-4** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: `/discover` is `noindex`, absent from the sitemap, and its heavy script loads only on that route.
+- **AC-5** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: The three analytics events (`canvas_bucket_enter`, `canvas_tile_click`, `canvas_nav_jump`) go through one helper in `apps/web/src/lib/analytics.ts` and never through an inline `posthog.capture`.
+- **AC-6** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: Every tile and the exit tile link through one swappable function each (`tourHref`, `exitHref`), so BRI-205 and the new tour page can change a target in one place.
+- **AC-7** *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*: The canvas runs the performance gate in `0004-canvas-layout-rendering.md` (AC-L9) on a mid range phone before slice 2 starts.
   - The performance spike passed the gate on an iPhone 16 (95th percentile 17 to 18 ms over pan frames in 9 of 13 runs, production build) and confirmed 512 px sections, overscan 1, and the 150 tile cap. The numbers, and what was not measured, are under AC-L9.
 
 ## Decision
@@ -57,7 +57,9 @@ The decisions inside that option, with the pick, the reason, and the runner up:
 
 ## Cross child contract
 
-### World geometry (defined once in `@folio/shared`)
+### World geometry *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*
+
+The slot, region, world and section sizes and the slot formulas below are superseded and no longer in code. **The city and category order, slugs and labels stay in force**: the feed spec cites them by reference, and they are still in `packages/shared/src/canvas/geometry.ts`.
 
 | Constant | Value |
 |---|---|
@@ -76,7 +78,7 @@ Fixed order, so a bucket's position never changes:
 
 The city and category orders and the slugs are arrangement proposals for the designer to confirm (listed in the open items). Bangkok is first because the build plan starts there.
 
-### Layout constants (values from the prototype `cluster.mjs`, canvas-Gallery commit `2a132ba`, and `tours-bkk-ac.json`)
+### Layout constants *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)* (values from the prototype `cluster.mjs`, canvas-Gallery commit `2a132ba`, and `tours-bkk-ac.json`)
 
 | Constant | Value |
 |---|---|
@@ -88,7 +90,7 @@ The city and category orders and the slugs are arrangement proposals for the des
 | Title block (reserved, top left) | at (48, 48), 201 by 59 px (the prototype's Bangkok value), kept as a fixed reservation so the layout does not depend on font metrics. The designer may change it in `tiers.ts` |
 | Exit tile | 240 by 160 px (`md` 3:2), no caption (its copy sits inside the tile), corner at (2112, 1416), which is the slot size minus the 48 px margin minus the tile size |
 
-### Client fetch path
+### Client fetch path (in force; the route has no caller until EP-21)
 
 The client cannot call the api directly (`API_BASE_URL` is server only and the api has no CORS). `apps/web` adds a route handler at `/api/canvas/buckets/[city]/[cat]` that proxies the api bucket endpoint and passes the cache headers through. CORS stays off.
 
@@ -96,7 +98,7 @@ The client cannot call the api directly (`API_BASE_URL` is server only and the a
 
 The wire types for the feed live in `packages/shared/src/api.ts` as Zod schemas (additive, api first, web second). The layout types and the pure functions live in `packages/shared/src/canvas/` with zero imports and no Node or DOM API.
 
-### Analytics events
+### Analytics events *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)*
 
 | Event | When | Properties |
 |---|---|---|
@@ -106,7 +108,7 @@ The wire types for the feed live in `packages/shared/src/api.ts` as Zod schemas 
 
 The helpers are `trackCanvasBucketEnter`, `trackCanvasTileClick`, and `trackCanvasNavJump`.
 
-## Build plan
+## Build plan *(Superseded 8 Oct 2026, BRI-245: the canvas view was shelved and removed.)* Steps 1 and 2 (shared types, feed endpoint) were kept; steps 3 to 9 were removed.
 
 Ordered through Tracer Bullet: one city goes end to end first. Child tasks are listed in each child file; this is the umbrella order.
 

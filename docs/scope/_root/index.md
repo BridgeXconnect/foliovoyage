@@ -25,11 +25,11 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 10 | Nightly AI tour copy generation | Content engine | planned |
 | 11 | Sampled evaluation and kill switch for AI tour copy (BRI-201) | Content engine | in-progress |
 | 12 | Canvas feed endpoint (BRI-225) | Canvas slice 1 | in-progress |
-| 13 | Canvas layout and rendering (region layout, culler, pan) | Canvas slice 1 | in-progress |
-| 14 | Canvas navigation (minimap, bucket search, shareable position URLs) | Canvas slice 2 | in-progress |
-| 15 | Canvas tile design (tile shape rules, hover caption, visual direction) | Canvas slice 3 | in-progress |
+| 13 | Canvas layout and rendering (region layout, culler, pan) | Canvas slice 1 | shelved |
+| 14 | Canvas navigation (minimap, bucket search, shareable position URLs) | Canvas slice 2 | shelved |
+| 15 | Canvas tile design (tile shape rules, hover caption, visual direction) | Canvas slice 3 | shelved |
 | 16 | New database backed tour page for canvas tiles (from spec 0004) | Canvas follow up | in-progress |
-| 17 | Block the canvas rating path in robots.txt (from spec 0005) | Canvas follow up | planned |
+| 17 | Block the canvas rating path in robots.txt (from spec 0005) | Canvas follow up | done |
 
 ## Epics
 
@@ -38,7 +38,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | [already built](already-built.md) | The import pipeline and the hand written destination pages, for context | 2 existing |
 | [hub page validation](hub-page-validation.md) | BRI-206, rows 1 to 7 | 0 of 7 done, 5 designed and in progress |
 | [content engine](content-engine.md) | BRI-154 AI tour copy and BRI-201 its sampled evaluation, rows 8 to 11 | 0 of 4 done, 2 designed and in progress |
-| [discovery canvas](discovery-canvas.md) | EP-20 (BRI-223), rows 12 to 16, rows 12 to 15 tagged Beta | 0 of 5 done, 4 designed and in progress, 1 planned |
+| [discovery canvas](discovery-canvas.md) | EP-20 (BRI-223), rows 12 to 17, rows 12 to 15 tagged Beta; view shelved 8 Oct 2026 (BRI-245) | 1 of 6 done, 2 designed and in progress (feed, tour page), 3 shelved |
 
 ## Legend
 
@@ -56,5 +56,5 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 
 - **Next step** is the first unticked box.
 - **needs a decision** means run `/architect` first; otherwise go straight to `/develop`.
-- **Status** goes `planned`, then `in-progress`, then `done`, plus `existing` (built before this workflow) and `dropped`.
+- **Status** goes `planned`, then `in-progress`, then `done`, plus `existing` (built before this workflow), `shelved` (designed or built, then set aside on purpose; kept for history) and `dropped`.
 - **Workflow** (header line) is the project default. Alpha means `/check verify` after `/develop`, with no separate test suite or review.

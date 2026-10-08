@@ -1,6 +1,8 @@
 # Open items for the designer
 
-The discovery canvas (`/discover`) is built for Bangkok and works. What is left is the look. Each section below is one open item, with the context you need and the one constraint that matters. The rules the code depends on live in spec 0004 (`docs/specs/_root/0004-discovery-canvas/`, tile design child). Where this file and the spec disagree, the spec wins until it is changed.
+> **Canvas shelved 8 Oct 2026 (BRI-245).** The `/discover` view was removed. Items 1 to 3, 9 and 10 (layout, tilt, rounded corners, clearance) are moot. Item 6 (exit tile) and item 7 (city and category order) carry to EP-21 (BRI-244).
+
+The discovery canvas (`/discover`) was built for Bangkok and has since been shelved and removed (see the note above). What is left is the look. Each section below is one open item, with the context you need and the one constraint that matters. The rules the code depends on live in spec 0004 (`docs/specs/_root/0004-discovery-canvas/`, tile design child). Where this file and the spec disagree, the spec wins until it is changed.
 
 Last updated 2026-10-04.
 
@@ -75,8 +77,8 @@ This section describes a spec that is not merged yet (it is in a separate pull r
 - **Price, duration and cancellation.** Price reads "From {price}" with the note "Final price shown by Viator at booking." The supplier's currency is shown as is and must not be converted or altered. Cancellation text is shown exactly as stored, never rewritten.
 - **The rating placeholder and loading state.** The star rating is protected content. It never appears in the page source and is filled in by a script after the page loads. The design needs an empty state that holds its space (no layout jump), and a state for "no rating", where nothing shows.
 - **The button.** "Book on Viator", or "Search on Viator" when there is no valid link. It leads through `/go/tours/:id` on our server.
-- **The back link.** "Back to {City} · {Category}" when the visitor came from the canvas, otherwise "Back to {City}".
-- **The 404 page.** A real not found page with a link back to `/discover`.
+- **The back link.** "Back to {City}", always to the city page (the canvas is shelved, BRI-245).
+- **The 404 page.** A real not found page with a link to `/destinations` ("Browse all destinations").
 - **The hero image crop for a 720 px source.** The image is at most about 720 px wide (item 2). Decide the crop and the largest size it may display at without looking soft.
 - **The mobile layout.** The page is tested on an iPhone 16 from tile to button.
 - **A possible label for AI written copy.** The summary is AI written when valid copy exists, otherwise the supplier's description. Decide whether the AI copy needs a visible label.
