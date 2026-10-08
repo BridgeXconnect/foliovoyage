@@ -4,7 +4,7 @@ import { SchedulerRegistry } from "@nestjs/schedule";
 import { CronJob } from "cron";
 
 import type { Env } from "../../config/env.validation";
-import { ImportRunService } from "./import-run.service";
+import { ImportAlreadyRunningError, ImportRunService } from "./import-run.service";
 
 /**
  * Nightly import scheduler (ST-10 / BRI-107).
@@ -88,6 +88,10 @@ export class ImportScheduler implements OnModuleInit {
     try {
       await this.runService.execute("scheduled");
     } catch (error) {
+      if (error instanceof ImportAlreadyRunningError) {
+        this.logger.error(`Scheduled import NOT started: ${error.message}`);
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Scheduled import trigger errored unexpectedly: ${message}`);
     }

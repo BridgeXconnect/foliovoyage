@@ -58,6 +58,14 @@ import { ImportScheduler } from "./scheduler";
             "IMPORT_STUCK_RUN_TIMEOUT_MINUTES",
             { infer: true },
           ),
+          // Full-run rows legitimately run for hours; see the env var.
+          fullRunStuckTimeoutMinutes: config.get(
+            "IMPORT_FULL_RUN_STUCK_TIMEOUT_MINUTES",
+            { infer: true },
+          ),
+          fullRunMinFetched: config.get("IMPORT_FULL_RUN_MIN_FETCHED", {
+            infer: true,
+          }),
         }),
     },
     // ST-10: registers the nightly cron trigger at boot (env-gated).

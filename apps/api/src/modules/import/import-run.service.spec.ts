@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "@jest/globals";
 import type { ImportRun } from "@prisma/client";
 
 import {
+  FullRunFloorMissingError,
+  ImportAlreadyRunningError,
   ImportRunService,
   type ImportRunPrisma,
 } from "./import-run.service";
@@ -105,6 +107,11 @@ class InMemoryImportRunStore implements ImportRunPrisma {
         lastCursor?: { not: null };
         cursorAtStart?: null;
         id?: { not: string };
+        NOT?: {
+          cursorAtStart?: null;
+          cursor?: { not: null };
+          status?: { not: ImportRun["status"] };
+        };
       };
       orderBy?: { startedAt?: "desc" | "asc"; fetched?: "desc" };
     }): Promise<ImportRun | null> => {
@@ -126,6 +133,14 @@ class InMemoryImportRunStore implements ImportRunPrisma {
           return false;
         }
         if (where.id && row.id === where.id.not) return false;
+        if (where.NOT) {
+          const n = where.NOT;
+          const hit =
+            (n.cursorAtStart === undefined || row.cursorAtStart === null) &&
+            (n.cursor === undefined || row.cursor !== null) &&
+            (n.status === undefined || row.status !== n.status.not);
+          if (hit) return false;
+        }
         return true;
       };
 
@@ -416,7 +431,7 @@ describe("ImportRunService", () => {
   describe("reapStuckRuns (BRI-170)", () => {
     it("marks a run stuck 'running' past the timeout as failed", async () => {
       const staleStart = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3h ago
-      store.seed({ id: "orphan", status: "running", startedAt: staleStart });
+      store.seed({ id: "orphan", status: "running", cursorAtStart: "c", startedAt: staleStart });
       const service = new ImportRunService(
         store,
         fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
@@ -464,7 +479,7 @@ describe("ImportRunService", () => {
 
     it("defaults to a 120-minute timeout when not configured", async () => {
       const staleStart = new Date(Date.now() - 121 * 60 * 1000);
-      store.seed({ id: "orphan", status: "running", startedAt: staleStart });
+      store.seed({ id: "orphan", status: "running", cursorAtStart: "c", startedAt: staleStart });
       const service = new ImportRunService(
         store,
         fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
@@ -483,6 +498,7 @@ describe("ImportRunService", () => {
           id: "orphan",
           provider: "viator",
           status: "running",
+          cursorAtStart: "c", // delta row: the 120-minute window applies
           startedAt: staleStart,
           upserted: 4, // last successfully-completed segment's own report
         });
@@ -511,6 +527,7 @@ describe("ImportRunService", () => {
           id: "orphan-a",
           provider: "viator",
           status: "running",
+          cursorAtStart: "c", // delta row: the 120-minute window applies
           startedAt: staleA,
           upserted: 1,
         });
@@ -518,6 +535,7 @@ describe("ImportRunService", () => {
           id: "orphan-b",
           provider: "viator",
           status: "running",
+          cursorAtStart: "c", // delta row: the 120-minute window applies
           startedAt: staleB,
           upserted: 1,
         });
@@ -543,6 +561,7 @@ describe("ImportRunService", () => {
           id: "orphan",
           provider: "viator",
           status: "running",
+          cursorAtStart: "c", // delta row: the 120-minute window applies
           startedAt: staleStart,
           upserted: 0,
         });
@@ -711,25 +730,22 @@ describe("ImportRunService", () => {
       expect(runner.seenCursor).toBe("cursor-old");
     });
 
-    it("ignores a currently-running row even if it already has a lastCursor", async () => {
+    it("refuses to start (rather than resume) while a row with a lastCursor is still running", async () => {
+      // Pre-BRI-227 this asserted the running row's cursor was ignored; the
+      // overlap check now refuses the start outright.
       store.seed({
         id: "in-flight",
         status: "running",
         lastCursor: "cursor-in-flight",
         startedAt: new Date(),
       });
-      store.seed({
-        id: "settled",
-        status: "succeeded",
-        lastCursor: "cursor-settled",
-        startedAt: new Date(Date.now() - 60_000),
-      });
       const runner = captureFirstSegmentRunner(store);
       const service = new ImportRunService(store, runner, CONFIG);
 
-      await service.execute("scheduled");
-
-      expect(runner.seenCursor).toBe("cursor-settled");
+      await expect(service.execute("scheduled")).rejects.toThrow(
+        ImportAlreadyRunningError,
+      );
+      expect(runner.seenCursor).toBeUndefined();
     });
 
     it("an explicit modifiedSince overrides the auto-discovered cursor entirely", async () => {
@@ -833,6 +849,184 @@ describe("ImportRunService", () => {
       ]);
       const next = await new ImportRunService(store, runner, CONFIG).execute("scheduled");
       expect(next.cursorAtStart).toBe("GOOD-CURSOR");
+    });
+  });
+  describe("BRI-227: per-row stuck timeout (full vs delta)", () => {
+    const hoursAgo = (h: number): Date => new Date(Date.now() - h * 3_600_000);
+    const service = (): ImportRunService =>
+      new ImportRunService(
+        store,
+        fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]),
+        CONFIG,
+      );
+
+    it("does not reap a full-run row (cursorAtStart null) that is 3 hours old", async () => {
+      store.seed({ id: "full", status: "running", startedAt: hoursAgo(3) });
+      expect(await service().reapStuckRuns()).toBe(0);
+      expect(store.rows.get("full")!.status).toBe("running");
+    });
+
+    it("reaps a delta row (cursorAtStart set) that is 3 hours old", async () => {
+      store.seed({ id: "delta", status: "running", cursorAtStart: "c", startedAt: hoursAgo(3) });
+      expect(await service().reapStuckRuns()).toBe(1);
+      expect(store.rows.get("delta")!.status).toBe("failed");
+    });
+
+    it("reaps a full-run row that is 7 hours old, naming the 360-minute window", async () => {
+      store.seed({ id: "full", status: "running", startedAt: hoursAgo(7) });
+      expect(await service().reapStuckRuns()).toBe(1);
+      expect(store.rows.get("full")!.error).toMatch(/360 minutes/);
+    });
+  });
+
+  describe("BRI-227: overlap protection", () => {
+    it.each(["scheduled", "manual"] as const)(
+      "refuses a %s start while another run is running, before any segment spawns",
+      async (trigger) => {
+        store.seed({ id: "live", status: "running", startedAt: new Date() });
+        const runner = fakeSegmentRunner(store, [{ result: { exitCode: 0 } }]);
+        const service = new ImportRunService(store, runner, { fullRunMinFetched: 1000 });
+
+        await expect(service.execute(trigger)).rejects.toThrow(ImportAlreadyRunningError);
+        await expect(service.execute(trigger, { full: true })).rejects.toThrow(
+          ImportAlreadyRunningError,
+        );
+        expect(runner.calls).toHaveLength(0);
+        expect(store.rows.size).toBe(1);
+      },
+    );
+
+    it("starts normally once the other run has finished", async () => {
+      store.seed({ id: "done", status: "succeeded", startedAt: new Date(Date.now() - 60_000) });
+      const runner = fakeSegmentRunner(store, [
+        {
+          mutate: (rows, id) =>
+            rows.set(id, { ...rows.get(id)!, status: "succeeded", finishedAt: new Date() }),
+          result: { exitCode: 0 },
+        },
+      ]);
+      const run = await new ImportRunService(store, runner, CONFIG).execute("scheduled");
+      expect(run.status).toBe("succeeded");
+    });
+  });
+
+  describe("BRI-227: lookupResumeCursor skips interrupted full runs", () => {
+    function seenCursorRunner(): SegmentRunner & { seen?: string | null } {
+      const r: SegmentRunner & { seen?: string | null } = {
+        async runSegment(runId: string) {
+          r.seen = store.rows.get(runId)?.cursor ?? null;
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, { ...row, status: "succeeded", finishedAt: new Date() });
+          return { exitCode: 0 };
+        },
+      };
+      return r;
+    }
+    const older = (): Date => new Date(Date.now() - 3 * 60_000);
+    const newer = (): Date => new Date(Date.now() - 60_000);
+
+    it("skips an interrupted full run and falls back to the last good cursor", async () => {
+      store.seed({ id: "good", status: "succeeded", lastCursor: "good-cursor", startedAt: older() });
+      store.seed({
+        id: "interrupted-full",
+        status: "failed",
+        cursorAtStart: null,
+        cursor: "mid-crawl",
+        lastCursor: "mid-crawl",
+        startedAt: newer(),
+      });
+      const runner = seenCursorRunner();
+      await new ImportRunService(store, runner, CONFIG).execute("scheduled");
+      expect(runner.seen).toBe("good-cursor");
+    });
+
+    it("still resumes after a failed delta run", async () => {
+      store.seed({ id: "good", status: "succeeded", lastCursor: "good-cursor", startedAt: older() });
+      store.seed({
+        id: "failed-delta",
+        status: "failed",
+        cursorAtStart: "good-cursor",
+        cursor: "delta-cursor",
+        lastCursor: "delta-cursor",
+        startedAt: newer(),
+      });
+      const runner = seenCursorRunner();
+      await new ImportRunService(store, runner, CONFIG).execute("scheduled");
+      expect(runner.seen).toBe("delta-cursor");
+    });
+
+    it("is unchanged for a succeeded full run (cursor cleared at end-of-feed)", async () => {
+      store.seed({
+        id: "ok-full",
+        status: "succeeded",
+        cursorAtStart: null,
+        cursor: null,
+        lastCursor: "end-cursor",
+        startedAt: newer(),
+      });
+      const runner = seenCursorRunner();
+      await new ImportRunService(store, runner, CONFIG).execute("scheduled");
+      expect(runner.seen).toBe("end-cursor");
+    });
+  });
+
+  describe("BRI-227: execute({ full: true })", () => {
+    function capture(): SegmentRunner & { seen?: string | null; calls: number } {
+      const r: SegmentRunner & { seen?: string | null; calls: number } = {
+        calls: 0,
+        async runSegment(runId: string) {
+          r.calls += 1;
+          r.seen = store.rows.get(runId)?.cursor ?? null;
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, { ...row, status: "succeeded", finishedAt: new Date() });
+          return { exitCode: 0 };
+        },
+      };
+      return r;
+    }
+
+    it("ignores a stored lastCursor and records a null cursorAtStart", async () => {
+      store.seed({
+        id: "prev",
+        status: "succeeded",
+        lastCursor: "stored-cursor",
+        startedAt: new Date(Date.now() - 60_000),
+      });
+      const runner = capture();
+      const service = new ImportRunService(store, runner, { fullRunMinFetched: 400_000 });
+
+      const run = await service.execute("manual", { full: true });
+
+      expect(runner.seen).toBeNull();
+      expect(run.cursorAtStart).toBeNull();
+    });
+
+    it("drops a modifiedSince passed alongside full", async () => {
+      const seen: Array<string | undefined> = [];
+      const runner: SegmentRunner = {
+        async runSegment(runId: string, modifiedSince?: string) {
+          seen.push(modifiedSince);
+          const row = store.rows.get(runId)!;
+          store.rows.set(runId, { ...row, status: "succeeded", finishedAt: new Date() });
+          return { exitCode: 0 };
+        },
+      };
+      await new ImportRunService(store, runner, { fullRunMinFetched: 1 }).execute("manual", {
+        full: true,
+        modifiedSince: "2026-01-01T00:00:00Z",
+      });
+      expect(seen).toEqual([undefined]);
+    });
+
+    it("fails before any segment (client) call when the floor is missing", async () => {
+      const runner = capture();
+      const service = new ImportRunService(store, runner, CONFIG);
+
+      await expect(service.execute("manual", { full: true })).rejects.toThrow(
+        FullRunFloorMissingError,
+      );
+      expect(runner.calls).toBe(0);
+      expect(store.rows.size).toBe(0);
     });
   });
 });

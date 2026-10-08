@@ -99,8 +99,37 @@ export type ImportRunTrigger = "scheduled" | "manual";
  */
 export type ImportRunPrisma = Pick<PrismaClient, "importRun" | "tour">;
 
+/** Another run is `running`; a second concurrent crawl is refused. */
+export class ImportAlreadyRunningError extends Error {
+  constructor() {
+    super(
+      "Refusing to start: an ImportRun is in status 'running'. Wait for it " +
+        "to finish, or, if its process is dead, for the stuck-run reaper to clear it.",
+    );
+    this.name = "ImportAlreadyRunningError";
+  }
+}
+
+/** A `--full` run was requested without `IMPORT_FULL_RUN_MIN_FETCHED`. */
+export class FullRunFloorMissingError extends Error {
+  constructor() {
+    super(
+      "Refusing to start a --full run: IMPORT_FULL_RUN_MIN_FETCHED is not set. " +
+        "A --full run needs an explicit completeness floor (raw products it must " +
+        "fetch to count as complete); it does not use a history-based baseline.",
+    );
+    this.name = "FullRunFloorMissingError";
+  }
+}
+
 /** Options for one {@link ImportRunService.execute} call. */
 export interface ExecuteOptions {
+  /**
+   * Start a genuine full crawl: no resume cursor, no `modifiedSince`, and
+   * `lookupResumeCursor` is bypassed. Never continues an interrupted full run.
+   * Requires {@link ImportRunServiceConfig.fullRunMinFetched}.
+   */
+  readonly full?: boolean;
   /**
    * Optional ISO-8601 timestamp for a delta crawl (only pages modified since
    * then). Forwarded to every segment-worker child spawned for this run;
@@ -119,12 +148,21 @@ export interface ImportRunServiceConfig {
    * as `failed`, from `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`. Defaults to 120.
    */
   readonly stuckRunTimeoutMinutes?: number;
+  /**
+   * Like {@link stuckRunTimeoutMinutes} but for full-run rows
+   * (`cursorAtStart` null), which legitimately take hours. From
+   * `IMPORT_FULL_RUN_STUCK_TIMEOUT_MINUTES`. Defaults to 360.
+   */
+  readonly fullRunStuckTimeoutMinutes?: number;
+  /** `IMPORT_FULL_RUN_MIN_FETCHED`, when set; required by `execute({ full })`. */
+  readonly fullRunMinFetched?: number;
 }
 
 export class ImportRunService {
   private readonly logger = new Logger(ImportRunService.name);
   private readonly provider: string;
   private readonly stuckRunTimeoutMinutes: number;
+  private readonly fullRunStuckTimeoutMinutes: number;
 
   constructor(
     private readonly prisma: ImportRunPrisma,
@@ -133,6 +171,7 @@ export class ImportRunService {
   ) {
     this.provider = config.provider ?? "viator";
     this.stuckRunTimeoutMinutes = config.stuckRunTimeoutMinutes ?? 120;
+    this.fullRunStuckTimeoutMinutes = config.fullRunStuckTimeoutMinutes ?? 360;
   }
 
   /**
@@ -154,12 +193,27 @@ export class ImportRunService {
    * a concern.
    */
   async reapStuckRuns(): Promise<number> {
-    const cutoff = new Date(
-      Date.now() - this.stuckRunTimeoutMinutes * 60_000,
+    // Full-run rows (`cursorAtStart` null) get their own, longer timeout: a
+    // full crawl legitimately runs for hours. The query uses the shorter
+    // window; each row is then held to its own.
+    const now = Date.now();
+    const timeoutFor = (run: ImportRun): number =>
+      run.cursorAtStart === null
+        ? this.fullRunStuckTimeoutMinutes
+        : this.stuckRunTimeoutMinutes;
+    const shortest = Math.min(
+      this.stuckRunTimeoutMinutes,
+      this.fullRunStuckTimeoutMinutes,
     );
-    const stuck = await this.prisma.importRun.findMany({
-      where: { status: "running", startedAt: { lt: cutoff } },
+    const candidates = await this.prisma.importRun.findMany({
+      where: {
+        status: "running",
+        startedAt: { lt: new Date(now - shortest * 60_000) },
+      },
     });
+    const stuck = candidates.filter(
+      (run) => run.startedAt.getTime() < now - timeoutFor(run) * 60_000,
+    );
 
     for (const run of stuck) {
       const upserted = await this.prisma.tour.count({
@@ -171,7 +225,7 @@ export class ImportRunService {
           status: "failed",
           error:
             `Marked failed at startup: still "running" after ` +
-            `${this.stuckRunTimeoutMinutes} minutes with no finishedAt — ` +
+            `${timeoutFor(run)} minutes with no finishedAt — ` +
             `orphaned by a process that exited without unwinding (crash/OOM kill).`,
           upserted,
           finishedAt: new Date(),
@@ -181,8 +235,9 @@ export class ImportRunService {
 
     if (stuck.length > 0) {
       this.logger.warn(
-        `Reaped ${stuck.length} stuck "running" import run(s), stuck past ` +
-          `${this.stuckRunTimeoutMinutes} minutes, as failed.`,
+        `Reaped ${stuck.length} stuck "running" import run(s) as failed ` +
+          `(delta rows past ${this.stuckRunTimeoutMinutes} minutes, full-run ` +
+          `rows past ${this.fullRunStuckTimeoutMinutes}).`,
       );
     }
     return stuck.length;
@@ -195,19 +250,45 @@ export class ImportRunService {
    * re-throws.
    *
    * @param trigger  Whether the nightly cron or a manual path started this run.
-   * @param options  E.g. a `modifiedSince` for a delta crawl.
+   * @param options  E.g. a `modifiedSince` for a delta crawl, or `full`.
+   * @throws FullRunFloorMissingError  `full` without a configured floor.
+   * @throws ImportAlreadyRunningError another run is `running`. Both are
+   *   thrown before any row is created or any Viator call is made. On boot,
+   *   `ImportScheduler.onModuleInit` has already reaped dead rows, so a
+   *   refusal means a row younger than its stuck timeout.
    */
   async execute(
     trigger: ImportRunTrigger,
     options: ExecuteOptions = {},
   ): Promise<ImportRun> {
+    const floor = this.config.fullRunMinFetched;
+    if (options.full) {
+      // `full` means no modifiedSince, whatever the caller also passed.
+      options = { ...options, modifiedSince: undefined };
+    }
+    if (options.full && floor === undefined) {
+      throw new FullRunFloorMissingError();
+    }
+    // Not atomic with the create below (no unique index on `running`), so two
+    // processes starting in the same instant could both pass. Accepted: the
+    // window is milliseconds and a lock needs a migration.
+    if (await this.hasRunningRun()) {
+      throw new ImportAlreadyRunningError();
+    }
+
     // BRI-181: an explicit modifiedSince (the manual one-off re-sync escape
     // hatch) always wins over the auto-discovered cross-run cursor — asking
     // for a specific re-sync point means exactly that, not wherever the last
-    // run happened to leave off.
-    const resumeCursor = options.modifiedSince
-      ? null
-      : await this.lookupResumeCursor();
+    // run happened to leave off. `full` likewise starts from page 1.
+    const resumeCursor =
+      options.full || options.modifiedSince
+        ? null
+        : await this.lookupResumeCursor();
+    const mode = options.modifiedSince
+      ? "since"
+      : resumeCursor
+        ? "resume"
+        : "full";
 
     const run = await this.prisma.importRun.create({
       data: {
@@ -228,9 +309,10 @@ export class ImportRunService {
         now: new Date(),
         runId: run.id,
         trigger,
-        mode: options.modifiedSince ? "since" : resumeCursor ? "resume" : "full",
+        mode,
         startCursor: resumeCursor,
         modifiedSince: options.modifiedSince,
+        floor: mode === "full" ? (floor ?? null) : undefined,
       }),
     );
 
@@ -311,6 +393,13 @@ export class ImportRunService {
    * correctness benefit. A `running` row is excluded — its progress isn't a
    * settled resume point yet. Returns `null` (full crawl) when no row has
    * ever observed a `nextCursor` at all — this deployment's first run.
+   *
+   * Exception: an interrupted *full* run (`cursorAtStart` null, `cursor` still
+   * set, not `succeeded`) is skipped. Its `lastCursor` points mid-catalogue;
+   * resuming it would make the nightly a delta run, which skips soft-delete and
+   * the completeness guard, so that crawl would never be reconciled. The lookup
+   * falls back to the last good cursor instead. Failed *delta* runs have a
+   * non-null `cursorAtStart` and still resume as before.
    */
   private async lookupResumeCursor(): Promise<string | null> {
     const previous = await this.prisma.importRun.findFirst({
@@ -318,6 +407,11 @@ export class ImportRunService {
         provider: this.provider,
         status: { not: "running" },
         lastCursor: { not: null },
+        NOT: {
+          cursorAtStart: null,
+          cursor: { not: null },
+          status: { not: "succeeded" },
+        },
       },
       orderBy: { startedAt: "desc" },
     });

@@ -34,6 +34,11 @@ pnpm --filter @folio/api prisma:seed                 # seed via prisma/seed.ts
 pnpm --filter @folio/api import:run                  # manually trigger an import run (builds first: the segment worker is spawned from dist/, not ts-node)
 pnpm --filter @folio/api experience:promote <id>      # promote one draft Experience to published by id (manual; the automatic path is ExperienceAutoPromoter, below)
 
+# BRI-227 `--full`: a genuine full crawl from page 1 (ignores any stored resume cursor, never continues an interrupted full run).
+# Needs IMPORT_FULL_RUN_MIN_FETCHED set (fails before any Viator call otherwise) and refuses while any run is 'running' (exit 1; the
+# nightly is refused the same way). Full-run rows are reaped after IMPORT_FULL_RUN_STUCK_TIMEOUT_MINUTES (default 360), delta rows after 120.
+pnpm --filter @folio/api import:run -- --full
+
 # One off sweeps over the real DB (not in package.json; always via Doppler, both take --dry-run)
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/backfill-reference-price.cli.ts   # fill Tour.priceReferenceMinor for rows ingested before it existed
 doppler run -- pnpm --filter @folio/api exec ts-node src/modules/import/promote-eligible.cli.ts            # promote every draft Experience that is now eligible

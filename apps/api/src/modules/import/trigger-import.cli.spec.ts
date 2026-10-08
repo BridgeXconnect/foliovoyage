@@ -31,6 +31,14 @@ describe("trigger-import parseArgs (BRI-232)", () => {
     expect(errorOf(["--trigger"])).toContain("Got (nothing).");
   });
 
+  it("accepts --full alongside the default or an explicit trigger", () => {
+    expect(parseArgs(["--full"])).toEqual({ trigger: "manual", full: true });
+    expect(parseArgs(["--trigger", "scheduled", "--full"])).toEqual({
+      trigger: "scheduled",
+      full: true,
+    });
+  });
+
   it("rejects an unknown flag", () => {
     expect(errorOf(["--bogus"])).toContain('Unknown argument "--bogus"');
   });

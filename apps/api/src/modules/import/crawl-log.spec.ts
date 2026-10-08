@@ -82,6 +82,19 @@ describe("crawl log lines (BRI-227)", () => {
     );
   });
 
+  it("start line appends the completeness floor value only when given", () => {
+    const base = {
+      now,
+      runId: "r",
+      trigger: "manual",
+      mode: "full" as const,
+      startCursor: null,
+      modifiedSince: undefined,
+    };
+    expect(formatCrawlStartLine({ ...base, floor: 400000 })).toMatch(/ floor=400000$/);
+    expect(formatCrawlStartLine({ ...base, floor: null })).toMatch(/ floor=none$/);
+  });
+
   it("end line carries stop reason, totals and duration", () => {
     const line = formatCrawlEndLine({
       now,
