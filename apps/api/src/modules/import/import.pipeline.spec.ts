@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { Logger } from "@nestjs/common";
 
 import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
@@ -608,5 +609,99 @@ describe("ImportPipeline", () => {
 
     // The real-process.memoryUsage() test lives in its own file
     // (import.pipeline.memory.spec.ts) — see that file's docstring for why.
+  });
+});
+
+describe("BRI-227: per-page crawl log and stop reasons", () => {
+  function pipelineFor(client: ViatorClient, upsert = fakeUpsert().service) {
+    return new ImportPipeline(
+      client,
+      passthroughResolver,
+      pricingResolver,
+      passthroughReferencePriceResolver,
+      passthroughCategoryResolver,
+      new TourValidator(new InMemoryQuarantineStore()),
+      upsert,
+    );
+  }
+
+  /** Pages carrying the fields the real client adds. */
+  function metaClient(pages: Array<Partial<ViatorPage> & { products: ViatorProduct[] }>): ViatorClient {
+    return {
+      async *fetchModifiedSince(): AsyncGenerator<ViatorPage> {
+        for (let i = 0; i < pages.length; i += 1) {
+          yield { page: i + 1, archive: { bucket: "b", key: `k-${i}` }, ...pages[i] };
+        }
+      },
+    } as unknown as ViatorClient;
+  }
+
+  const lines = (spy: { mock: { calls: unknown[][] } }): string[] =>
+    spy.mock.calls.map((c) => String(c[0])).filter((m) => m.startsWith("[crawl]"));
+
+  it("logs one line per page with cursors, status, attempts and a running total across segments", async () => {
+    const spy = jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const client = metaClient([
+      { products: [rawProduct("A"), rawProduct("B")], cursorSent: "S0", nextCursor: "N1", status: 200, attempts: 1 },
+      { products: [rawProduct("C")], cursorSent: "N1", nextCursor: undefined, status: 200, attempts: 3 },
+    ]);
+
+    await pipelineFor(client).runSegment(new ImportRunCounts(), {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: NEVER_STOPS_EARLY,
+      runContext: { runId: "run-9", trigger: "manual", fetchedBefore: 1000 },
+    });
+
+    const page = lines(spy).filter((l) => / page=\d/.test(l));
+    expect(page).toHaveLength(2);
+    expect(page[0]).toMatch(/ts=\d{4}-\d\d-\d\dT[\d:.]+Z run=run-9 trigger=manual page=1 /);
+    expect(page[0]).toContain("cursor_sent=S0 cursor_received=N1 status=200 products=2 total=1002 attempts=1");
+    expect(page[1]).toContain("page=2 cursor_sent=N1 cursor_received=none status=200 products=1 total=1003 attempts=3");
+    spy.mockRestore();
+  });
+
+  it("states the end-of-feed signal that ended the loop (absent cursor)", async () => {
+    const spy = jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const client = metaClient([{ products: [rawProduct("A")], nextCursor: undefined }]);
+
+    const result = await pipelineFor(client).runSegment(new ImportRunCounts(), {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: NEVER_STOPS_EARLY,
+    });
+
+    expect(result.done).toBe(true);
+    expect(lines(spy).some((l) => l.includes("end-of-feed signal on page 1: next-cursor-absent, 1 product(s)"))).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("treats an empty-string nextCursor as end-of-feed and says so", async () => {
+    const spy = jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const client = metaClient([{ products: [], nextCursor: "" }]);
+
+    const result = await pipelineFor(client).runSegment(new ImportRunCounts(), {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: NEVER_STOPS_EARLY,
+    });
+
+    expect(result.done).toBe(true);
+    expect(lines(spy).some((l) => l.includes("next-cursor-empty, 0 product(s)"))).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("does not claim end-of-feed when the segment stops at the page limit", async () => {
+    const spy = jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const client = metaClient([
+      { products: [rawProduct("A")], nextCursor: "N1" },
+      { products: [rawProduct("B")], nextCursor: undefined },
+    ]);
+
+    const result = await pipelineFor(client).runSegment(new ImportRunCounts(), {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: 1,
+    });
+
+    expect(result.done).toBe(false);
+    expect(lines(spy).some((l) => l.includes("end-of-feed signal"))).toBe(false);
+    spy.mockRestore();
   });
 });

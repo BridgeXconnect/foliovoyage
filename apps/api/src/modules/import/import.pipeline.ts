@@ -4,6 +4,11 @@ import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import {
+  endOfFeedSignal,
+  formatCrawlCursorsDebug,
+  formatCrawlPageLine,
+} from "./crawl-log";
+import {
   extractLocationCandidates,
   type LocationCandidate,
 } from "./location-candidates";
@@ -221,6 +226,16 @@ export interface ImportPipelineOptions {
   readonly startCursor?: string;
   /** Resume page numbering from here; omitted on a run's first segment. */
   readonly startPage?: number;
+  /**
+   * Run identity for the per-page crawl log line (BRI-227). `fetchedBefore` is
+   * the raw products earlier segments of this run already fetched, so the line
+   * can show a running total for the whole run, not just this segment.
+   */
+  readonly runContext?: {
+    readonly runId: string;
+    readonly trigger: string;
+    readonly fetchedBefore: number;
+  };
 }
 
 /** Result of one {@link ImportPipeline.runSegment} call. */
@@ -291,6 +306,8 @@ export class ImportPipeline {
 
     let done = true;
     let pagesThisSegment = 0;
+    let lastPageProducts = 0;
+    const run = options.runContext;
 
     for await (const page of this.client.fetchModifiedSince({
       modifiedSince: options.modifiedSince,
@@ -304,6 +321,32 @@ export class ImportPipeline {
       if (page.nextCursor) {
         counts.lastCursor = page.nextCursor;
       }
+      lastPageProducts = page.products.length;
+
+      // BRI-227: one line per page request, so a crawl that ends early leaves
+      // a trail (cursors, status, attempts, running total) to diagnose from.
+      this.logger.log(
+        formatCrawlPageLine({
+          now: new Date(),
+          runId: run?.runId ?? "n/a",
+          trigger: run?.trigger ?? "n/a",
+          page: page.page,
+          cursorSent: page.cursorSent,
+          cursorReceived: page.nextCursor,
+          status: page.status,
+          products: page.products.length,
+          runningTotal: (run?.fetchedBefore ?? 0) + counts.fetched,
+          attempts: page.attempts,
+        }),
+      );
+      this.logger.debug(
+        formatCrawlCursorsDebug(
+          run?.runId ?? "n/a",
+          page.page,
+          page.cursorSent,
+          page.nextCursor,
+        ),
+      );
 
       // Per-page process.memoryUsage() read (BRI-182): logged unconditionally
       // for operational visibility, and — when
@@ -367,6 +410,16 @@ export class ImportPipeline {
     }
 
     counts.quarantined = stats.quarantined;
+
+    // BRI-227: say what ended the loop. The only end-of-feed signal this
+    // client acts on is a final page with no (or an empty) `nextCursor`.
+    if (done && counts.lastPage !== null) {
+      this.logger.log(
+        `[crawl] end-of-feed signal on page ${counts.lastPage}: ` +
+          `${endOfFeedSignal(counts.cursor ?? undefined) ?? "none"}, ` +
+          `${lastPageProducts} product(s) on the final page.`,
+      );
+    }
 
     this.logger.log(
       `Segment scanned ${counts.fetched} product(s) from provider — ` +
