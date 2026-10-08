@@ -72,13 +72,20 @@ export interface CrawlStartLine {
   mode: "full" | "resume" | "since";
   startCursor: string | null;
   modifiedSince: string | undefined;
+  /**
+   * The completeness floor (`IMPORT_FULL_RUN_MIN_FETCHED`) a full run will be
+   * held to: its value, or `null` when unset. Omitted (`undefined`) for modes
+   * the guard does not apply to, which leaves the field off the line.
+   */
+  floor?: number | null;
 }
 
 export function formatCrawlStartLine(l: CrawlStartLine): string {
   return (
     `[crawl] start ts=${l.now.toISOString()} run=${l.runId} trigger=${l.trigger} ` +
     `mode=${l.mode} start_cursor=${shortCursor(l.startCursor)} ` +
-    `modified_since=${l.modifiedSince ?? "none"}`
+    `modified_since=${l.modifiedSince ?? "none"}` +
+    (l.floor === undefined ? "" : ` floor=${l.floor ?? "none"}`)
   );
 }
 

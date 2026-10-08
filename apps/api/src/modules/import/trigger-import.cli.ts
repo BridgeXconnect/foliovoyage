@@ -2,7 +2,12 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 
 import { setDbRetryProfile } from "../../prisma/transient-retry";
-import { ImportRunService, type ImportRunTrigger } from "./import-run.service";
+import {
+  FullRunFloorMissingError,
+  ImportAlreadyRunningError,
+  ImportRunService,
+  type ImportRunTrigger,
+} from "./import-run.service";
 
 /**
  * Import trigger CLI (ST-10 / BRI-107, `--trigger` added in BRI-232).
@@ -32,15 +37,25 @@ import { ImportRunService, type ImportRunTrigger } from "./import-run.service";
  * loader). Run under `ts-node`, the child dies with MODULE_NOT_FOUND and the
  * run is recorded as failed with nothing fetched.
  *
+ * `--full` starts a genuine full crawl from page 1: it ignores any stored resume
+ * cursor and never continues an interrupted full run. It requires
+ * `IMPORT_FULL_RUN_MIN_FETCHED` (the completeness floor) and refuses to start
+ * while another run is `running`. Combine with `--trigger manual` (the default)
+ * to label it. Any run, nightly included, is refused (exit 1) while one is
+ * `running`.
+ *
  * Set `IMPORT_CRON_ENABLED=false` for the invocation if you don't also want the
  * nightly job registered in the short-lived context.
  */
-export const USAGE = "Usage: trigger-import [--trigger scheduled|manual]";
+export const USAGE = "Usage: trigger-import [--trigger scheduled|manual] [--full]";
 
 const TRIGGERS: readonly ImportRunTrigger[] = ["scheduled", "manual"];
 
-export function parseArgs(argv: readonly string[]): { trigger: ImportRunTrigger } | { error: string } {
+export function parseArgs(
+  argv: readonly string[],
+): { trigger: ImportRunTrigger; full?: true } | { error: string } {
   let trigger: ImportRunTrigger = "manual";
+  let full = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--trigger") {
@@ -50,11 +65,13 @@ export function parseArgs(argv: readonly string[]): { trigger: ImportRunTrigger 
         return { error: `--trigger needs one of: ${TRIGGERS.join(", ")}. Got ${raw ?? "(nothing)"}.\n${USAGE}` };
       }
       trigger = match;
+    } else if (arg === "--full") {
+      full = true;
     } else {
       return { error: `Unknown argument "${arg}".\n${USAGE}` };
     }
   }
-  return { trigger };
+  return full ? { trigger, full } : { trigger };
 }
 
 async function main(): Promise<void> {
@@ -82,8 +99,23 @@ async function main(): Promise<void> {
 
   try {
     const runService = app.get(ImportRunService);
-    logger.log(`Triggering a ${args.trigger} import run…`);
-    const run = await runService.execute(args.trigger);
+    logger.log(`Triggering a ${args.trigger}${args.full ? " full" : ""} import run…`);
+    let run;
+    try {
+      run = await runService.execute(args.trigger, args.full ? { full: true } : {});
+    } catch (error) {
+      if (
+        error instanceof ImportAlreadyRunningError ||
+        error instanceof FullRunFloorMissingError
+      ) {
+        // Refused before any row was created or Viator call made. Loud on
+        // purpose: a skipped night must show as a failed cron run, not success.
+        logger.error(`${args.trigger} import run NOT started: ${error.message}`);
+        process.exitCode = error instanceof FullRunFloorMissingError ? 2 : 1;
+        return;
+      }
+      throw error;
+    }
 
     // The record is the deliverable — print it so a human/CI can eyeball the
     // status and counts without querying the DB.

@@ -150,6 +150,9 @@ async function main(): Promise<void> {
       return;
     }
 
+    // NOTE: a run with an explicit `modifiedSince` also has a null
+    // `cursorAtStart` and so takes this full-run branch. Nothing sets both
+    // today (the CLI has no such flag). Left as is deliberately.
     if (run.cursorAtStart === null) {
       // Full crawl — this run saw (or attempted to see) the complete active
       // catalogue, so it's safe to reconcile deletions against it.

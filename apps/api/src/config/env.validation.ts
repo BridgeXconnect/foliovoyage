@@ -158,6 +158,20 @@ export const envSchema = z.object({
     .default(120),
 
   /**
+   * Like `IMPORT_STUCK_RUN_TIMEOUT_MINUTES`, but for full-run rows
+   * (`cursorAtStart` null), which legitimately run for ~3 hours. The reaper
+   * runs on every boot of every service, so the shorter delta window would kill
+   * a live full crawl. Trade-off: a full run that crashes blocks the next
+   * import (which refuses to start while a row is `running`) for up to this
+   * long. Defaults to 360 minutes.
+   */
+  IMPORT_FULL_RUN_STUCK_TIMEOUT_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(360),
+
+  /**
    * How many pages each segment-worker child covers before exiting for a
    * fresh one to resume (BRI-176). Local heap profiling localized a real
    * cause of two production OOM kills to memory `undici` retains for the
