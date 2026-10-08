@@ -233,6 +233,26 @@ export const envSchema = z.object({
     .max(100)
     .default(45),
 
+  // --- Ingest / full-run completeness guard (BRI-227) ----------------------
+
+  /**
+   * Completeness floor for a **full** run (no starting cursor, no
+   * `modifiedSince`), as a percentage (0–100) of the raw products the largest
+   * earlier `succeeded` full run fetched. A full run that reaches end-of-feed
+   * below that floor is marked `failed` instead of `succeeded` (a September
+   * 2026 full load ended at ~10,000 products with a clean end-of-feed signal).
+   * Delta runs are exempt. Ignored when `IMPORT_FULL_RUN_MIN_FETCHED` is set.
+   * Defaults to 90.
+   */
+  IMPORT_FULL_RUN_MIN_PCT: z.coerce.number().min(0).max(100).default(90),
+
+  /**
+   * Absolute floor for a full run's raw products fetched. When set it replaces
+   * the history-derived floor above, which is the only option on a database
+   * with no earlier succeeded full run (otherwise the guard skips, logged).
+   */
+  IMPORT_FULL_RUN_MIN_FETCHED: z.coerce.number().int().positive().optional(),
+
   // --- Affiliate click log (ST-24 / BRI-136) -------------------------------
 
   /**

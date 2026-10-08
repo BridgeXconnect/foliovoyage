@@ -1,6 +1,7 @@
 import { Logger } from "@nestjs/common";
 import type { ImportRun, PrismaClient } from "@prisma/client";
 
+import { formatCrawlEndLine, formatCrawlStartLine } from "./crawl-log";
 import type { SegmentRunner } from "./segment-runner";
 
 /**
@@ -222,6 +223,16 @@ export class ImportRunService {
         ? `Import run ${run.id} started (trigger: ${trigger}), resuming from cursor "${resumeCursor}".`
         : `Import run ${run.id} started (trigger: ${trigger}), full crawl (no prior cursor).`,
     );
+    this.logger.log(
+      formatCrawlStartLine({
+        now: new Date(),
+        runId: run.id,
+        trigger,
+        mode: options.modifiedSince ? "since" : resumeCursor ? "resume" : "full",
+        startCursor: resumeCursor,
+        modifiedSince: options.modifiedSince,
+      }),
+    );
 
     for (;;) {
       const result = await this.segmentRunner.runSegment(
@@ -240,7 +251,21 @@ export class ImportRunService {
           `segment-worker exited abnormally (code ${result.exitCode ?? "null"}) ` +
           `before it could record its own outcome`;
         this.logger.error(`Import run ${run.id} failed: ${message}`);
-        return this.finalize(run, message);
+        const finalized = await this.finalize(run, message);
+        this.logger.log(
+          formatCrawlEndLine({
+            now: new Date(),
+            runId: finalized.id,
+            trigger,
+            status: finalized.status,
+            reason: "worker-crash",
+            pages: finalized.lastPage,
+            products: finalized.fetched,
+            startedAt: finalized.startedAt,
+            detail: message,
+          }),
+        );
+        return finalized;
       }
 
       const current = await this.prisma.importRun.findUniqueOrThrow({
