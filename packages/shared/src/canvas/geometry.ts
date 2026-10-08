@@ -1,41 +1,15 @@
 /**
- * Discovery canvas world geometry (BRI-225, spec 0004).
+ * Discovery canvas feed shape (spec 0004, feed sub-spec): the bucket size cap,
+ * the rank tiers, and the six cities and seven categories in fixed order.
  *
- * The one file in the repo that holds a slot position, a size in pixels, or a
- * layout constant for the canvas. The layout, the minimap, the search jump and
- * the position URL all read it from here (AC-1), so a bucket never moves.
- *
- * Purity rule: this folder imports nothing but this file and uses no Node or DOM API, so the
- * layout can run on the server, in a worker, or in a test with the same result.
- * `geometry.spec.ts` fails the build if either rule breaks, or if a pixel
- * literal shows up in another file in this folder.
+ * The view that drew these on a pannable canvas was shelved on 8 Oct 2026
+ * (BRI-245); the feed and these lists stay in force for EP-21 (BRI-244).
  *
  * `apps/api` compiles to CommonJS and cannot import values from this ESM
- * package yet, so it holds a copy of the category slug and label map, pinned to
- * this one by a parity test. It has no copy of anything in pixels.
+ * package yet, so it holds copies of the category slug and label map, the 50
+ * tile cap and the tier boundary, pinned to this file by parity tests in
+ * `apps/api/src/canvas/canvas-categories.spec.ts`.
  */
-
-// World geometry ------------------------------------------------------------
-
-/** One bucket's slot, in px. */
-export const SLOT_WIDTH = 2400;
-export const SLOT_HEIGHT = 1624;
-
-/** A city region is a grid of category slots: 4 columns by 2 rows (7 used, 1 spare). */
-export const CITY_REGION_SLOT_COLUMNS = 4;
-export const CITY_REGION_SLOT_ROWS = 2;
-export const CITY_REGION_WIDTH = CITY_REGION_SLOT_COLUMNS * SLOT_WIDTH; // 9600
-export const CITY_REGION_HEIGHT = CITY_REGION_SLOT_ROWS * SLOT_HEIGHT; // 3248
-
-/** The world is a grid of city regions: 3 columns by 2 rows. */
-export const WORLD_CITY_COLUMNS = 3;
-export const WORLD_CITY_ROWS = 2;
-export const WORLD_WIDTH = WORLD_CITY_COLUMNS * CITY_REGION_WIDTH; // 28800
-export const WORLD_HEIGHT = WORLD_CITY_ROWS * CITY_REGION_HEIGHT; // 6496
-
-/** Culler section size and overscan, in sections. */
-export const SECTION_SIZE = 512;
-export const SECTION_OVERSCAN = 1;
 
 // Feed shape ----------------------------------------------------------------
 
@@ -53,69 +27,6 @@ export function tierForRank(rank: number): TileTier {
   if (rank <= TIER_LAST_RANK.md) return "md";
   return "sm";
 }
-
-// Layout constants (prototype `cluster.mjs`, canvas-Gallery commit 2a132ba) -----
-
-/** Photo width per tier, in px. A 3:2 photo is two thirds as tall, a 1:1 photo is as tall as wide. */
-export const TIER_PHOTO_WIDTH: Readonly<Record<TileTier, number>> = {
-  lg: 360,
-  md: 240,
-  sm: 168,
-};
-
-/** Caption height per tier, in px. */
-export const TIER_CAPTION_HEIGHT: Readonly<Record<TileTier, number>> = {
-  lg: 68,
-  md: 57,
-  sm: 14,
-};
-
-/** Gap between a tile's photo and its caption, per tier, in px. */
-export const TIER_CAPTION_GAP: Readonly<Record<TileTier, number>> = {
-  lg: 12,
-  md: 10,
-  sm: 8,
-};
-
-export const GRID_SIZE = 8;
-export const GUTTER = 24;
-export const MARGIN = 48;
-export const CLEARANCE = 6;
-
-/** Placement jitter in px and tilt in degrees, applied as plus or minus. */
-export const JITTER = 5;
-export const TILT_DEGREES = 1.5;
-
-/** Placement score is `y + SCORE_X_WEIGHT * x`: the first free spot reads top to bottom, left to right-ish. */
-export const SCORE_X_WEIGHT = 0.55;
-
-/** A tile is 1:1 when its id hash modulo `PERCENT_BASE` is below this, so about 30% of tiles. */
-export const SQUARE_SHAPE_PERCENT = 30;
-export const PERCENT_BASE = 100;
-
-/** A 3:2 photo is `width` wide for every `height` tall in this ratio (as width : height). */
-export const LANDSCAPE_RATIO = { width: 3, height: 2 } as const;
-
-/** Tilt is drawn in tenths of a degree, and a degree is this many radians' worth of half turn. */
-export const TILT_STEPS_PER_DEGREE = 10;
-export const DEGREES_PER_HALF_TURN = 180;
-
-/** Rank 1 sits this far right of the title block, outside the placement scoring. */
-export const RANK_ONE_OFFSET = 24;
-
-/**
- * The title block reserved at the top left of every slot. A fixed reservation,
- * so the layout never depends on font metrics. The designer may change it.
- */
-export const TITLE_BLOCK = { x: 48, y: 48, width: 201, height: 59 } as const;
-
-/** The exit tile: `md` width at 3:2, no caption, in the bottom right corner of the slot. */
-export const EXIT_TILE_WIDTH = TIER_PHOTO_WIDTH.md;
-export const EXIT_TILE_HEIGHT = 160;
-export const EXIT_TILE_CORNER = {
-  x: SLOT_WIDTH - MARGIN - EXIT_TILE_WIDTH, // 2112
-  y: SLOT_HEIGHT - MARGIN - EXIT_TILE_HEIGHT, // 1416
-} as const;
 
 // Cities and categories, in fixed world order -------------------------------
 
@@ -166,37 +77,3 @@ export const EXCLUDED_CATEGORY_TAG_ID = 21914;
 
 export type CanvasCitySlug = (typeof CANVAS_CITIES)[number]["slug"];
 export type CanvasCategorySlug = (typeof CANVAS_CATEGORIES)[number]["slug"];
-
-// Slot arithmetic -----------------------------------------------------------
-
-export interface Point {
-  readonly x: number;
-  readonly y: number;
-}
-
-/** Top left corner of the slot for a city index and a category index. */
-export function slotOriginByIndex(cityIndex: number, categoryIndex: number): Point {
-  const cityColumn = cityIndex % WORLD_CITY_COLUMNS;
-  const cityRow = Math.floor(cityIndex / WORLD_CITY_COLUMNS);
-  const categoryColumn = categoryIndex % CITY_REGION_SLOT_COLUMNS;
-  const categoryRow = Math.floor(categoryIndex / CITY_REGION_SLOT_COLUMNS);
-  return {
-    x: cityColumn * CITY_REGION_WIDTH + categoryColumn * SLOT_WIDTH,
-    y: cityRow * CITY_REGION_HEIGHT + categoryRow * SLOT_HEIGHT,
-  };
-}
-
-/** Top left corner of a bucket's slot, or null for an unknown city or category slug. */
-export function slotOrigin(citySlug: string, categorySlug: string): Point | null {
-  const cityIndex = CANVAS_CITIES.findIndex((c) => c.slug === citySlug);
-  const categoryIndex = CANVAS_CATEGORIES.findIndex((c) => c.slug === categorySlug);
-  if (cityIndex < 0 || categoryIndex < 0) return null;
-  return slotOriginByIndex(cityIndex, categoryIndex);
-}
-
-/** Centre of a bucket's slot, or null for an unknown city or category slug. */
-export function slotCentre(citySlug: string, categorySlug: string): Point | null {
-  const origin = slotOrigin(citySlug, categorySlug);
-  if (!origin) return null;
-  return { x: origin.x + SLOT_WIDTH / 2, y: origin.y + SLOT_HEIGHT / 2 };
-}

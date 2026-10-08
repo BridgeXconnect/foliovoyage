@@ -13,10 +13,10 @@ describe("tour not found page", () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
-  it("says the tour is no longer available and links back to /discover", () => {
+  it("says the tour is no longer available and links to /destinations", () => {
     const html = renderToStaticMarkup(<TourNotFound />);
     expect(html).toContain("This tour is no longer available");
-    expect(html).toContain('href="/discover"');
+    expect(html).toContain('href="/destinations"');
   });
 
   it("reads no request data on the server (stays static)", () => {

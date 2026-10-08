@@ -1,8 +1,7 @@
 /**
  * Server side access to the discovery canvas feed (spec 0004, AC-L10, AC-L16).
  *
- * `fetchCanvasSummaries` reads the bucket summaries for the `/discover` first
- * paint. `proxyCanvasBucket` backs the `/api/canvas/buckets/[city]/[cat]` route
+ * `fetchCanvasSummaries` reads the bucket summaries. `proxyCanvasBucket` backs the `/api/canvas/buckets/[city]/[cat]` route
  * handler, the only way the browser reaches a bucket: `API_BASE_URL` is server
  * only and the api has no CORS.
  */
@@ -16,6 +15,7 @@ import {
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3001";
 
+// No caller until EP-21 (BRI-244); kept deliberately, do not delete as unused.
 /**
  * Every bucket summary the api has, at most 42. Throws on a failed request or a
  * body that no longer matches the shared contract, like `fetchDestination`.
@@ -38,6 +38,7 @@ function problem(status: number, title: string, detail: string): Response {
   });
 }
 
+// No caller until EP-21 (BRI-244); kept deliberately, do not delete as unused.
 /**
  * Proxy one bucket from the api. The status, body, content type and cache
  * headers pass through as the api sent them, so the browser and the CDN cache a

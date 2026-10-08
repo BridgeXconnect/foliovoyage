@@ -1,4 +1,4 @@
-/** Caption text for canvas tiles (spec 0004, AC-T1). Pure. */
+/** Duration and price text for the tour page (spec 0005). Pure. */
 
 /** `45 min`, `2 h`, `2 h 30 min`, `3 days`; null when unknown or not positive. */
 export function formatDuration(minutes: number | null): string | null {
@@ -31,10 +31,4 @@ export function formatPrice(amountMinor: number, currency: string): string {
     maximumFractionDigits: whole ? 0 : digits,
   });
   return `from ${out.format(amount)}`;
-}
-
-/** `★ 4.8 (1,234)`; null without a rating. */
-export function formatRating(avg: number | null, count: number | null): string | null {
-  if (avg === null || !count) return null;
-  return `★ ${avg.toFixed(1)} (${count.toLocaleString("en-US")})`;
 }

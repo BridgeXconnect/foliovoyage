@@ -33,8 +33,9 @@ describe("sitemap", () => {
     expect(urls.has(`${site.url}/search`)).toBe(true);
   });
 
-  // Spec 0005: the tour pages and the canvas are noindex until the AI copy
-  // passes its evaluation. Listing them is a separate, later change.
+  // Spec 0005: the tour pages are noindex until the AI copy passes its
+  // evaluation. Listing them is a separate, later change. `/discover` went with
+  // the canvas view (BRI-245) and must not be listed either.
   it("lists no /tours/ page and no /discover page", () => {
     for (const { url } of sitemap()) {
       expect(url).not.toContain("/tours/");

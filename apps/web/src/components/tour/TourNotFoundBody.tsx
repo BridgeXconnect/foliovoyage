@@ -11,7 +11,7 @@ import { parseFrom } from "@/lib/tour-from";
  * The body of the "no longer available" page (spec 0005, AC-8, AC-14). `from`
  * is read in the browser and validated against the shared lists, so the page
  * needs no request data on the server. A valid `from` adds a link to that
- * city's page. The not found event carries only the validated parts; the reason
+ * city's page; the fixed link goes to `/destinations`. The not found event carries only the validated parts; the reason
  * is logged on the server (see the tour page).
  */
 export function TourNotFoundBody() {
@@ -33,8 +33,8 @@ export function TourNotFoundBody() {
   return (
     <>
       <p className="mt-4 text-[15px] text-ink-soft">
-        <Link href="/discover" className="underline">
-          Discover more tours
+        <Link href="/destinations" className="underline">
+          Browse all destinations
         </Link>
         {city && (
           <>

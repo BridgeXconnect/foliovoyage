@@ -1,5 +1,6 @@
 import { proxyCanvasBucket } from "@/lib/canvas-api";
 
+// No caller until EP-21 (BRI-244); kept deliberately, do not delete as unused.
 /**
  * GET /api/canvas/buckets/:city/:cat — the browser's path to one canvas bucket
  * (spec 0004, AC-L16). Proxies the api and passes its cache headers through.

@@ -30,28 +30,6 @@
 
   /* Shared container width from the original 1400px content column */
   --container-content: 1400px;
-
-  /* Discovery canvas (spec 0004, AC-T3). Tile widths per tier, the fixed caption
-     heights the layout reserves (pinned to TIER_CAPTION_HEIGHT by a test), the
-     panel width, and the caption line heights. Captions take their height as
-     h-(--container-caption-*), never as a width. */
-  --container-tile-lg: 360px;
-  --container-tile-md: 240px;
-  --container-tile-sm: 168px;
-  --container-caption-sm: 14px;
-  --container-caption-md: 57px;
-  --container-caption-lg: 68px;
-  --container-panel: 360px;
-  --leading-xs: 16px;
-  --leading-sm: 18px;
-}
-
-/* The canvas's type scale (Paper values), scoped so the rest of the site keeps
-   Tailwind's defaults (AC-T3). */
-.canvas-root {
-  --leading-tight: 115%;
-  --text-lg: 20px;
-  --text-base: 16px;
 }
 
 @layer base {
