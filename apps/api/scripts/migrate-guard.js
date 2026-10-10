@@ -6,8 +6,9 @@
  * pre-deploy "succeeded" against the wrong database and nothing noticed.
  *
  * Plain Node on purpose: it runs from the migrate:deploy script before prisma,
- * in Railway's pre-deploy, in CI, and in the manual prod step, none of which
- * can rely on `nest build` output or devDependencies (ts-node). The logic is a
+ * in Railway's pre-deploy and in the manual prod step, neither of which can
+ * rely on `nest build` output or devDependencies (ts-node). CI calls
+ * `npx prisma migrate deploy` directly and does not go through it. The logic is a
  * pure function (checkMigrateUrls) so the jest spec can import it; the runner
  * at the bottom only executes when the file is run directly.
  *

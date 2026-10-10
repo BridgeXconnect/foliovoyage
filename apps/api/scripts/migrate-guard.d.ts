@@ -1,4 +1,4 @@
 export function checkMigrateUrls(
   databaseUrl: string | undefined,
   directUrl: string | undefined,
-): { ok: boolean; message: string };
+): { ok: true; message: string } | { ok: false; message: string };
