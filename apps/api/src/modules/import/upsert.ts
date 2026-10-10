@@ -235,7 +235,16 @@ export class TourUpsertService {
                   },
                 },
                 create: data,
-                update: { ...data, deletedAt: null },
+                update: {
+                  ...data,
+                  // A null category never overwrites an existing one: the
+                  // resolver yields null both for "no category root reachable"
+                  // and for an empty vocabulary (fetch failed, cache empty), and
+                  // the two can't be told apart here (BRI-249). `undefined`
+                  // leaves the column untouched.
+                  primaryCategoryTagId: tour.primary_category_tag_id ?? undefined,
+                  deletedAt: null,
+                },
               });
             }
           },
@@ -395,6 +404,7 @@ function toColumns(tour: TourDTO): Prisma.TourCreateInput {
     reviewsBySource: tour.reviews_by_source as unknown as Prisma.InputJsonValue,
     destinationRefs: tour.destination_refs,
     tags: tour.tags,
+    primaryCategoryTagId: tour.primary_category_tag_id,
     fetchedAt: new Date(tour.fetched_at),
     sourceHash: tour.source_hash,
   };
