@@ -84,7 +84,7 @@ function makeTour(id: string, overrides: Partial<TourDTO> = {}): TourDTO {
   };
 }
 
-const category = (rows: Map<string, Row>, id: string) =>
+const storedCategory = (rows: Map<string, Row>, id: string) =>
   rows.get(id)?.primaryCategoryTagId;
 
 describe("TourUpsertService.upsertBatch — primaryCategoryTagId", () => {
@@ -93,13 +93,13 @@ describe("TourUpsertService.upsertBatch — primaryCategoryTagId", () => {
     await new TourUpsertService(prisma).upsertBatch([
       makeTour("a", { primary_category_tag_id: FOOD_AND_DRINK }),
     ]);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 
   it("writes null on create when the DTO has no category", async () => {
     const { prisma, rows } = fakePrisma();
     await new TourUpsertService(prisma).upsertBatch([makeTour("a")]);
-    expect(category(rows, "a")).toBeNull();
+    expect(storedCategory(rows, "a")).toBeNull();
   });
 
   it("fills a null category on an existing tour", async () => {
@@ -109,7 +109,7 @@ describe("TourUpsertService.upsertBatch — primaryCategoryTagId", () => {
     await new TourUpsertService(prisma).upsertBatch([
       makeTour("a", { primary_category_tag_id: FOOD_AND_DRINK }),
     ]);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 
   it("replaces an existing category with a different derived one", async () => {
@@ -119,7 +119,7 @@ describe("TourUpsertService.upsertBatch — primaryCategoryTagId", () => {
     await new TourUpsertService(prisma).upsertBatch([
       makeTour("a", { primary_category_tag_id: FOOD_AND_DRINK }),
     ]);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 
   it("does not overwrite an existing category with a null DTO value", async () => {
@@ -127,7 +127,7 @@ describe("TourUpsertService.upsertBatch — primaryCategoryTagId", () => {
       { providerTourId: "a", primaryCategoryTagId: FOOD_AND_DRINK },
     ]);
     await new TourUpsertService(prisma).upsertBatch([makeTour("a")]);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 });
 
@@ -149,7 +149,7 @@ describe("upsertBatch fed by the real CategoryResolver", () => {
     );
     const attached = await resolver.attachCategories([makeTour("a", { tags: [100] })]);
     await new TourUpsertService(prisma).upsertBatch(attached);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 
   it("keeps an existing category when the vocabulary came back empty", async () => {
@@ -163,6 +163,6 @@ describe("upsertBatch fed by the real CategoryResolver", () => {
     ]);
     expect(attached[0].primary_category_tag_id).toBeNull();
     await new TourUpsertService(prisma).upsertBatch(attached);
-    expect(category(rows, "a")).toBe(FOOD_AND_DRINK);
+    expect(storedCategory(rows, "a")).toBe(FOOD_AND_DRINK);
   });
 });
