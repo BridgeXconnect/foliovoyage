@@ -359,3 +359,24 @@ describe("high-value minor-unit prices (BRI-175)", () => {
     expect(row.currency).toBe("VND");
   });
 });
+
+describe("primary category (BRI-249)", () => {
+  const categoryOf = async (id: string) =>
+    (
+      await prisma.tour.findUniqueOrThrow({
+        where: { provider_providerTourId: { provider: PROVIDER, providerTourId: id } },
+        select: { primaryCategoryTagId: true },
+      })
+    ).primaryCategoryTagId;
+
+  it("writes the category on create, fills a null on update, and never nulls it", async () => {
+    const svc = service();
+    await svc.upsertBatch([makeTour("C1", { primary_category_tag_id: 21911 }), makeTour("C2")]);
+    expect(await categoryOf("C1")).toBe(21911);
+    expect(await categoryOf("C2")).toBeNull();
+
+    await svc.upsertBatch([makeTour("C1"), makeTour("C2", { primary_category_tag_id: 21913 })]);
+    expect(await categoryOf("C1")).toBe(21911); // null DTO value leaves it alone
+    expect(await categoryOf("C2")).toBe(21913); // existing null is filled
+  });
+});
