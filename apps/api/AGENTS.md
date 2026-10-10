@@ -96,6 +96,16 @@ timeout field, so set **Pre-deploy Timeout = 300** on both services in the
 dashboard; otherwise a command stuck on the advisory lock hangs the deploy
 instead of failing it. See the root `AGENTS.md` ("Prod migrations") for detail.
 
+`migrate:deploy` (and `prisma:migrate`) first runs `scripts/migrate-guard.js`
+(BRI-248), plain Node with no build step. It fails the command, before any
+migration runs, if `DATABASE_URL` and `DIRECT_URL` are missing, unparseable, or
+point at different endpoints (Neon hosts compare equal modulo `-pooler`) or
+database names. Failure looks like `migrate guard: DIRECT_URL points at a
+different database than DATABASE_URL (DATABASE_URL host: ...; DIRECT_URL host:
+...)`; success prints `migrate guard: ... same endpoint (<endpoint>)`. Output is
+host names only, and there is no override. It reads the process environment (use
+`doppler run`), not `.env`.
+
 Only **additive** migrations are safe: during a rollout the old code briefly
 runs against the new schema, so drops and renames need expand-then-contract
 across two deploys.
