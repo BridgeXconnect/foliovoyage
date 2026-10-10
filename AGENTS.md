@@ -103,6 +103,11 @@ command, and Prisma's advisory lock serializes concurrent runs.
   in Doppler (`dev`, `prd`). Never point it at the pooled URL. CI sets it to the
   same ephemeral container URL as `DATABASE_URL`. It is declared `preserve()` in
   `railway.ts` for both services; see "Variables" below for how it reaches each.
+- **URL guard (BRI-248).** `migrate:deploy` runs `apps/api/scripts/migrate-guard.js`
+  first and fails if `DIRECT_URL` points at a different endpoint or database
+  name than `DATABASE_URL` (the dev-endpoint mix-up that went unnoticed for 8
+  days). Details: [apps/api/AGENTS.md](apps/api/AGENTS.md). The manual prod step
+  below goes through it too.
 - **Only additive migrations are safe.** During a rollout the old code briefly
   runs against the new schema. Destructive changes (drop or rename a column or
   table) need expand-then-contract across two deploys.
