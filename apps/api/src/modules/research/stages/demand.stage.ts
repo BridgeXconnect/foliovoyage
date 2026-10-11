@@ -12,6 +12,9 @@ import type { SearchProviderClient } from "../providers/search-provider.client";
  * call carrying every candidate query, through the spend guard.
  */
 
+export const DEFAULT_STAGE_DIR = "bri-206";
+export const PILOT_STAGE_DIR = "bri-206-pilot";
+
 /** Keyword Overview takes at most this many keywords in a task. */
 export const MAX_KEYWORDS_PER_TASK = 700;
 
@@ -36,6 +39,8 @@ export interface DemandEntry {
 
 export interface DemandFile {
   city: string;
+  /** Set on files from the exploratory pilot folder. They are not governed by rule.md. */
+  exploratory?: true;
   endpoint: string;
   market: { locationCode: number; languageCode: string };
   demandFloor: number;
@@ -91,9 +96,19 @@ export function parseDemand(response: unknown, queries: readonly string[], deman
 
 export async function runDemand(
   slug: string,
-  deps: { dataDir: string; client: SearchProviderClient; rule: Rule },
+  deps: {
+    dataDir: string;
+    client: SearchProviderClient;
+    rule: Rule;
+    /** Folder under `dataDir`. The pilot passes `bri-206-pilot`; the default is `bri-206`. */
+    stageDir?: string;
+    /** Market to ask about instead of the rule's. The result then goes to `demand.<location>-<language>.json`. */
+    market?: { locationCode: number; languageCode: string };
+  },
 ): Promise<DemandResult> {
-  const dir = path.join(deps.dataDir, "bri-206", slug);
+  const stageDir = deps.stageDir ?? DEFAULT_STAGE_DIR;
+  const market = deps.market ?? deps.rule.market;
+  const dir = path.join(deps.dataDir, stageDir, slug);
   const candidatesPath = path.join(dir, "candidates.json");
   if (!fs.existsSync(candidatesPath)) {
     throw new DemandError(`No candidates for ${slug}. Run "research:hub candidates --city ${slug}" first.`);
@@ -118,8 +133,8 @@ export async function runDemand(
     tasks: [
       {
         keywords: queries,
-        location_code: deps.rule.market.locationCode,
-        language_code: deps.rule.market.languageCode,
+        location_code: market.locationCode,
+        language_code: market.languageCode,
       },
     ],
   });
@@ -131,8 +146,9 @@ export async function runDemand(
   const entries = parseDemand(outcome.response, queries, deps.rule.demandFloor);
   const file: DemandFile = {
     city: slug,
+    ...(stageDir === DEFAULT_STAGE_DIR ? {} : { exploratory: true as const }),
     endpoint: KEYWORD_OVERVIEW_ENDPOINT,
-    market: deps.rule.market,
+    market,
     demandFloor: deps.rule.demandFloor,
     costUsd: asNumber(outcome.response.cost),
     counts: {
@@ -143,7 +159,7 @@ export async function runDemand(
     },
     entries,
   };
-  const out = path.join(dir, "demand.json");
+  const out = path.join(dir, deps.market === undefined ? "demand.json" : `demand.${market.locationCode}-${market.languageCode}.json`);
   fs.writeFileSync(out, `${JSON.stringify(file, null, 2)}\n`, "utf8");
   return { kind: "done", file, path: out, fromCache: outcome.kind === "cache_hit" };
 }

@@ -74,9 +74,11 @@ export async function runSerp(
     execute: boolean;
     now: () => Date;
     log: (line: string) => void;
+    /** Folder under `dataDir`, `bri-206` unless the pilot says otherwise. */
+    stageDir?: string;
   },
 ): Promise<SerpSummary> {
-  const dir = path.join(deps.dataDir, "bri-206", slug);
+  const dir = path.join(deps.dataDir, deps.stageDir ?? "bri-206", slug);
   const demandPath = path.join(dir, "demand.json");
   if (!fs.existsSync(demandPath)) {
     throw new SerpError(`No demand check for ${slug}. Run "research:hub demand --city ${slug} --execute" first.`);

@@ -202,6 +202,28 @@ describe("demand, serp and classify stages", () => {
       expect(ledgerLines()).toEqual([]);
     });
 
+    it("--pilot reads and writes the pilot folder, --market asks about another market, and the ledger stays shared", async () => {
+      const pilotDir = path.join(dir, "bri-206-pilot", "bangkok");
+      fs.mkdirSync(pilotDir, { recursive: true });
+      fs.copyFileSync(cityFile("candidates.json"), path.join(pilotDir, "candidates.json"));
+      const fetchImpl = provider();
+      expect(await run(["demand", "--city", "bangkok", "--pilot", "--market", "2826:en", "--execute"], fetchImpl)).toBe(0);
+
+      const body = JSON.parse(String((fetchImpl.mock.calls[0]?.[1] as RequestInit).body));
+      expect(body[0]).toMatchObject({ location_code: 2826, language_code: "en" });
+      const saved = JSON.parse(fs.readFileSync(path.join(pilotDir, "demand.2826-en.json"), "utf8"));
+      expect(saved).toMatchObject({ exploratory: true, market: { locationCode: 2826, languageCode: "en" } });
+      expect(fs.existsSync(cityFile("demand.json"))).toBe(false);
+      expect(ledgerLines()).toHaveLength(1);
+    });
+
+    it("rejects a malformed --market before sending", async () => {
+      const fetchImpl = provider();
+      await expect(run(["demand", "--city", "bangkok", "--market", "uk", "--execute"], fetchImpl)).resolves.toBe(1);
+      expect(err.join("\n")).toContain("--market needs");
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
     it("never prints credentials", async () => {
       await run(["demand", "--city", "bangkok", "--execute"], provider());
       expect([...out, ...err].join("\n")).not.toMatch(/login-secret-abc|password-secret-xyz/);

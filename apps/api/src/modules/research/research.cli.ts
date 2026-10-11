@@ -5,7 +5,7 @@ import type { FetchLike } from "../import/http/allowlist-fetch";
 import { CandidatesError, type CatalogSource, runCandidates } from "./stages/candidates.stage";
 import type { CatalogReader } from "./stages/catalog-reader";
 import { ClassifyError, runClassify } from "./stages/classify.stage";
-import { DemandError, runDemand } from "./stages/demand.stage";
+import { DemandError, PILOT_STAGE_DIR, runDemand } from "./stages/demand.stage";
 import { type GitRunner, RuleError, checkRuleGate, describeRuleCommit, loadRule } from "./core/rule";
 import { SearchProviderClient, MissingCredentialsError, ProviderError } from "./providers/search-provider.client";
 import { SerpError, runSerp } from "./stages/serp.stage";
@@ -187,6 +187,20 @@ function printSpend(io: CliIo, guard: SpendGuard, ledgerFile: string): void {
   io.out(`  ledger:          ${ledgerFile}`);
 }
 
+/** `--pilot` moves the stage to `bri-206-pilot/<city>`, which is exploratory and outside rule.md. */
+const stageDirFlag = (args: readonly string[]): { stageDir: string } | Record<string, never> =>
+  args.includes("--pilot") ? { stageDir: PILOT_STAGE_DIR } : {};
+
+/** `--market 2826:en` asks the demand stage about another location and language. */
+function marketFlag(args: readonly string[]): { locationCode: number; languageCode: string } | undefined {
+  const i = args.indexOf("--market");
+  const value = i === -1 ? undefined : args[i + 1];
+  if (i === -1) return undefined;
+  const m = /^(\d+):([A-Za-z]{2}(?:-[A-Za-z]{2})?)$/.exec(value ?? "");
+  if (m === null) throw new DemandError(`--market needs <location_code>:<language_code>, for example 2826:en, got "${value ?? ""}".`);
+  return { locationCode: Number(m[1]), languageCode: m[2] as string };
+}
+
 const executeFlag = (args: readonly string[]): boolean => args.includes("--execute");
 
 async function runProviderStage(
@@ -237,7 +251,8 @@ async function runProviderStage(
     io.out(`${stage} for ${city}: ${execute ? "EXECUTE, this will send paid requests" : "dry run, nothing will be sent"}`);
 
     if (stage === "demand") {
-      const result = await runDemand(city, { dataDir, client, rule });
+      const market = marketFlag(args);
+      const result = await runDemand(city, { dataDir, client, rule, ...stageDirFlag(args), ...(market ? { market } : {}) });
       if (result.kind === "dry_run") {
         io.out(`  would send one request with ${result.keywords} keywords, estimated ${formatUsd(toMicros(result.estimateUsd))}`);
         io.out(`  add --execute to send it`);
@@ -254,7 +269,7 @@ async function runProviderStage(
 
     if (gate === undefined) throw new Error("unreachable: serp always has a gate");
     io.out(`  rule ${gate.commit.slice(0, 10)} committed ${gate.committedAt}`);
-    const summary = await runSerp(city, { dataDir, client, guard, rule, gate, execute, now, log: (l) => io.out(`  ${l}`) });
+    const summary = await runSerp(city, { dataDir, client, guard, rule, gate, execute, now, log: (l) => io.out(`  ${l}`), ...stageDirFlag(args) });
     io.out(`  validated ${summary.validated}: pulled ${summary.pulled}, from cache ${summary.fromCache}, already saved ${summary.alreadyHad}, failed ${summary.failed}, not pulled ${summary.notPulled}`);
     if (!execute) io.out(`  dry run estimate: ${formatUsd(toMicros(summary.estimateUsd ?? 0))}. Add --execute to send.`);
     if (summary.path !== null) io.out(`  wrote ${summary.path}`);
@@ -287,7 +302,7 @@ function runClassifyStage(args: readonly string[], io: CliIo, deps: CliDeps): nu
   try {
     const rule = loadRule(ruleFile);
     const ruleCommit = describeRuleCommit({ ruleFile, repoRoot: deps.repoRoot ?? REPO_ROOT, ...(deps.git ? { git: deps.git } : {}) });
-    const { file, classifiedPath, unlistedPath } = runClassify(city, { dataDir, rule, ruleCommit });
+    const { file, classifiedPath, unlistedPath } = runClassify(city, { dataDir, rule, ruleCommit, ...stageDirFlag(args) });
     io.out(`Classified ${file.queries.length} validated queries for ${file.city} (rule ${ruleCommit.commit?.slice(0, 10) ?? "none"}${ruleCommit.dirty ? ", with local changes" : ""})`);
     if (file.missingSerp.length > 0) io.out(`  ${file.missingSerp.length} validated queries have no results page and are not counted`);
     for (const f of file.families) {

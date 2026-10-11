@@ -58,9 +58,9 @@ const readJson = <T>(file: string, hint: string): T => {
 
 export function runClassify(
   slug: string,
-  deps: { dataDir: string; rule: Rule; ruleCommit: { commit: string | null; dirty: boolean } },
+  deps: { dataDir: string; rule: Rule; ruleCommit: { commit: string | null; dirty: boolean }; stageDir?: string },
 ): ClassifyResult {
-  const dir = path.join(deps.dataDir, "bri-206", slug);
+  const dir = path.join(deps.dataDir, deps.stageDir ?? "bri-206", slug);
   const candidates = readJson<CandidatesFile>(path.join(dir, "candidates.json"), `Run candidates for ${slug} first.`);
   const demand = readJson<DemandFile>(path.join(dir, "demand.json"), `Run demand for ${slug} first.`);
   const serp = readJson<SerpFile>(path.join(dir, "serp.json"), `Run serp for ${slug} first.`);
