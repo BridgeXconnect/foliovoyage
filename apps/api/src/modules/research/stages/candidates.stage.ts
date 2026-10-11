@@ -40,7 +40,7 @@ export interface CandidatesFile {
   /** How attraction counts were made: Viator's own, or a title match over the city's tours. */
   attractionMode: AttractionMode;
   cutoffs: Record<string, number>;
-  counts: { tours: number; tags: number; attractions: number; queries: number };
+  counts: { tours: number; tags: number; attractions: number; queries: number; internalTagsFiltered?: number };
   candidates: CandidateRow[];
   dropped: DroppedQuery[];
 }
@@ -106,6 +106,7 @@ export async function runCandidates(
       tags: tags.ranked.length,
       attractions: attractionRank.ranked.length,
       queries: candidates.length,
+      internalTagsFiltered: tags.internal.length,
     },
     candidates,
     dropped,
