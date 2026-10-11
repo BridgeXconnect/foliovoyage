@@ -9,7 +9,7 @@ For six cities, which hub page types (things to do, category/tag, attraction, be
 ## 2. Method in brief
 
 - **Candidates** come from Viator's catalogue for each city: its top 25 tags and top 25 attractions, each in two query forms ("X in city" and "best X in city"), plus one things-to-do and one best-time query: 102 per city (100 for Rome). Tags are ranked by product count and rating, minimum 10 products.
-- **Internal Viator tags are removed** before the cut (`INTERNAL_TAGS` in `candidates.ts`, matched by exact id, 17 ids). They are operational labels in the `/products/tags` vocabulary that nobody searches for. Ids: 367653 Low Supplier Cancellation Rate, 367654 Low Last Minute Supplier Cancellation Rate, 367656 Zombie, 367658 New Product, 367661 Short term availability, 367664 Weather Dependent - Moderate, 367667 Weather Dependent - Weather-Proof, 367668 Agent Low Quality Product (all seen in Bangkok's top 25, with `no_data` on every query); 367650 Additional fees, 367651 DSA non-compliant, 367657 Zombie Slice, 367659 Curated Catalog, 367662 Agent Favorite, 367663 Weather Dependent - Low, 367665 Weather Dependent - High, 367666 Weather Dependent - Extreme, 367669 Conditional Booking Questions (same unparented block, internal by name only). Top Product, Worry-Free Shore Excursion, Excellent Quality, Port Pickup and the two Viator Experience Awards were left in on purpose, so the data decides.
+- **Internal Viator tags are removed** before the cut (`INTERNAL_TAGS` in `candidates.ts`, matched by exact id, 17 ids). They are operational labels in the `/products/tags` vocabulary that nobody searches for. Ids: 367653 Low Supplier Cancellation Rate, 367654 Low Last Minute Supplier Cancellation Rate, 367656 Zombie, 367658 New Product, 367661 Short term availability, 367664 Weather Dependent - Moderate, 367667 Weather Dependent - Weather-Proof, 367668 Agent Low Quality Product (all seen in Bangkok's top 25 in the earlier September run, with `no_data` on every query; that run informed the filter only and feeds no verdict here); 367650 Additional fees, 367651 DSA non-compliant, 367657 Zombie Slice, 367659 Curated Catalog, 367662 Agent Favorite, 367663 Weather Dependent - Low, 367665 Weather Dependent - High, 367666 Weather Dependent - Extreme, 367669 Conditional Booking Questions (same unparented block, internal by name only). Top Product, Worry-Free Shore Excursion, Excellent Quality, Port Pickup and the two Viator Experience Awards were left in on purpose, so the data decides.
 - **Demand check:** one Keyword Overview call per city. A query is *validated* at 100 or more searches a month.
 - **One results-page pull** per validated query (top 10 organic, one result per domain).
 - **Four domain classes:** marketplace, forum or social, big publisher or official, small site (the default for anything unlisted).
@@ -26,9 +26,9 @@ For six cities, which hub page types (things to do, category/tag, attraction, be
 | Rome | 100 | 19 | 19.0% | 19 | $0.0543 |
 | Bali | 102 | 4 | 3.9% | 4 | $0.0219 |
 | Bangkok | 102 | 9 | 8.8% | 9 | $0.0325 |
-| **Total** | **610** | **52** | **8.5%** | **52** | **$0.1920** |
+| **Total** | **610** | **52** | **8.5%** | **52** | **$0.1920** (unrounded $0.19196) |
 
-Cost is the city's demand call plus $0.002 per results page. The ledger lines of the six-city widen (6 demand calls, 52 results pages, all between 18:18 and 18:27 UTC on 2026-10-11) sum to $0.19196. Balance before and after, as reported by the run: $0.6492 to $0.4572; this session made no API call and did not re-check it.
+Row costs are rounded to four places, so they sum to $0.1918. Cost is the city's demand call plus $0.002 per results page. The ledger lines of the six-city widen (6 demand calls, 52 results pages, all between 18:18 and 18:27 UTC on 2026-10-11) sum to $0.19196. Balance before and after, as reported by the run: $0.6492 to $0.4572; this session made no API call and did not re-check it.
 
 ## 4. Verdicts by family
 
@@ -52,7 +52,7 @@ After review, open / validated per city:
 | Bali | 1/1 | 2/2 | 0/0 | 0/1 |
 | Bangkok | 1/1 | 1/2 | 0/5 | 0/1 |
 
-These match the figures the planning chat gave (7/27, 1/6, 6/6, 7/13); nothing differed.
+The four families add to the 52 validated queries (6 + 13 + 27 + 6).
 
 **The Tag verdict is a knife edge.** It is 7 of 13, so one query decides it, and it moves either way under reasonable alternative readings:
 
@@ -90,11 +90,11 @@ The full per-domain review, with the evidence for each, is in the `rule.md` chan
 
 ## 7. Provenance and caveats
 
-- The Bangkok pull of 20 September predates the commit of `rule.md` by about an hour, so it was **re-pulled in full on this run**. Every city's pull is therefore under the committed rule: `8095dd9` is recorded in each `serp.json`. The old September Bangkok data is kept where it was and not used.
+- The Bangkok pull of 20 September was recorded as predating the commit of `rule.md` by about an hour (the `rule.md` changelog says the rule was fixed before any results page was fetched; this write-up could not settle which from the files). So Bangkok was **re-pulled in full on this run**, whichever is right. Every city's pull is therefore under the committed rule: `8095dd9` is recorded in each `serp.json`. The old September Bangkok data is kept where it was and not used.
 - `classified.json` cites `d9c5921` because the domain lists were corrected after the pulls, as the rule's "Allowed change after data arrives" clause allows (lists only, never thresholds). Reclassification was free, from the saved raw responses.
 - Between `8095dd9` and `d9c5921`, `rule.md` changed only in its machine-readable domain lists (plus the commas that adding entries needs), one changelog row and the 2026-10-12 review section. The demand floor (100), top N (10), open threshold (3 small sites), minimum validated per family (5) and pursue share (0.5) are identical.
 - The local ledger also holds 39 later paid lines from a separate exploratory run. They are excluded from every spend figure here.
-- Internal-tag filtering removed 15 or 16 tags per city from the candidate pool (Kyoto 15, Lisbon 16, Hanoi 15, Rome 16, Bali 15, Bangkok 15).
+- Internal tags that met the 10-product minimum and were therefore filtered out, per city: Kyoto 15, Lisbon 16, Hanoi 15, Rome 16, Bali 15, Bangkok 15 (not all of them would have reached the top 25).
 
 ## 8. Rule gaps to consider later (not changed here)
 
