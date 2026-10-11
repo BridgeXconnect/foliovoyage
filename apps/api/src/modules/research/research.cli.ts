@@ -158,6 +158,7 @@ async function runCandidatesStage(
     io.out(`Candidates for ${file.city}: ${file.counts.queries} queries from ${file.counts.tours} tours`);
     io.out(`  tags kept:        ${file.counts.tags} (at least ${file.cutoffs.minTagProducts} products each, top ${file.cutoffs.topTags})`);
     io.out(`  attractions kept: ${file.counts.attractions} (counted by ${file.attractionMode === "viator_count" ? "Viator's own product count" : "title match over stored tours"})`);
+    io.out(`  internal tags removed: ${file.counts.internalTagsFiltered ?? 0} (Viator operational labels)`);
     io.out(`  dropped:          ${file.dropped.length}`);
     io.out(`  wrote ${jsonPath}`);
     io.out(`  wrote ${csvPath}`);

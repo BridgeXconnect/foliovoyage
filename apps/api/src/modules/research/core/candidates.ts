@@ -18,6 +18,45 @@ export const TOP_ATTRACTIONS = 25;
 export const MAX_QUERY_CHARS = 80;
 export const MAX_QUERY_WORDS = 10;
 
+/**
+ * Viator operational labels that sit in the `/products/tags` vocabulary but are
+ * not traveller-facing categories, so no one searches for them ("zombie in
+ * bangkok"). Excluded from candidate generation by exact tag id: no fuzzy
+ * matching, no network. Ids are Viator's, not ours.
+ *
+ * Group A: seen in Bangkok's top 25 on 2026-09-20; both queries came back
+ * no_data for every one of them, and none has a parent tag. Group B: the rest
+ * of the same unparented 3676xx operational block, so another city's top 25
+ * cannot surface them (no Bangkok evidence yet, just their names).
+ * Deliberately left in: Port Pickup (367660) and the Viator Experience Awards
+ * (367648, 367655), which have traveller-facing parents; Excellent Quality
+ * (21972), a quality badge outside the block, flagged for Roy rather than
+ * filtered.
+ */
+export const INTERNAL_TAGS: ReadonlyMap<number, string> = new Map([
+  // Group A: evidenced in Bangkok
+  [367653, "Low Supplier Cancellation Rate"],
+  [367654, "Low Last Minute Supplier Cancellation Rate"],
+  [367656, "Zombie"],
+  [367658, "New Product"],
+  [367661, "Short term availability"],
+  [367664, "Weather Dependent - Moderate"],
+  [367667, "Weather Dependent - Weather-Proof"],
+  [367668, "Agent Low Quality Product"],
+  // Group B: same block, by name only
+  [367649, "Worry-Free Shore Excursion"],
+  [367650, "Additional fees"],
+  [367651, "DSA non-compliant"],
+  [367652, "Top Product"],
+  [367657, "Zombie Slice"],
+  [367659, "Curated Catalog"],
+  [367662, "Agent Favorite"],
+  [367663, "Weather Dependent - Low"],
+  [367665, "Weather Dependent - High"],
+  [367666, "Weather Dependent - Extreme"],
+  [367669, "Conditional Booking Questions"],
+]);
+
 export type QueryFamily = "things_to_do" | "tag" | "attraction" | "best_time";
 
 /** One tag as the database groups it: product count and mean rating over tours with enough reviews. */
@@ -84,17 +123,24 @@ export function normalizeQuery(text: string): string {
 
 /**
  * Tags with at least {@link MIN_TAG_PRODUCTS} products, named, ordered by
- * product count then rating, top {@link TOP_TAGS}. A tag id with no name in
- * the names file cannot become a query, so it is listed in `dropped`.
+ * product count then rating, top {@link TOP_TAGS}. Viator-internal tags
+ * ({@link INTERNAL_TAGS}) are removed before the cut, so they never take a slot;
+ * `internal` lists the ones that would otherwise have qualified. A tag id with
+ * no name in the names file cannot become a query, so it is listed in `dropped`.
  */
 export function rankTags(
   rows: readonly TagRow[],
   names: ReadonlyMap<number, string>,
-): { ranked: Ranked[]; unnamed: number[] } {
+): { ranked: Ranked[]; unnamed: number[]; internal: number[] } {
   const unnamed: number[] = [];
+  const internal: number[] = [];
   const named: Ranked[] = [];
   for (const row of rows) {
     if (row.productCount < MIN_TAG_PRODUCTS) continue;
+    if (INTERNAL_TAGS.has(row.tagId)) {
+      internal.push(row.tagId);
+      continue;
+    }
     const name = names.get(row.tagId);
     if (name === undefined) {
       unnamed.push(row.tagId);
@@ -102,7 +148,7 @@ export function rankTags(
     }
     named.push({ name, productCount: row.productCount, ratingAvg: round2(row.ratingAvg) });
   }
-  return { ranked: named.sort(byStrength).slice(0, TOP_TAGS), unnamed: unnamed.sort((a, b) => a - b) };
+  return { ranked: named.sort(byStrength).slice(0, TOP_TAGS), unnamed: unnamed.sort((a, b) => a - b), internal: internal.sort((a, b) => a - b) };
 }
 
 /**

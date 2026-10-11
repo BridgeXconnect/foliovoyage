@@ -6,6 +6,7 @@ import {
   cityFigures,
   normalizeQuery,
   rankAttractions,
+  INTERNAL_TAGS,
   rankTags,
 } from "./candidates";
 
@@ -58,6 +59,49 @@ describe("rankTags", () => {
       return { tagId: i, productCount: 100 - i, ratingAvg: 4 };
     });
     expect(rankTags(rows, many).ranked).toHaveLength(25);
+  });
+});
+
+describe("rankTags internal tag filter", () => {
+  const names = new Map<number, string>([
+    [1, "Food Tours"],
+    [367656, "Zombie"],
+    [367668, "Agent Low Quality Product"],
+    [21972, "Excellent Quality"],
+  ]);
+  const rows = [
+    { tagId: 367656, productCount: 900, ratingAvg: 4.5 },
+    { tagId: 1, productCount: 50, ratingAvg: 4.5 },
+    { tagId: 367668, productCount: 700, ratingAvg: 4.5 },
+    { tagId: 21972, productCount: 20, ratingAvg: 4.5 },
+  ];
+
+  it("never returns a listed internal tag, keeps an unlisted one, and reports what it removed", () => {
+    const { ranked, internal, unnamed } = rankTags(rows, names);
+    expect(ranked.map((r) => r.name)).toEqual(["Food Tours", "Excellent Quality"]);
+    expect(internal).toEqual([367656, 367668]);
+    expect(unnamed).toEqual([]);
+  });
+
+  it("removes them before the cut, so they never take one of the 25 slots", () => {
+    const many = new Map<number, string>();
+    const big = [{ tagId: 367656, productCount: 5000, ratingAvg: 5 }];
+    many.set(367656, "Zombie");
+    for (let i = 1; i <= 25; i++) {
+      many.set(i, `Tag ${i}`);
+      big.push({ tagId: i, productCount: 100 + i, ratingAvg: 4 });
+    }
+    const { ranked } = rankTags(big, many);
+    expect(ranked).toHaveLength(25);
+    expect(ranked.some((r) => r.name === "Zombie")).toBe(false);
+  });
+
+  it("is deterministic whatever the input order", () => {
+    expect(rankTags([...rows].reverse(), names)).toEqual(rankTags(rows, names));
+  });
+
+  it("lists only ids in the 3676xx operational block or evidenced ones", () => {
+    for (const id of INTERNAL_TAGS.keys()) expect(id).toBeGreaterThanOrEqual(367649);
   });
 });
 
