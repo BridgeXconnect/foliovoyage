@@ -26,12 +26,12 @@ export const MAX_QUERY_WORDS = 10;
  *
  * Group A: seen in Bangkok's top 25 on 2026-09-20; both queries came back
  * no_data for every one of them, and none has a parent tag. Group B: the rest
- * of the same unparented 3676xx operational block, so another city's top 25
- * cannot surface them (no Bangkok evidence yet, just their names).
- * Deliberately left in: Port Pickup (367660) and the Viator Experience Awards
- * (367648, 367655), which have traveller-facing parents; Excellent Quality
- * (21972), a quality badge outside the block, flagged for Roy rather than
- * filtered.
+ * of the same unparented 3676xx operational block that are clearly operational
+ * by name, so another city's top 25 cannot surface them (no Bangkok evidence).
+ * Deliberately left in, so the data decides (a miss costs about $0.002, over-
+ * filtering loses a real candidate): Top Product (367652), Worry-Free Shore
+ * Excursion (367649, could be a cruise-port query), Excellent Quality (21972),
+ * Port Pickup (367660) and the Viator Experience Awards (367648, 367655).
  */
 export const INTERNAL_TAGS: ReadonlyMap<number, string> = new Map([
   // Group A: evidenced in Bangkok
@@ -44,10 +44,8 @@ export const INTERNAL_TAGS: ReadonlyMap<number, string> = new Map([
   [367667, "Weather Dependent - Weather-Proof"],
   [367668, "Agent Low Quality Product"],
   // Group B: same block, by name only
-  [367649, "Worry-Free Shore Excursion"],
   [367650, "Additional fees"],
   [367651, "DSA non-compliant"],
-  [367652, "Top Product"],
   [367657, "Zombie Slice"],
   [367659, "Curated Catalog"],
   [367662, "Agent Favorite"],

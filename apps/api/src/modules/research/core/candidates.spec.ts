@@ -100,8 +100,13 @@ describe("rankTags internal tag filter", () => {
     expect(rankTags([...rows].reverse(), names)).toEqual(rankTags(rows, names));
   });
 
+  it("leaves Top Product, Worry-Free Shore Excursion and Excellent Quality to the data", () => {
+    for (const id of [367652, 367649, 21972]) expect(INTERNAL_TAGS.has(id)).toBe(false);
+    expect(INTERNAL_TAGS.size).toBe(17);
+  });
+
   it("lists only ids in the 3676xx operational block or evidenced ones", () => {
-    for (const id of INTERNAL_TAGS.keys()) expect(id).toBeGreaterThanOrEqual(367649);
+    for (const id of INTERNAL_TAGS.keys()) expect(id).toBeGreaterThanOrEqual(367650);
   });
 });
 
