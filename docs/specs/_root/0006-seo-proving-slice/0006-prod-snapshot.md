@@ -93,6 +93,7 @@ Scope row 20. Governed by [index.md](index.md): the snapshot schema, hashes and 
 
 1. Facts builder over printable members (sections, strip, per page keyword sets and places from the manifest) and the `eligible` block, with tests, satisfies **AC-S4**, **AC-S4a**, **AC-S8**.
 2. The CLI with the guard, manifest validation, writer and printed report (status per page, exclusion counts, next steps), satisfies **AC-S1**, **AC-S2**, **AC-S3**, **AC-S5**, **AC-S6**, **AC-S7**, **AC-S9**.
+   - [ ] For `factsHash` and `picksHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`).
 3. Run it once against prod (read only) and commit the files, satisfies the scope row's done when.
 
 ## Rationale (short)

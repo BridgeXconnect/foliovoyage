@@ -97,6 +97,7 @@ The content engine learns one new input, a slice page. For each page it writes t
 1. Adapter `maxTokens` option, satisfies **AC-H1**.
 2. Prompt, check and per field loop with tests, satisfies **AC-H2**, **AC-H2a**, **AC-H3**, **AC-H4**, **AC-H8**.
 3. `hub-copy:run` and `hub-copy:approve`, satisfies **AC-H1**, **AC-H5**, **AC-H6**, **AC-H7**.
+   - [ ] For `groundingHash` and `checkHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`).
 4. Generate the hub, read it in the local preview (AC-T15) and fact check it, satisfies **AC-H9**, **AC-H13**.
 5. Roy writes the notes files for floating markets, temples and day trips; generate the topic batch, fact check each page, run the calibration, record the result, satisfies **AC-H10**, **AC-H11**, **AC-H12**, **AC-H13**.
 

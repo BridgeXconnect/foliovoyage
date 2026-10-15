@@ -30,7 +30,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 15 | Canvas tile design (tile shape rules, hover caption, visual direction) | Canvas slice 3 | shelved |
 | 16 | New database backed tour page for canvas tiles (from spec 0004) | Canvas follow up | in-progress |
 | 17 | Block the canvas rating path in robots.txt (from spec 0005) | Canvas follow up | done |
-| 18 | Gate allowlist, robots and a slice only sitemap | SEO foundation | in-progress |
+| 18 | Gate allowlist, robots and a slice only sitemap | SEO foundation | done |
 | 19 | Page list and tour membership rule | SEO foundation | in-progress |
 | 20 | Snapshot files from prod, read only | SEO foundation | in-progress |
 | 21 | Hub page template and URL | SEO slice 1 | in-progress |
@@ -49,7 +49,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | [hub page validation](hub-page-validation.md) | BRI-206, rows 1 to 7 | 0 of 7 done, 5 designed and in progress |
 | [content engine](content-engine.md) | BRI-154 AI tour copy and BRI-201 its sampled evaluation, rows 8 to 11 | 0 of 4 done, 2 designed and in progress |
 | [discovery canvas](discovery-canvas.md) | EP-20 (BRI-223), rows 12 to 17, rows 12 to 15 tagged Beta; view shelved 8 Oct 2026 (BRI-245) | 1 of 6 done, 2 designed and in progress (feed, tour page), 3 shelved |
-| [SEO proving slice](seo-proving-slice.md) | BRI-114, Bangkok: 7 pages (hub, 5 category pages, stats; muay thai and spa held) indexed while the site stays gated, rows 18 to 27, row 18 tagged Beta | 0 of 10 done, 10 designed and in progress (spec 0006) |
+| [SEO proving slice](seo-proving-slice.md) | BRI-114, Bangkok: 7 pages (hub, 5 category pages, stats; muay thai and spa held) indexed while the site stays gated, rows 18 to 27, row 18 tagged Beta | 1 of 10 done, 9 designed and in progress (spec 0006) |
 
 ## Legend
 
