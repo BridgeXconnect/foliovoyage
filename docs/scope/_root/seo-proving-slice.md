@@ -16,7 +16,7 @@ A test, not a launch. You put 7 Bangkok pages into Google (the hub, 5 category p
 
 ### 18. Gate allowlist, robots and a slice only sitemap · done · Beta
 Let anonymous visitors and crawlers reach only the slice URLs, `/go/`, `/ingest` and the slice sitemap while the gate stays on, with robots and the sitemap rewritten to match. This is the only row that blocks even a private crawl test, so it goes first.
-**Done when:** with the gate on, an anonymous request to any slice URL, `/go/`, `/ingest` or the sitemap passes and every other path still shows the gate; a test enumerates the sitemap and finds only slice pages, each with `lastModified` from its snapshot date.
+**Done when:** with the gate on, an anonymous request to any live slice URL or the sitemap passes, `/go/tours/` and `/ingest/` pass only once the live set has at least one page, and every other path still shows the gate; with an empty live set only `/sitemap-slice.xml`, `/robots.txt`, `/api/unlock` and the coming soon page itself are reachable; a test enumerates the sitemap and finds only slice pages, each with `lastModified` from its snapshot date.
 - [x] Design it (spec): [0006 gate, robots and sitemap](../../specs/_root/0006-seo-proving-slice/0006-gate-robots-sitemap.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
 - [x] Build it: `/develop gate allowlist, robots and a slice only sitemap`
   - [x] Shared types, the hash recipe with its golden vector test, and `seo:index` with its staleness test (umbrella AC-1, AC-2)

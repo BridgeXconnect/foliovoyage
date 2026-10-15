@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: In Progress
-**Amended**: 2026-10-16, after the content research (`~/folio-logs/seo-content-research/`, decisions D1 to D10). The amendment changes the page design (rows 19 to 25); row 18 is unchanged. Amended again the same day before acceptance: printed numbers come from the printable pool (AC-9), a CI guard keeps live pages live (AC-8), `seo:clicks` lists picks that no longer resolve (AC-R10), a hub that fails calibration stops the slice (AC-H12), and the docs/08 exception becomes a prerequisite. A third pass the same day applied the cross check triage: method notes hold no digits, a local preview for the fact check read (AC-T15), attribute and `forbiddenNames` scanning, a stale grounding always fails the build, `checkHash` covers every printed manifest string, thin pages are deleted and held, and `eligible` uses `count`.
+**Amended**: 2026-10-16, after the content research (`~/folio-logs/seo-content-research/`, decisions D1 to D10). The amendment changes the page design (rows 19 to 25). Row 18 now opens `/go/tours/` and `/ingest/` only when the live set is non-empty. Amended again the same day before acceptance: printed numbers come from the printable pool (AC-9), a CI guard keeps live pages live (AC-8), `seo:clicks` lists picks that no longer resolve (AC-R10), a hub that fails calibration stops the slice (AC-H12), and the docs/08 exception becomes a prerequisite. A third pass the same day applied the cross check triage: method notes hold no digits, a local preview for the fact check read (AC-T15), attribute and `forbiddenNames` scanning, a stale grounding always fails the build, `checkHash` covers every printed manifest string, thin pages are deleted and held, and `eligible` uses `count`.
 
 ## Summary
 
