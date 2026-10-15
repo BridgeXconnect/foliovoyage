@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isSlicePath } from "@/lib/seo-slice-gate";
 import { GATE_COOKIE, gatePassword, gateToken } from "@/lib/site-gate";
 
 // Paths that must stay reachable while the site is gated: the holding page
 // itself, the unlock endpoint it posts to, and robots.txt (served as
-// disallow-all by robots.ts while gated). Everything else is rewritten to the
-// coming-soon page unless the request carries a valid preview cookie.
+// gated rules by robots.ts). The live SEO slice pages, their sitemap, click outs
+// and the analytics proxy also pass (spec 0006, `isSlicePath`). Everything else
+// is rewritten to the coming-soon page unless the request carries a valid
+// preview cookie.
 const PASSTHROUGH = new Set(["/coming-soon", "/api/unlock", "/robots.txt"]);
 
 export async function middleware(req: NextRequest) {
@@ -13,7 +16,7 @@ export async function middleware(req: NextRequest) {
   if (!password) return NextResponse.next();
 
   const { pathname } = req.nextUrl;
-  if (PASSTHROUGH.has(pathname)) return NextResponse.next();
+  if (PASSTHROUGH.has(pathname) || isSlicePath(pathname)) return NextResponse.next();
 
   // A valid preview cookie unlocks the full site for the team.
   const token = req.cookies.get(GATE_COOKIE)?.value;
