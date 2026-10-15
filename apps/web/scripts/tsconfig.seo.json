@@ -1,0 +1,13 @@
+{
+  // The seo:* scripts (spec 0006) import values from @folio/shared, an ESM
+  // package of TypeScript source. ts-node runs these scripts as CommonJS, so
+  // `moduleTypes` tells it to load the shared source as CommonJS too.
+  "extends": "./tsconfig.json",
+  "include": ["seo-*.ts"],
+  "ts-node": {
+    "transpileOnly": true,
+    "moduleTypes": {
+      "../../../packages/shared/src/**/*": "cjs"
+    }
+  }
+}
