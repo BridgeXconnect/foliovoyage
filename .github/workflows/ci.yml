@@ -62,6 +62,13 @@ jobs:
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
 
+      # Spec 0006 AC-8: a PR may not take a live SEO slice page out of the live
+      # set unless the head manifest marks it held. Runs on every PR (not only
+      # affected ones) because the check compares against the base branch.
+      - name: SEO slice live guard
+        if: github.event_name == 'pull_request'
+        run: pnpm --filter @folio/web seo:live-guard --base ${{ github.event.pull_request.base.sha }}
+
   migrate:
     name: migrate
     runs-on: ubuntu-latest

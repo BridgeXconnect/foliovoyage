@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "link-health:check": "ts-node --project scripts/tsconfig.json scripts/check-link-health.ts"
+    "link-health:check": "ts-node --project scripts/tsconfig.json scripts/check-link-health.ts",
+    "seo:index": "ts-node --project scripts/tsconfig.seo.json scripts/seo-index.ts",
+    "seo:live-guard": "ts-node --project scripts/tsconfig.seo.json scripts/seo-live-guard.ts"
   },
   "dependencies": {
     "@folio/shared": "workspace:*",
