@@ -78,17 +78,17 @@ Teach the content engine a hub input: a prompt, the voice guide's banned pattern
   - [ ] Hub generated, rendered and fact checked by Roy (AC-H9)
 - [ ] Verify it: `/check verify hub copy in the house voice`
 
-## Slice 2: widen to all 9 pages
+## Slice 2: widen to the 5 category pages and the stats page
 
 ### 24. The five category pages and the first batch calibration · in-progress
 Generate and publish the five category pages that are not held through the same path, then run the first batch calibration on the 6 topic pages (the hub plus the five), where 2 or more failures fails the batch: change the prompt, guide or checks (never single pages) and regenerate within the limits row 23's spec sets.
 **Done when:** all 6 topic pages are live behind the allowlist, the calibration result is recorded, and every page has passed the human fact check.
 - [x] Design it (spec): covered by [0006 hub copy and calibration](../../specs/_root/0006-seo-proving-slice/0006-hub-copy.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
-- [ ] Build it: `/develop the seven category pages and the first batch calibration`
+- [ ] Build it: `/develop the five category pages and the first batch calibration`
   - [ ] Generate the 5 category pages that are not held (AC-H10)
   - [ ] Run the batch calibration and record every round, resample and held page (AC-H10 to AC-H12)
   - [ ] Roy fact checks each passing page (AC-H6)
-- [ ] Verify it: `/check verify the seven category pages and the first batch calibration`
+- [ ] Verify it: `/check verify the five category pages and the first batch calibration`
 
 ### 25. Stats page · in-progress
 One page of facts computed across Bangkok's tours (for example durations, inclusions, categories), with no price, rating or cancellation statistics. It is the slice's only linkable asset, and a thin one without price data.
