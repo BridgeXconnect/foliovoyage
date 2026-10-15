@@ -37,7 +37,7 @@ The manifest lists the 9 pages and, for each topic page, a rule written as data:
   | `spa-and-massage` | Spa and massage in Bangkok | spa or massage |
   | `muay-thai` | Muay thai in Bangkok | muay thai or Thai boxing |
   | `day-trips` | Day trips from Bangkok | day trip |
-  | `cooking-classes` | Cooking classes in Bangkok | cooking class, school or course |
+  | `cooking-classes` | Cooking classes in Bangkok | cooking class, cooking school or cooking course |
   | `cruises` | Bangkok cruises | cruise or dinner boat |
   | `stats` | Bangkok tours by the numbers | none |
 
