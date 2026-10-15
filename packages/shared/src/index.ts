@@ -99,3 +99,4 @@ export interface Destination {
 export * from "./api";
 export * from "./canvas/geometry";
 export * from "./seo-slice";
+export * from "./viator-url";
