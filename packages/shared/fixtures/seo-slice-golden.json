@@ -1,5 +1,5 @@
 {
-  "_comment": "Golden vector for the SEO slice hashes (spec 0006 index.md, Hashes). Plain JSON read with fs by apps/web and apps/api specs, so both copies of the recipe are pinned to the same input. Change it only with the pinned values in both specs.",
+  "_comment": "Golden vector for the SEO slice hashes (spec 0006 index.md, Hashes). Plain JSON read with fs by apps/web's golden.spec; apps/api's copy of the recipe gets the same pinned assertions against it in scope row 20. Change it only with the pinned values in every spec that reads it.",
   "targetSlug": "floating-markets",
   "manifest": {
     "schemaVersion": 1,

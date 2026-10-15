@@ -13,7 +13,11 @@ import { LIVE_FILE, SLICE_CONTENT_DIR, readSliceContent } from "../src/lib/seo-s
 import { deriveLiveSet } from "../src/lib/seo-slice/live-set";
 import { liveGuardFailures, parseLiveSlugs } from "../src/lib/seo-slice/live-guard";
 
-const REPO_PATH = "apps/web/src/content/seo/bangkok/live.generated.ts";
+// The live file's path from the repo root, as `git show <base>:<path>` wants it.
+const REPO_PATH = path
+  .relative(path.resolve(__dirname, "../../.."), path.join(SLICE_CONTENT_DIR, LIVE_FILE))
+  .split(path.sep)
+  .join("/");
 
 const i = process.argv.indexOf("--base");
 const base = i > 0 ? process.argv[i + 1] : undefined;
