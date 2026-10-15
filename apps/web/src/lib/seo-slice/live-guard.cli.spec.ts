@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
-import { LIVE_FILE, SLICE_CONTENT_DIR, renderLiveFile } from "./index-files";
+import { LIVE_FILE, SLICE_CONTENT_DIR, readSliceContent, renderLiveFile } from "./index-files";
 import { parseLiveSlugs } from "./live-guard";
 
 /**
@@ -12,7 +12,8 @@ import { parseLiveSlugs } from "./live-guard";
  * script's `git show` at it), so this repo's history is never touched. The head
  * side is this working tree's real content, so the base sets below are chosen
  * to hold whatever the head currently is: the head's own live set (nothing
- * dropped) and a slug that can never be in any manifest.
+ * dropped), a slug that can never be in any manifest, and two real manifest
+ * pages that are not live here, one held and one not.
  */
 
 const WEB_ROOT = path.resolve(__dirname, "../../..");
@@ -55,6 +56,12 @@ function runGuard(args: string[]) {
 
 const headSlugs = () => parseLiveSlugs(readFileSync(path.join(SLICE_CONTENT_DIR, LIVE_FILE), "utf8"));
 
+/** The real head manifest: a page it holds, and one it does not hold that is not live here. */
+const headManifest = () => readSliceContent().manifest!;
+const heldSlug = () => headManifest().pages.find((p) => p.held)!.slug;
+const unheldNotLiveSlug = () =>
+  headManifest().pages.find((p) => !p.held && !headSlugs().includes(p.slug))!.slug;
+
 beforeAll(() => {
   work = mkdtempSync(path.join(tmpdir(), "seo-live-guard-"));
   gitDir = path.join(work, ".git");
@@ -62,6 +69,8 @@ beforeAll(() => {
   commits.noFile = commitBase(null);
   commits.sameAsHead = commitBase(headSlugs());
   commits.removed = commitBase([...headSlugs(), NEVER_A_SLUG]);
+  commits.held = commitBase([...headSlugs(), heldSlug()]);
+  commits.unheld = commitBase([...headSlugs(), unheldNotLiveSlug()]);
 });
 
 afterAll(() => {
@@ -85,6 +94,20 @@ describe("seo:live-guard script (spec 0006 AC-8)", () => {
     const { status, out } = runGuard(["--base", commits.removed]);
     expect(status).toBe(1);
     expect(out).toContain(`${NEVER_A_SLUG}: live on the base branch but removed from the manifest`);
+  });
+
+  it("passes when a page live at the base is held in the head manifest", () => {
+    const { status, out } = runGuard(["--base", commits.held]);
+    expect(status).toBe(0);
+    expect(out).toContain("seo:live-guard: ok");
+  });
+
+  it("fails when a page live at the base is not live here and not held", () => {
+    const slug = unheldNotLiveSlug();
+    const { status, out } = runGuard(["--base", commits.unheld]);
+    expect(status).toBe(1);
+    expect(out).toContain(`${slug}: live on the base branch, not live here`);
+    expect(out).toContain('mark it "held": true');
   });
 
   it("exits 2 with a usage line when --base is missing", () => {
