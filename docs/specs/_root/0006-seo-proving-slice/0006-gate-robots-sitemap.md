@@ -33,26 +33,28 @@ While the gate is on, anonymous visitors and crawlers reach only the live slice 
 
 **Files**:
 - `apps/web/src/middleware.ts`: add a `isSlicePath(pathname)` check before the cookie check, built from `LIVE_SLUGS` in a `Set` at module load, plus the two prefix checks. Put the helper in `apps/web/src/lib/seo-slice-gate.ts` so it is testable without the middleware.
-- `apps/web/src/app/robots.ts`: read the live paths from `pages.generated.ts` (Node runtime, `force-dynamic` stays).
-- `apps/web/src/app/sitemap-slice.xml/route.ts`: `export const dynamic = "force-static"`, returns `application/xml` with `<urlset>` built from `pages.generated.ts`.
+- `apps/web/src/app/robots.ts`: read the live slugs from `LIVE_SLUGS` in `live.generated.ts` (Node runtime, `force-dynamic` stays).
+- `apps/web/src/app/sitemap-slice.xml/route.ts`: `export const dynamic = "force-static"`, returns `application/xml` with `<urlset>` built from `LIVE_SLUGS` in `live.generated.ts`; it reads only each slug's `computedOn` from `pages.generated.ts`. `pages.generated.ts` also holds pages that are not live (the local preview renders them, AC-T15), so no public surface takes its slug list from it (index.md Files).
 
 **Value sourcing**:
 | Action | Value | Source |
 |---|---|---|
 | Middleware | the slugs to pass | `LIVE_SLUGS` in `live.generated.ts` |
-| Robots | allow lines | live pages in `pages.generated.ts`, prefixed `/destinations/bangkok/` |
+| Robots | allow lines | `LIVE_SLUGS` in `live.generated.ts`, prefixed `/destinations/bangkok/` |
+| Sitemap | the slugs listed | `LIVE_SLUGS` in `live.generated.ts` |
 | Sitemap | `<loc>` | `site.url` + `/destinations/bangkok/` + slug |
-| Sitemap | `<lastmod>` | the page's snapshot `computedOn` |
+| Sitemap | `<lastmod>` | the page's snapshot `computedOn`, read from `pages.generated.ts` |
 
 **Key invariants**:
 - No list of slice slugs exists outside the generated files.
-- A held page (snapshot missing, copy stale, fact check missing) is gated.
+- A page that is not live (held, snapshot missing, copy missing, `checkHash` stale, or no fact check) is gated, and robots and the sitemap do not list it.
 
 **Critical test scenarios**:
 - Gate on, each live path passes and a held slug is rewritten, verifies **AC-G1**, **AC-G2**.
 - Trailing slash, extra segment and `/destinations/bangkok` are rewritten, verifies **AC-G2**.
 - Robots output gated and open, verifies **AC-G4**.
 - Sitemap enumeration, verifies **AC-G5**, **AC-G6**.
+- A page that is in `pages.generated.ts` but not in `LIVE_SLUGS` (it has a snapshot and a copy but no fact check) is absent from robots and the sitemap and is rewritten by the gate, verifies **AC-G1**, **AC-G4**, **AC-G5**.
 
 ## Build plan
 
