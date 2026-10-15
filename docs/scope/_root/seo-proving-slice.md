@@ -14,18 +14,18 @@ A test, not a launch. You put 7 Bangkok pages into Google (the hub, 5 category p
 
 ## Foundations
 
-### 18. Gate allowlist, robots and a slice only sitemap · in-progress · Beta
+### 18. Gate allowlist, robots and a slice only sitemap · done · Beta
 Let anonymous visitors and crawlers reach only the slice URLs, `/go/`, `/ingest` and the slice sitemap while the gate stays on, with robots and the sitemap rewritten to match. This is the only row that blocks even a private crawl test, so it goes first.
-**Done when:** with the gate on, an anonymous request to any slice URL, `/go/`, `/ingest` or the sitemap passes and every other path still shows the gate; a test enumerates the sitemap and finds only slice pages, each with `lastModified` from its snapshot date.
+**Done when:** with the gate on, an anonymous request to any live slice URL or the sitemap passes, `/go/tours/` and `/ingest/` pass only once the live set has at least one page, and every other path still shows the gate; with an empty live set only `/sitemap-slice.xml`, `/robots.txt`, `/api/unlock` and the coming soon page itself are reachable; a test enumerates the sitemap and finds only slice pages, each with `lastModified` from its snapshot date.
 - [x] Design it (spec): [0006 gate, robots and sitemap](../../specs/_root/0006-seo-proving-slice/0006-gate-robots-sitemap.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
-- [ ] Build it: `/develop gate allowlist, robots and a slice only sitemap`
-  - [ ] Shared types, the hash recipe with its golden vector test, and `seo:index` with its staleness test (umbrella AC-1, AC-2)
-  - [ ] Live guard in CI, so a refresh and its approvals share one PR (umbrella AC-8)
-  - [ ] Gate helper and middleware wiring, empty live set included (AC-G1, AC-G2, AC-G3, AC-G7)
-  - [ ] Gated robots with the `/_next/` allow (AC-G4)
-  - [ ] `/sitemap-slice.xml` and its enumeration test (AC-G5, AC-G6)
-- [ ] Verify it: `/check verify gate allowlist, robots and a slice only sitemap`
-- [ ] Test it: `/test gate allowlist, robots and a slice only sitemap`
+- [x] Build it: `/develop gate allowlist, robots and a slice only sitemap`
+  - [x] Shared types, the hash recipe with its golden vector test, and `seo:index` with its staleness test (umbrella AC-1, AC-2)
+  - [x] Live guard in CI, so a refresh and its approvals share one PR (umbrella AC-8)
+  - [x] Gate helper and middleware wiring, empty live set included (AC-G1, AC-G2, AC-G3, AC-G7)
+  - [x] Gated robots with the `/_next/` allow (AC-G4)
+  - [x] `/sitemap-slice.xml` and its enumeration test (AC-G5, AC-G6)
+- [x] Verify it: `/check verify gate allowlist, robots and a slice only sitemap`
+- [x] Test it: `/test gate allowlist, robots and a slice only sitemap`
 
 ### 19. Page list and tour membership rule · in-progress
 The manifest of the 9 pages, and the rule that decides which Bangkok tours belong on each page. Coordinates alone cannot decide it (612 of 2,589 Bangkok tours have none), and off city tours must stay out (Phuket, Phi Phi, Krabi, Samui, and 2 Pattaya floating market tours). The BRI-200 gate is a yes or no filter only; ordering uses static fields, never ratings. The manifest also holds each page's "How to choose" groups, the keyword groups and place list, and the image exclusions, and picks alternate across trip lengths inside each group so no page fills from one length (amended 16 Oct 2026).
@@ -33,6 +33,7 @@ The manifest of the 9 pages, and the rule that decides which Bangkok tours belon
 - [x] Design it (spec): [0006 manifest and membership](../../specs/_root/0006-seo-proving-slice/0006-page-manifest-membership.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
 - [ ] Build it: `/develop page list and tour membership rule`
   - [ ] Manifest with the 9 pages, H1s, plain words, exclusions, tag names, groups, keyword groups, places, an empty `excludedExperiences` and Roy's `forbiddenNames`; spa and muay thai held (AC-M1, AC-M3)
+    - [ ] add a script level held case to live-guard.cli.spec once manifest.json exists
   - [ ] `selectMembers` and `selectPicks` with the off city, section, round robin, exclusion and hub pick tests (AC-M2 to AC-M8, AC-M10)
   - [ ] Slug test in apps/web (AC-M9)
 - [ ] Verify it: `/check verify page list and tour membership rule`
@@ -44,6 +45,7 @@ A command that reads prod read only and writes one committed, dated snapshot fil
 - [ ] Build it: `/develop snapshot files from prod, read only`
   - [ ] Facts builder over printable members (sections, stat strip, keyword groups and places from the manifest) and the internal `eligible` block, with tests (AC-S4, AC-S4a, AC-S8)
   - [ ] `seo:snapshot` with the read only guard, manifest validation, writer and automatic index step (AC-S1 to AC-S3, AC-S5 to AC-S7, AC-S9)
+    - [ ] For `factsHash` and `picksHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
   - [ ] First read only run against prod, files committed (umbrella AC-6)
 - [ ] Verify it: `/check verify snapshot files from prod, read only`
 
@@ -59,6 +61,7 @@ The route and the one page template, proven first on "things to do in bangkok": 
   - [ ] How to choose sections, Local notes and Good to know (AC-T3, AC-T14)
   - [ ] JSON-LD with no author (AC-T7)
   - [ ] Leak, name and team scan on the built HTML and attribute values with its CI step, link audit and route regression tests (AC-T2, AC-T6, AC-T9)
+    - [ ] also run middleware.edge-bundle.spec after the build
   - [ ] Local preview, `seo:preview`, with its "not approved" banner and the test that it never runs in a production build (AC-T15)
 - [ ] Verify it: `/check verify hub page template and URL`
 
@@ -81,6 +84,7 @@ Teach the content engine a hub input: a prompt, the voice guide's banned pattern
   - [ ] Adapter `maxTokens` option and `HUB_COPY_MODEL` (AC-H1)
   - [ ] Prompt, blocking checks (first person included), claim trace and the per field retry loop (AC-H2, AC-H2a, AC-H3, AC-H4, AC-H8)
   - [ ] `hub-copy:run` and `hub-copy:approve` with the check hash, notes, source facts and share image checks (AC-H5 to AC-H7)
+  - [ ] For `groundingHash` and `checkHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
   - [ ] Hub generated, read in the local preview and fact checked by Roy (AC-H9, AC-H13)
 - [ ] Verify it: `/check verify hub copy in the house voice`
 

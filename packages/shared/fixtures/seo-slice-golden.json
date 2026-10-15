@@ -1,0 +1,85 @@
+{
+  "_comment": "Golden vector for the SEO slice hashes (spec 0006 index.md, Hashes). Plain JSON read with fs by apps/web's golden.spec; apps/api's copy of the recipe gets the same pinned assertions against it in scope row 20. Change it only with the pinned values in every spec that reads it.",
+  "targetSlug": "floating-markets",
+  "manifest": {
+    "schemaVersion": 1,
+    "city": { "slug": "bangkok", "countrySlug": "thailand", "name": "Bangkok", "destinationRef": "d343" },
+    "exclusions": {
+      "offCityTitlePattern": "pattaya|phuket",
+      "excludeTagIds": [9],
+      "maxDurationMin": 720,
+      "plainWords": "tours that leave the city for the night"
+    },
+    "forbiddenNames": ["Somchai"],
+    "tagNames": { "2": "Floating markets", "9": "Transfers" },
+    "keywordGroups": {
+      "boat": { "label": "boat ride", "phrases": ["boat ride", "longtail"] },
+      "market": { "label": "market visit", "phrases": ["market"] }
+    },
+    "defaultKeywordGroupIds": ["market"],
+    "places": ["Damnoen Saduak", "Amphawa"],
+    "excludedExperiences": [],
+    "pages": [
+      { "slug": "things-to-do", "kind": "hub", "targetQuery": "things to do in bangkok", "h1": "Things to do in Bangkok" },
+      {
+        "slug": "floating-markets",
+        "kind": "category",
+        "targetQuery": "floating market tour bangkok",
+        "h1": "Floating market tours from Bangkok",
+        "rule": { "tagIds": [2], "titlePattern": "floating", "plainWords": "tours tagged floating markets or named for one" },
+        "keywordGroupIds": ["boat", "market"],
+        "ogImageExperienceId": "exp-fm-1",
+        "sourceFacts": [
+          { "fact": "Damnoen Saduak is busiest in the early morning.", "url": "https://www.tourismthailand.org/", "checked": "2026-10-01" }
+        ]
+      }
+    ]
+  },
+  "snapshot": {
+    "schemaVersion": 1,
+    "slug": "floating-markets",
+    "computedOn": "2026-10-10",
+    "facts": {
+      "memberCount": 42,
+      "bandCounts": { "under4h": 5, "4to8h": 30, "fullDay": 6, "unknown": 1 },
+      "inclusionShares": { "boat": { "count": 28, "of": 42 } },
+      "topPlaces": [{ "name": "Damnoen Saduak", "count": 31 }],
+      "sections": [{ "id": "classic", "label": "The classic market", "memberCount": 31 }],
+      "strip": [{ "kind": "keyword", "key": "boat", "label": "boat ride", "count": 28, "of": 42 }]
+    },
+    "factsHash": "v1:14eb0600e3ac1d197e9ea1c21a6474efe5f5bd70c036b9be0cedf0e828a5d0c2",
+    "eligible": { "count": 19, "sections": [{ "id": "classic", "count": 14 }] },
+    "picks": [
+      {
+        "experienceId": "exp-fm-1",
+        "providerTourId": "P-1001",
+        "title": "Morning at Damnoen Saduak",
+        "imageUrl": "https://img.test/fm-1.jpg",
+        "imageAlt": "Boats at a floating market",
+        "durationBand": "4to8h",
+        "section": "classic",
+        "inclusions": ["boat"]
+      }
+    ],
+    "picksHash": "v1:f09da8ed1fbcbe1372f0462e11a4031fe9b493e6bdf86a3bff50cb6be499f653"
+  },
+  "copy": {
+    "schemaVersion": 1,
+    "slug": "floating-markets",
+    "intro": "Most of the 42 tours here spend half a day on the water.",
+    "seoTitle": "Floating market tours from Bangkok",
+    "metaDescription": "How the floating market tours from Bangkok compare, by length and by what they include.",
+    "groundingHash": "v1:56d4bb6d38432602db18836709b5339c1f23818ddb732ab8772c7f2c4d9dda31",
+    "model": "claude-sonnet-5",
+    "promptVersion": "hub-copy-v1",
+    "attempts": 1,
+    "generatedAt": "2026-10-11T08:00:00Z"
+  },
+  "notes": {
+    "schemaVersion": 1,
+    "slug": "floating-markets",
+    "notes": [
+      { "id": "early", "kind": "timing", "basis": "firsthand", "written": "2026-09-20", "text": "Leave before seven; the canals fill with tour boats by ten." }
+    ]
+  }
+}
