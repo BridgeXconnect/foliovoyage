@@ -1,0 +1,342 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": {
+    "count": 127,
+    "sections": [
+      {
+        "count": 49,
+        "id": "grand-palace"
+      },
+      {
+        "count": 24,
+        "id": "wat-arun-wat-pho"
+      },
+      {
+        "count": 23,
+        "id": "ayutthaya"
+      },
+      {
+        "count": 7,
+        "id": "tuk-tuk-or-walking"
+      },
+      {
+        "count": 24,
+        "id": "other"
+      }
+    ]
+  },
+  "facts": {
+    "bandCounts": {
+      "4to8h": 124,
+      "fullDay": 81,
+      "under4h": 55,
+      "unknown": 97
+    },
+    "inclusionShares": {
+      "entryFee": {
+        "count": 146,
+        "of": 357
+      },
+      "guide": {
+        "count": 303,
+        "of": 357
+      },
+      "meal": {
+        "count": 68,
+        "of": 357
+      },
+      "pickup": {
+        "count": 149,
+        "of": 357
+      }
+    },
+    "memberCount": 357,
+    "sections": [
+      {
+        "id": "grand-palace",
+        "label": "Grand Palace and Wat Phra Kaew",
+        "memberCount": 136
+      },
+      {
+        "id": "wat-arun-wat-pho",
+        "label": "Wat Arun and Wat Pho",
+        "memberCount": 58
+      },
+      {
+        "id": "ayutthaya",
+        "label": "Temples of Ayutthaya",
+        "memberCount": 74
+      },
+      {
+        "id": "tuk-tuk-or-walking",
+        "label": "By tuk tuk or on foot",
+        "memberCount": 17
+      },
+      {
+        "id": "other",
+        "label": "Other temple tours",
+        "memberCount": 72
+      }
+    ],
+    "strip": [
+      {
+        "count": 124,
+        "key": "4to8h",
+        "kind": "length",
+        "label": "4 to 8 hours",
+        "of": 260
+      },
+      {
+        "count": 149,
+        "key": "pickup",
+        "kind": "keyword",
+        "label": "hotel pickup",
+        "of": 357
+      },
+      {
+        "count": 146,
+        "key": "entryFee",
+        "kind": "keyword",
+        "label": "entry fees",
+        "of": 357
+      }
+    ],
+    "topPlaces": [
+      {
+        "count": 136,
+        "name": "Grand Palace"
+      },
+      {
+        "count": 74,
+        "name": "Ayutthaya"
+      },
+      {
+        "count": 71,
+        "name": "Wat Arun"
+      },
+      {
+        "count": 63,
+        "name": "Wat Pho"
+      },
+      {
+        "count": 25,
+        "name": "Floating Market"
+      }
+    ]
+  },
+  "factsHash": "v1:59020a8b74db59b78f05223c93d29979d416e7d338ab809834c741d9a12044c8",
+  "picks": [
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtock3bh0c2gqu182bw1frjm",
+      "imageAlt": "Private Half-Day Bangkok City Tour with The Grand Palace",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/32/9f/85.jpg",
+      "inclusions": [
+        "English speaking guide at the time of sightseeing",
+        "Hotel pickup and drop-off at Bangkok City area",
+        "All attractions entrance fee."
+      ],
+      "providerTourId": "102095P4",
+      "section": "grand-palace",
+      "title": "Private Half Day Tour in Bangkok with the Grand Palace"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtoc6o5z00qwqu1853ebv7ws",
+      "imageAlt": "Bangkok City Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/71/1e/dc.jpg",
+      "inclusions": [
+        "Hotel pickup and drop off at your centrally located Bangkok hotel",
+        "Private tour",
+        "Entrance fee"
+      ],
+      "providerTourId": "36435P1",
+      "section": "grand-palace",
+      "title": "Private Bangkok City Tour Full Day With The Grand Palace"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtocnfl60f2mqu18hpckq2bd",
+      "imageAlt": "Royal Grand Palace & Emerald Buddha",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/fa/e1/ce.jpg",
+      "inclusions": [
+        "Private transportation",
+        "English speaking local guide",
+        "Hotel pickup and drop off (selected hotels only)"
+      ],
+      "providerTourId": "103612P37",
+      "section": "grand-palace",
+      "title": "Amazing Bangkok Tour with Grand Palace, Emerald Buddha & Wat Arun"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodn72f0hq7qu18k8cz0hzv",
+      "imageAlt": "Bangkok Private Wat Pho, Wat Arun and Canal Tour&Flower Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/16/e5/b8/26.jpg",
+      "inclusions": [
+        "Private vehicle - Car and motor boat",
+        "Accident insurance",
+        "Pick up and drop-off at your hotel. (If your hotel is in the city center)"
+      ],
+      "providerTourId": "5585303P26",
+      "section": "wat-arun-wat-pho",
+      "title": "Bangkok Private Wat Pho, Wat Arun and Canal Tour&Flower Market"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodf17d0ac7qu18swil06pn",
+      "imageAlt": "Visit Wat Pho and Wat Arun with Local Expert",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/10/3e/c8/6d.jpg",
+      "inclusions": [
+        "English speaking guide",
+        "One bottle of drinking water per person"
+      ],
+      "providerTourId": "112650P32",
+      "section": "wat-arun-wat-pho",
+      "title": "Visit Wat Pho and Wat Arun with Local Expert"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtod9yjm05k7qu186xnhnnur",
+      "imageAlt": "Bangkok Icons: Wat Arun Thai Costume, Canals & Tuk-Tuk Adventure",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/34/cb/f9/1a/caption.jpg",
+      "inclusions": [
+        "Thai Costume",
+        "One bottle of drinking water per person",
+        "Typical Thai Tuk Tuk ride"
+      ],
+      "providerTourId": "112650P93",
+      "section": "wat-arun-wat-pho",
+      "title": "Bangkok Icons: Wat Arun Thai Costume, Canals & Tuk-Tuk Adventure"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtod8cj40419qu180b98zs6i",
+      "imageAlt": "Private Ayutthaya Temples Tour From Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/08/d2/08/be.jpg",
+      "inclusions": [
+        "English speaking guide at the time of sightseeing",
+        "Tasty Thai Lunch",
+        "Hotel pickup and drop-off at Bangkok City Area"
+      ],
+      "providerTourId": "46798P17",
+      "section": "ayutthaya",
+      "title": "Private Ayutthaya Temples Tour From Bangkok"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocxfy50odcqu18a70ixcps",
+      "imageAlt": "Ayutthaya Temples and Ayothaya Floating Market From Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/eb/b5/96.jpg",
+      "inclusions": [
+        "Local guide",
+        "Driver/guide",
+        "Air-conditioned vehicle"
+      ],
+      "providerTourId": "90513P1",
+      "section": "ayutthaya",
+      "title": "Ayutthaya Temples and Ayothaya Floating Market From Bangkok"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodjmsx0ejfqu182nk4u5xp",
+      "imageAlt": "Ayutthaya 5 Temples Private Tour: Optional Daytime or Sunset Boat",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/34/cb/aa/e1/caption.jpg",
+      "inclusions": [
+        "Pickup and drop-off from one Bangkok hotel",
+        "Admission fees to all attractions listed in the itinerary are included.",
+        "Licensed English-speaking private guide"
+      ],
+      "providerTourId": "5626250P7",
+      "section": "ayutthaya",
+      "title": "Ayutthaya 5 Temples Private Tour: Optional Daytime or Sunset Boat"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodi5yd0d6xqu18y60fyahk",
+      "imageAlt": "Bangkok Temple & City Tour by Tuk Tuk, Skytrain & River Boat",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/09/34/c7/70.jpg",
+      "inclusions": [
+        "One bottle drinking Water",
+        "Hotel pickup and drop-off",
+        "All admission tickets to mentioned temples (Wat Pho, Wat Arun, Wat Traimit)"
+      ],
+      "providerTourId": "42771P127",
+      "section": "tuk-tuk-or-walking",
+      "title": "Bangkok Temple & City Tour by Tuk Tuk, Skytrain & River Boat"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtocnju10f6gqu18g85k7sgl",
+      "imageAlt": "Bangkok Night Lights Tuk Tuk Tour: Temples & City Highlights",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/1f/9e/fe.jpg",
+      "inclusions": [
+        "Professional english speaking tour guide",
+        "Local food tasting",
+        "Transportation by Tuk Tuk"
+      ],
+      "providerTourId": "103612P42",
+      "section": "tuk-tuk-or-walking",
+      "title": "Bangkok Night Lights Tuk Tuk Tour: Temples & City Highlights"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtoca7n203lgqu18o21bdo89",
+      "imageAlt": "Bangkok day tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/42/17/56.jpg",
+      "inclusions": [
+        "Pick up and Drop Off",
+        "Lunch, Snacks & Non-alcoholic drinks",
+        "Licensed English Speaking Guide"
+      ],
+      "providerTourId": "452812P1",
+      "section": "tuk-tuk-or-walking",
+      "title": "Bangkok Day Tour: Food, Temple & Tuk-Tuk"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodn3at0hn3qu18akiutjfi",
+      "imageAlt": "The Reclining Buddha",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/ab/2a/b4.jpg",
+      "inclusions": [
+        "Admission tickets to all listed temples",
+        "[Luxury Option] Luxury air-conditioned VIP van and a baby car seat (reservation required)",
+        "Hotel pickup and drop-off in Bangkok downtown"
+      ],
+      "providerTourId": "110403P10",
+      "section": "other",
+      "title": "Top 3 Must-see Temples in Bangkok Private Tour [Optional Luxury]"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtod7xvj03nbqu18vajv5298",
+      "imageAlt": "Bangkok Classic 3-Temples With Buffet Lunch Day Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/c1/45/c5.jpg",
+      "inclusions": [
+        "Shuttle boat between the Grand Palace and Wat Arun",
+        "Air-conditioned vehicle",
+        "Entrance Fees for Attractions: Grand Palace, Wat Arun and Wat Paknam"
+      ],
+      "providerTourId": "350014P29",
+      "section": "other",
+      "title": "Bangkok Classic 3-Temples With Buffet Lunch Day Tour"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtocwk0g0njwqu18wfrk2myc",
+      "imageAlt": "The Marble Temple",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/e6/53/66.jpg",
+      "inclusions": [
+        "Professional Local guide",
+        "Roundtrip transfers from centrally located Bangkok hotels (if Option chosen)",
+        "Insurance"
+      ],
+      "providerTourId": "90546P69",
+      "section": "other",
+      "title": "Bangkok Temples and City Highlights Tour"
+    }
+  ],
+  "picksHash": "v1:9983624fedde1f82942fb7a6034d12f92d9e1862693afa553bbe4616389399b8",
+  "schemaVersion": 1,
+  "slug": "temples"
+}

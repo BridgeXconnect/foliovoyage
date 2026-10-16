@@ -6,7 +6,7 @@
  * rendered text.
  */
 
-import { SEO_SLICE_LEAK_TERMS, SEO_SLICE_TEAM_TERMS } from "@folio/shared";
+import { SEO_SLICE_FIRST_PERSON_WORDS, SEO_SLICE_LEAK_TERMS, SEO_SLICE_TEAM_TERMS } from "@folio/shared";
 
 /** Not a letter or digit on that side, so "rated" does not match inside "berated". */
 const START = "(?<![\\p{L}\\p{N}])";
@@ -47,8 +47,6 @@ export function findLeakTerms(text: string): string[] {
   return LEAK_MATCHERS.filter(({ re }) => re.test(text)).map(({ term }) => term);
 }
 
-const FIRST_PERSON_WORDS = ["i", "i'm", "i've", "me", "my", "we", "we're", "we've", "us", "our", "ours"];
-
 /** True when `phrase` appears in `text` as a whole word or phrase. */
 export function containsPhrase(text: string, phrase: string): boolean {
   if (!phrase.trim()) return false;
@@ -61,7 +59,7 @@ export function containsPhrase(text: string, phrase: string): boolean {
  */
 export function findFirstPerson(text: string): string[] {
   const normalized = text.replace(/[‘’]/g, "'");
-  const words = FIRST_PERSON_WORDS.filter((w) =>
+  const words = SEO_SLICE_FIRST_PERSON_WORDS.filter((w) =>
     new RegExp(`${START}${escapeRegExp(w)}(?![\\p{L}\\p{N}'])`, "iu").test(normalized),
   );
   const team = SEO_SLICE_TEAM_TERMS.filter((t) => containsPhrase(normalized, t));

@@ -38,18 +38,18 @@ The manifest of the 9 pages, and the rule that decides which Bangkok tours belon
   - [x] Slug test in apps/web (AC-M9)
 - [x] Verify it: `/check verify page list and tour membership rule`
 
-### 20. Snapshot files from prod, read only · in-progress
+### 20. Snapshot files from prod, read only · done
 A command that reads prod read only and writes one committed, dated snapshot file per page: its computed facts (including its sections and stat strip) and its pick list, with a computed on date and a grounding hash. A page that falls under the floor is thin: the command deletes its old file, exits with an error and says how to hold it, and the hub is regenerated and approved in the same PR. Pages build from these files, never from live database reads. It never reads or writes the notes files.
-**Done when:** running the command produces committed snapshot files for the 7 live pages (the 2 held pages get none), each with its date, hashes, sections and strip, every printed count comes from tours before the BRI-200 gate (gated counts only in the internal `eligible` block), a thin page's old file is deleted and the run fails, and a rerun on unchanged data gives the same hash.
+**Done when:** running the command produces committed snapshot files for the hub and the 5 category pages that are not held, 6 files (the 2 held pages get none; the stats snapshot comes with row 25), each with its date, hashes, sections and strip, every printed count comes from tours before the BRI-200 gate (gated counts only in the internal `eligible` block), a thin page's old file is deleted and the run fails, and a rerun on unchanged data gives the same hash.
 - [x] Design it (spec): [0006 prod snapshot](../../specs/_root/0006-seo-proving-slice/0006-prod-snapshot.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
-- [ ] Build it: `/develop snapshot files from prod, read only`
-  - [ ] Facts builder over printable members (sections, stat strip, keyword groups and places from the manifest) and the internal `eligible` block, with tests (AC-S4, AC-S4a, AC-S8)
-  - [ ] `seo:snapshot` with the read only guard, manifest validation, writer and automatic index step (AC-S1 to AC-S3, AC-S5 to AC-S7, AC-S9)
-    - [ ] For `factsHash` and `picksHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
-    - [ ] `seo:snapshot` under ts-node needs the moduleTypes cjs override that apps/web/scripts/tsconfig.seo.json uses. Checked 16 Oct 2026 from apps/api: plain ts-node fails to load seo-slice-membership with ERR_REQUIRE_ESM; with the override it loads and isViatorHost works, so give the script that override
-  - [ ] First read only run against prod, files committed (umbrella AC-6)
-    - [ ] After that run, write a one-off membership review to ~/folio-logs/seo-slice/membership-review-{date}.md, outside the repo, with the items from the row 19 verify note: tag-only members per page (tags 20226, 21518, 11889 first); size of each page's other group and which groups fold; titles naming Ko Chang, Koh Samet, Khao Yai, Chiangmai, Siem Reap or Angkor; titles each off city word excludes; title only, tag only and both counts per page; how many real titles the leak term exclusion drops; whether any live page draws all its picks from one trip length
-- [ ] Verify it: `/check verify snapshot files from prod, read only`
+- [x] Build it: `/develop snapshot files from prod, read only`
+  - [x] Facts builder over printable members (sections, stat strip, keyword groups and places from the manifest) and the internal `eligible` block, with tests (AC-S4, AC-S4a, AC-S8)
+  - [x] `seo:snapshot` with the read only guard, manifest validation, writer and automatic index step (AC-S1 to AC-S3, AC-S5 to AC-S7, AC-S9)
+    - [x] For `factsHash` and `picksHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
+    - [x] `seo:snapshot` under ts-node needs the moduleTypes cjs override that apps/web/scripts/tsconfig.seo.json uses. Checked 16 Oct 2026 from apps/api: plain ts-node fails to load seo-slice-membership with ERR_REQUIRE_ESM; with the override it loads and isViatorHost works, so give the script that override
+  - [x] First read only run against prod, files committed (umbrella AC-6)
+    - [x] After that run, write a one-off membership review to ~/folio-logs/seo-slice/membership-review-{date}.md, outside the repo, with the items from the row 19 verify note: tag-only members per page (tags 20226, 21518, 11889 first); size of each page's other group and which groups fold; titles naming Ko Chang, Koh Samet, Khao Yai, Chiangmai, Siem Reap or Angkor; titles each off city word excludes; title only, tag only and both counts per page; how many real titles the leak term exclusion drops; whether any live page draws all its picks from one trip length
+- [x] Verify it: `/check verify snapshot files from prod, read only`
 
 ## Slice 1: the Bangkok hub, end to end
 
@@ -88,6 +88,7 @@ Teach the content engine a hub input: a prompt, the voice guide's banned pattern
   - [ ] `hub-copy:run` and `hub-copy:approve` with the check hash, notes, source facts and share image checks (AC-H5 to AC-H7)
   - [ ] For `groundingHash` and `checkHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
   - [ ] Hub generated, read in the local preview and fact checked by Roy (AC-H9, AC-H13)
+    - [ ] places list entry 'Erawan' is ambiguous (museum, shrine, national park): check any intro that names it, and consider changing it to 'Erawan National Park' in the manifest
 - [ ] Verify it: `/check verify hub copy in the house voice`
 
 ## Slice 2: widen to the 5 category pages and the stats page

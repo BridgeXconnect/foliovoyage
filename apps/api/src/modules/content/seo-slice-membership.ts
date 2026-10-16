@@ -32,7 +32,8 @@ export const SEO_SLICE_HUB_PICKS_PER_PAGE = 2;
 /** The section id for members no shown named group takes. */
 export const SEO_SLICE_OTHER = "other";
 
-const LENGTH_ORDER: SeoSliceLengthGroup[] = ["under4h", "4to8h", "fullDay", "unknown"];
+/** Breaks ties between known length groups of equal size (AC-M5); `unknown` always comes last. */
+const KNOWN_LENGTH_ORDER: SeoSliceLengthGroup[] = ["under4h", "4to8h", "fullDay"];
 
 /**
  * The Tour fields these functions read, plus the linked Experience's status.
@@ -155,7 +156,7 @@ export function exclusionOf(tour: SeoSliceTourInput, manifest: SeoSliceManifest)
  * The representative tour of each Experience: its lowest `id` tour that is not
  * deleted (index.md, Representative tour). Ordered by Experience id.
  */
-function representativeTours(tours: SeoSliceTourInput[]): SeoSliceMember[] {
+export function representativeTours(tours: SeoSliceTourInput[]): SeoSliceMember[] {
   const byExperience = new Map<string, SeoSliceMember>();
   for (const tour of tours) {
     if (tour.experienceId === null || tour.deletedAt !== null) continue;
@@ -174,7 +175,8 @@ function inPrintablePool(tour: SeoSliceMember, manifest: SeoSliceManifest): bool
   );
 }
 
-function matchesRule(tour: SeoSliceMember, page: SeoSliceManifestPage): boolean {
+/** Whether a tour passes a category page's rule (AC-M4): any of its tag ids, or its title pattern. */
+export function matchesRule(tour: SeoSliceMember, page: SeoSliceManifestPage): boolean {
   const rule = page.rule;
   if (!rule) return false;
   return tour.tags.some((t) => rule.tagIds.includes(t)) || titleRegExp(rule.titlePattern).test(tour.title);
@@ -275,7 +277,8 @@ export function selectPicks(
  * The order inside a section or the one list (AC-M5): split by length group;
  * inside a length group, more of the page's keyword groups covered first, then
  * `providerTourId` ascending; then take one from each non empty length group in
- * turn, `under4h`, `4to8h`, `fullDay`, `unknown`, until all are used.
+ * turn until all are used. The known length groups go by member count in the
+ * pool, descending (ties `under4h`, `4to8h`, `fullDay`), and `unknown` last.
  */
 function rankWithin(page: SeoSliceManifestPage, manifest: SeoSliceManifest) {
   const matchers = keywordGroupIdsFor(manifest, page).map((id) => phrasesMatcher(manifest.keywordGroups[id]?.phrases ?? []));
@@ -286,11 +289,13 @@ function rankWithin(page: SeoSliceManifestPage, manifest: SeoSliceManifest) {
 
   return (pool: SeoSliceMember[]): SeoSliceMember[] => {
     const score = new Map(pool.map((t) => [t, covered(t)]));
-    const bands = LENGTH_ORDER.map((band) =>
+    const bandOf = (band: SeoSliceLengthGroup) =>
       pool
         .filter((t) => lengthGroupOf(t.durationMin) === band)
-        .sort((a, b) => score.get(b)! - score.get(a)! || compare(a.providerTourId, b.providerTourId)),
-    );
+        .sort((a, b) => score.get(b)! - score.get(a)! || compare(a.providerTourId, b.providerTourId));
+    // A stable sort keeps KNOWN_LENGTH_ORDER for ties.
+    const known = KNOWN_LENGTH_ORDER.map(bandOf).sort((a, b) => b.length - a.length);
+    const bands = [...known, bandOf("unknown")];
     const out: SeoSliceMember[] = [];
     for (let i = 0; out.length < pool.length; i++) {
       for (const band of bands) if (i < band.length) out.push(band[i]);

@@ -1,0 +1,292 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": {
+    "count": 207,
+    "sections": [
+      {
+        "count": 84,
+        "id": "ayutthaya"
+      },
+      {
+        "count": 77,
+        "id": "floating-markets"
+      },
+      {
+        "count": 36,
+        "id": "kanchanaburi"
+      },
+      {
+        "count": 8,
+        "id": "khao-yai"
+      }
+    ]
+  },
+  "facts": {
+    "bandCounts": {
+      "4to8h": 88,
+      "fullDay": 258,
+      "under4h": 8,
+      "unknown": 158
+    },
+    "inclusionShares": {
+      "entryFee": {
+        "count": 174,
+        "of": 512
+      },
+      "guide": {
+        "count": 422,
+        "of": 512
+      },
+      "meal": {
+        "count": 167,
+        "of": 512
+      },
+      "pickup": {
+        "count": 244,
+        "of": 512
+      }
+    },
+    "memberCount": 512,
+    "sections": [
+      {
+        "id": "ayutthaya",
+        "label": "Ayutthaya",
+        "memberCount": 224
+      },
+      {
+        "id": "floating-markets",
+        "label": "Floating markets",
+        "memberCount": 166
+      },
+      {
+        "id": "kanchanaburi",
+        "label": "Kanchanaburi and Erawan",
+        "memberCount": 92
+      },
+      {
+        "id": "khao-yai",
+        "label": "Khao Yai",
+        "memberCount": 21
+      }
+    ],
+    "strip": [
+      {
+        "count": 244,
+        "key": "pickup",
+        "kind": "keyword",
+        "label": "hotel pickup",
+        "of": 512
+      },
+      {
+        "count": 174,
+        "key": "entryFee",
+        "kind": "keyword",
+        "label": "entry fees",
+        "of": 512
+      },
+      {
+        "count": 167,
+        "key": "meal",
+        "kind": "keyword",
+        "label": "a meal",
+        "of": 512
+      }
+    ],
+    "topPlaces": [
+      {
+        "count": 224,
+        "name": "Ayutthaya"
+      },
+      {
+        "count": 157,
+        "name": "Floating Market"
+      },
+      {
+        "count": 55,
+        "name": "Kanchanaburi"
+      },
+      {
+        "count": 54,
+        "name": "Damnoen Saduak"
+      },
+      {
+        "count": 42,
+        "name": "Erawan"
+      }
+    ]
+  },
+  "factsHash": "v1:7791989cab2cb213c7b65f33cdbe0095cb6fd3fc6e802ed319a3c1722f9f64d2",
+  "picks": [
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtoc67ce00diqu18q23rzk7b",
+      "imageAlt": "Wat Chaiwattanaram",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/17/0b/bb/60.jpg",
+      "inclusions": [
+        "Travel insurance",
+        "Admission fee",
+        "Bottled water"
+      ],
+      "providerTourId": "8374P61",
+      "section": "ayutthaya",
+      "title": "Bangkok Ayutthaya Heritage Express Train and Bus Day Trip"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtoddh3z08w1qu18zezi5nqh",
+      "imageAlt": "Historical park in Ayutthaya",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/7b/c1/29.jpg",
+      "inclusions": [
+        "Use of bicycle and helmet",
+        "Snack and bottled water",
+        "Use of bicycle"
+      ],
+      "providerTourId": "25446P3",
+      "section": "ayutthaya",
+      "title": "Half-Day Ayutthaya City Cultural Bike Tour"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtoco5po0fq6qu182hsuyywg",
+      "imageAlt": "Enjoy the cruise back to Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0b/ee/67/c3.jpg",
+      "inclusions": [
+        "All admission fees as mentioned in the itinerary.",
+        "Private air-conditioned minibus and driver",
+        "Private qualified and experienced English speaking guide"
+      ],
+      "providerTourId": "74668P17",
+      "section": "ayutthaya",
+      "title": "Private Tour : Ayutthaya Sightseeing by Coach return by Cruise"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodmi2p0h5hqu187eq8kqbl",
+      "imageAlt": "Private Damnoen Saduak Floating Market and Train Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/32/6c/6e/d5/caption.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Bottled water",
+        "Snacks"
+      ],
+      "providerTourId": "52374P4",
+      "section": "floating-markets",
+      "title": "Private Damnoen Saduak Floating Market and Train Market Tour"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtodmhnv0h55qu18a65x18wo",
+      "imageAlt": "Maek Long Railway Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0a/ae/b7/8f.jpg",
+      "inclusions": [
+        "Transportation in A/C vehicle",
+        "Floating Market boat charge (about 30 minutes).",
+        "Bottled water"
+      ],
+      "providerTourId": "205208P8",
+      "section": "floating-markets",
+      "title": "Private Maeklong Railway and Floating Market Highlight Tour"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodgigw0bodqu1880f5e5ps",
+      "imageAlt": "Floating and Railway Market (Optional Waterfall): Private Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0f/97/ab/ed.jpg",
+      "inclusions": [
+        "[Extended route] Lunch & Drink, visit to River Kwai Bridge and Erawan waterfall (Fee included)",
+        "Delicious, Locally-made Coconut Drink",
+        "Professional Licensed English-Speaking Guide"
+      ],
+      "providerTourId": "110403P11",
+      "section": "floating-markets",
+      "title": "Floating and Railway Market (Optional Waterfall): Private Tour"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtoctiij0knyqu18px7vzkch",
+      "imageAlt": "Private Tour to Kanchanaburi Death Railway and Elephant Haven",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0e/96/b5/cb.jpg",
+      "inclusions": [
+        "Private transportation",
+        "Bottled water",
+        "Private tour with licensed professional guide"
+      ],
+      "providerTourId": "100506P56",
+      "section": "kanchanaburi",
+      "title": "Private Tour to Kanchanaburi Death Railway and Elephant Haven"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodmhv30h5bqu18epof77rc",
+      "imageAlt": "Private Tour to Erawan Waterfall and Boat Tour in Kanchanaburi",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/ee/ba/a0.jpg",
+      "inclusions": [
+        "Private English speaking guide",
+        "Private transport : Car and boat",
+        "Lunch and bottled water"
+      ],
+      "providerTourId": "371426P8",
+      "section": "kanchanaburi",
+      "title": "Private Tour to Erawan Waterfall and Boat Tour in Kanchanaburi"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtoclcat0d6mqu18609gpfh9",
+      "imageAlt": "Erawan Waterfall and Kanchanaburi Private Tour [Optional Luxury]",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0f/9d/fb/f0.jpg",
+      "inclusions": [
+        "Admission fee to Erawan Waterfalls, JEATH War Museum, and Wat Tham Khao Pun",
+        "[Luxury Tour] A luxury air-conditioned VIP van (with a baby car seat; advanced notice required)",
+        "Hotel pickup and dropoff in Bangkok downtown"
+      ],
+      "providerTourId": "110403P16",
+      "section": "kanchanaburi",
+      "title": "Erawan Waterfall and Kanchanaburi Private Tour [Optional Luxury]"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtod91gd04oxqu1856jffxjc",
+      "imageAlt": "Bangkok: Khao Yai National Park Day Trip with Entrance Fee",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0f/25/b4/e7.jpg",
+      "inclusions": [
+        "Bottled drinking water",
+        "Hotel pickup and drop-off (for Private Tours)",
+        "English-speaking guide"
+      ],
+      "providerTourId": "163642P83",
+      "section": "khao-yai",
+      "title": "Bangkok: Khao Yai National Park Day Trip with Entrance Fee"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtoc6u0t00viqu1829hfnsgn",
+      "imageAlt": "Khao Yai Full Day Tour Haew Narok Waterfall and Jungle Trekking",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/17/07/b7/0b.jpg",
+      "inclusions": [
+        "Flexible Itinerary",
+        "Basic English-speaking Driver",
+        "hiking guide"
+      ],
+      "providerTourId": "5589952P30",
+      "section": "khao-yai",
+      "title": "Khao Yai Full Day Tour Haew Narok Waterfall and Jungle Trekking"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtodmahp0gytqu18ubdiqxp7",
+      "imageAlt": "Khao Yai National Park Full-Day From Bangkok - Including Ticket",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/10/5d/77/5c.jpg",
+      "inclusions": [
+        "Transportation by air-conditioned vehicle",
+        "English speaking guide",
+        "One bottle of drinking water"
+      ],
+      "providerTourId": "112650P35",
+      "section": "khao-yai",
+      "title": "Khao Yai National Park Full-Day From Bangkok - Including Ticket"
+    }
+  ],
+  "picksHash": "v1:e34e054931ec704f54629b268bf2ff8bf90ba148fe77def4625a2092143fc5bc",
+  "schemaVersion": 1,
+  "slug": "day-trips"
+}

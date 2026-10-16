@@ -58,7 +58,7 @@ Each child is a flat file in this directory, buildable on its own, with a short 
 | Live set for the edge | A generated `live.generated.ts` (slugs only) and `pages.generated.ts` (static imports of every file), written by `pnpm --filter @folio/web seo:index` (run automatically by the apps/api commands) and checked by a staleness test | Middleware cannot use `fs` and must stay small | Reading the folder with `fs` at build |
 | Membership | Per page: any of its tag ids OR its title pattern, then shared exclusions (including a title holding any term on the leak list, AC-T6, not only price, availability and cancellation words; and a representative tour whose `affiliateUrl` fails the `/go` host check, AC-M3), then the BRI-200 gate and a published Experience | Tags alone miss most titles (floating markets: 1 tag versus 203 titles); coordinates are missing for 612 tours and cannot exclude off city ones | Coordinates within a radius |
 | Sections | Per page groups from the manifest (title patterns, first match wins); a group shows only with at least 3 eligible members, the rest go to the page's "other" group; fewer than 2 sections means one list | Readers choose by their first decision (place, dinner or not), not by rank (research lens 2); title patterns are testable data | Length groups as sections |
-| Ordering | Inside a section: round robin across length groups (`under4h`, `4to8h`, `fullDay`, `unknown`); inside a length group, distinct keyword groups covered descending, then `providerTourId` ascending | The prod dry run (16 Oct 2026) showed the old rule filled every page from one length group; raw inclusion count rewards padded lists | Length group, then raw inclusion count (the old rule) |
+| Ordering | Inside a section: round robin across length groups, the known ones (`under4h`, `4to8h`, `fullDay`) by eligible member count descending (ties in that order) and `unknown` last; inside a length group, distinct keyword groups covered descending, then `providerTourId` ascending | The prod dry run (16 Oct 2026) showed the old rule filled every page from one length group; raw inclusion count rewards padded lists | Length group, then raw inclusion count (the old rule) |
 | Picks | 3 per section (12 in the one list case), floor of 10 eligible members; tours on the manifest image exclusion list are never picked; hub shows 2 from each category page with a snapshot that is not held, taking the next pick when one repeats | Enough to compare, few enough to curate | 20 picks |
 | Page blocks | One template for every category page (D1); the hub is a category index on it | One component set, one leak scan surface | A template per page |
 | Rule line | No numbers; one clause on the quality bar (D6) | A printed bar or pass count is review data in server HTML | Print the bar |
@@ -105,13 +105,13 @@ The apps/api commands write into apps/web by resolving the path from the repo ro
   "schemaVersion": 1,
   "city": { "slug": "bangkok", "countrySlug": "thailand", "name": "Bangkok", "destinationRef": "343" },
   "exclusions": {
-    "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh tao|phangan)\\b",
+    "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh samet|koh tao|phangan|laem chabang)\\b",
     "excludeTagIds": [11922, 12044, 367651, 367656, 367657],
     "maxDurationMin": 1440,
-    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Tao or Phangan), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
+    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Samet, Koh Tao, Phangan or Laem Chabang), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
   },
   "forbiddenNames": ["..."],
-  "tagNames": { "20226": "Markets", "11922": "Multi day Tours" },
+  "tagNames": { "11922": "Multi day Tours", "12078": "Spas" },
   "keywordGroups": {
     "pickup": { "label": "hotel pickup", "phrases": ["pick up", "pickup", "pick-up", "hotel transfer", "drop off"] },
     "meal": { "label": "a meal", "phrases": ["breakfast", "lunch", "dinner", "meal"] }
@@ -126,7 +126,7 @@ The apps/api commands write into apps/web by resolving the path from the repo ro
       "targetQuery": "bangkok floating market",
       "h1": "Floating market tours from Bangkok",
       "rule": {
-        "tagIds": [20226],
+        "tagIds": [],
         "titlePattern": "\\bfloating markets?\\b",
         "plainWords": "floating market"
       },
@@ -146,7 +146,8 @@ The apps/api commands write into apps/web by resolving the path from the repo ro
 - `held` (optional, default false) takes a page out of the snapshot, the hub and the live set without deleting its entry (AC-M7, AC-H12).
 - `kind` is `hub`, `category` or `stats`. Exactly one `hub` and one `stats`. Neither has a `rule`. Every page, the hub and stats included, has an `h1`; the stats page has `targetQuery: null`. The hub's cards come from the category pages that have a snapshot and are not held (AC-M7). The stats page's facts cover the printable Bangkok pool (AC-M2a) with no page rule applied (AC-D1).
 - `rule.plainWords` is the title pattern said in words, written by hand next to the pattern (for example `"temple, Wat Arun, Wat Pho, Wat Phra Kaew, Wat Saket, Wat Traimit, Grand Palace, Emerald Buddha or Reclining Buddha"`). `exclusions.plainWords` does the same for the exclusions. Both feed the "How this page was made" note (AC-T4) and the copy grounding (AC-H2). A test fails when a rule or the exclusions block lacks them.
-- `tagNames` names every tag id the manifest uses, for the "How this page was made" note. A test fails when a used id has no name. Names are trimmed: a name Viator returns with leading or trailing spaces is stored without them.
+- `rule.tagIds` may be empty (every category page but the two held ones since 16 Oct 2026). The page then matches by title alone, and its note and rule line use their no tag wording (0006-page-template.md, AC-T4, AC-T12).
+- `tagNames` names every tag id the manifest uses, for the "How this page was made" note. A name no page uses is allowed and never printed. A test fails when a used id has no name. Names are trimmed: a name Viator returns with leading or trailing spaces is stored without them.
 - **No digits in note and rule line inputs.** Manifest validation fails when any string the rule line or a method note prints holds a digit: `rule.plainWords`, `exclusions.plainWords`, the `tagNames` a page uses, group `label`s, `otherLabel`, keyword group `label`s and `places`. So the no digit tests on the notes and the rule line (AC-T4, AC-T12, AC-D2) cannot fail on data Roy writes later.
 - `forbiddenNames` lists the personal names that must never appear on a slice page: Roy's own name, any name he chooses, in any spelling he wants caught. Roy fills it; it is not written by the builder. Manifest validation (apps/api AC-S2 and `seo:index`) fails when the list is empty or an entry is blank. The leak scan matches each entry as a whole word or phrase, case insensitive, in visible text, attribute values and JSON-LD (AC-T6). An entry that also matches a `places` entry (for example a name inside "Jim Thompson House") fails validation, so Roy chooses between forbidding the name and listing the place.
 - Patterns are JavaScript regular expressions, matched case insensitive against `Tour.title`.
@@ -154,7 +155,7 @@ The apps/api commands write into apps/web by resolving the path from the repo ro
 - `keywordGroups` defines every keyword group once: an id, a `label` (the words a template prints, for example "hotel pickup") and its `phrases`, matched case insensitive on word boundaries against inclusion text. `defaultKeywordGroupIds` is the set a page uses unless it lists its own `keywordGroupIds`. The groups are listed in `0006-prod-snapshot.md` (AC-S8) and the per page sets in `0006-page-manifest-membership.md` (AC-M1). They drive the stat strip (AC-S4) and the rank inside a length group (AC-M5).
 - `places` is the place list (AC-S8). A page's `excludePlaces` drops names that are its own topic from that page's `topPlaces` (D10); the copy check still traces against the full list.
 - `groups` (category pages, 0 to 4 entries, in display order) and `otherLabel` define the "How to choose" sections (AC-M5). Group patterns follow the same rules as `rule.titlePattern`. A test fails when a group id repeats on a page or a group lacks a label.
-- `excludedExperiences` lists Experiences Roy flagged in a fact check read, each with a `reason` (D9). They stay members (facts still count them) but are never picked on any page or the hub. The reason is internal and is never rendered.
+- `excludedExperiences` lists Experiences Roy flagged in a fact check or picks review read (a bad image, or a tour that runs in a language other than English), each with a `reason` (D9). They stay members (facts still count them) but are never picked on any page or the hub. The reason is internal and is never rendered.
 - `ogImageExperienceId` is the Experience whose pick image is the page's Open Graph image, chosen by Roy (D9). On a category page or the hub it must be one of that page's picks; on the stats page, a pick on any category page that has a snapshot. `hub-copy:approve` refuses when it is missing or not found (AC-H6), so every live page has one.
 - Adding a page later is a manifest PR plus a snapshot run. No code change (the control pages, brief section 8, question 7).
 
@@ -252,7 +253,7 @@ Tracer Bullet. Each step names the child criteria it satisfies.
 
 1. Shared types and the hash recipe with its golden vector test in both apps, satisfies **AC-1**, AC-S3.
 2. Manifest file with all 9 pages, rules, exclusions, keyword groups, places and per page groups (`muay-thai` and `spa-and-massage` held); the pure membership, section and pick functions and their tests in apps/api, satisfies AC-M1 to AC-M10.
-3. `seo:snapshot` with the read only guard, writing the 7 snapshot files for the pages not held, printable `facts` and internal `eligible`, satisfies **AC-6**, **AC-9**, AC-S1 to AC-S9.
+3. `seo:snapshot` with the read only guard, writing 6 snapshot files, the hub and the 5 category pages not held (the stats snapshot comes with row 25), printable `facts` and internal `eligible`, satisfies **AC-6**, **AC-9**, AC-S1 to AC-S9.
 4. `seo:index` and the two generated files, with notes and source fact validation and `checkHash`, plus the staleness test, and `seo:live-guard` with its CI step, satisfies **AC-2**, **AC-8**.
 5. Gate allowlist, gated robots, `/sitemap-slice.xml`, satisfies AC-G1 to AC-G7.
 6. The static route and the shared template (every block of AC-T3, the hub as a category index), proven on `things-to-do`, with the leak and name scan and the local preview, satisfies **AC-3**, **AC-4**, **AC-7**, AC-T1 to AC-T15.
@@ -298,6 +299,7 @@ Tracer Bullet. Each step names the child criteria it satisfies.
 
 - [ ] Recheck the two held pages when the review counts grow: unhold one by removing `held` once a snapshot run shows it has at least 10 eligible members.
 - [ ] Fill `forbiddenNames` in the manifest: a task for Roy, before build step 2 can pass validation.
+- [ ] Exclude tours that do not run in English by title when the slice widens (scope row 20 follow up, 16 Oct 2026). Today five Japanese tours are listed in `excludedExperiences` by hand.
 - [ ] Check tag 20238 (Private Drivers, 297 Bangkok tours) in the first snapshot report. It is not excluded today; if private driver listings crowd the day trips page, add it to `excludeTagIds` through a manifest PR.
 - [ ] Consent flow (brief section 8, question 9): a launch prerequisite with its own task. Blocks the public launch, not the gated crawl test.
 - [ ] Search Console DNS TXT verification for `foliovoyage.com` (brief section 8, question 10): a task for Roy, blocks AC-R1.

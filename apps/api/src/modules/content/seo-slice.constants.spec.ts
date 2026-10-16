@@ -1,9 +1,15 @@
 import { describe, expect, it } from "@jest/globals";
-import { SEO_SLICE_LEAK_TERMS as SHARED } from "@folio/shared";
-import { SEO_SLICE_LEAK_TERMS } from "./seo-slice.constants";
+import { SEO_SLICE_FIRST_PERSON_WORDS as SHARED_FIRST_PERSON, SEO_SLICE_LEAK_TERMS as SHARED } from "@folio/shared";
+import { SEO_SLICE_FIRST_PERSON_WORDS, SEO_SLICE_LEAK_TERMS } from "./seo-slice.constants";
 
 describe("SEO slice leak list parity (spec 0006 AC-T6)", () => {
   it("matches the @folio/shared list exactly", () => {
     expect(SEO_SLICE_LEAK_TERMS).toEqual(SHARED);
+  });
+});
+
+describe("SEO slice first person words parity (spec 0006 AC-H3, AC-S5)", () => {
+  it("matches the @folio/shared list exactly", () => {
+    expect(SEO_SLICE_FIRST_PERSON_WORDS).toEqual(SHARED_FIRST_PERSON);
   });
 });

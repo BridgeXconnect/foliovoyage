@@ -1,0 +1,12 @@
+{
+  // seo:snapshot (spec 0006) loads isViatorHost from @folio/shared, an ESM
+  // package of TypeScript source. ts-node runs the CLI as CommonJS, so
+  // `moduleTypes` tells it to load the shared source as CommonJS too.
+  "extends": "./tsconfig.json",
+  "ts-node": {
+    "transpileOnly": true,
+    "moduleTypes": {
+      "../../packages/shared/src/**/*": "cjs"
+    }
+  }
+}

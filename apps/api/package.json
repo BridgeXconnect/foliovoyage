@@ -27,7 +27,8 @@
     "tour-copy-withdraw:run": "ts-node src/modules/content/tour-copy-withdraw.cli.ts",
     "tour-copy-spotcheck:run": "ts-node src/modules/content/tour-copy-spotcheck.cli.ts",
     "tour-copy-golden:run": "ts-node src/modules/content/tour-copy-golden.cli.ts",
-    "tour-copy-golden:snapshot": "ts-node src/modules/content/tour-copy-golden-snapshot.cli.ts"
+    "tour-copy-golden:snapshot": "ts-node src/modules/content/tour-copy-golden-snapshot.cli.ts",
+    "seo:snapshot": "ts-node --project tsconfig.seo.json src/modules/content/seo-snapshot.cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
