@@ -214,7 +214,7 @@ describe("SEO slice hub facts (AC-S4)", () => {
 });
 
 describe("SEO slice pick fields (AC-S5)", () => {
-  it("skips a Free cancellation inclusion for the next one, trims, caps at 120 characters and keeps 3", () => {
+  it("skips a Free cancellation inclusion for the next one, trims, skips a text over 120 characters and keeps 3", () => {
     const long = "x".repeat(130);
     const t = tour({
       inclusions: [
@@ -227,7 +227,7 @@ describe("SEO slice pick fields (AC-S5)", () => {
     });
     const pick = pickOf({ tour: t, section: "damnoen-saduak" });
 
-    expect(pick.inclusions).toEqual(["Hotel pickup", "x".repeat(120), "Lunch"]);
+    expect(pick.inclusions).toEqual(["Hotel pickup", "Lunch", "Bottled water"]);
     expect(pick).toEqual({
       experienceId: t.experienceId,
       providerTourId: t.providerTourId,
@@ -239,6 +239,20 @@ describe("SEO slice pick fields (AC-S5)", () => {
       inclusions: pick.inclusions,
     });
     for (const key of ["ratingAvg", "ratingCount", "affiliateUrl", "fromSlug"]) expect(pick).not.toHaveProperty(key);
+  });
+
+  it("keeps a text of exactly 120 characters, never cuts a longer one, and checks repeats on the whole text", () => {
+    const head = "y".repeat(120);
+    const t = tour({
+      inclusions: [
+        { description: `${head} and more` },
+        { description: `  ${head}  ` },
+        { description: "z".repeat(121) },
+      ],
+    });
+
+    // Under a cut, the first text would show as its first 120 characters and the second would be its repeat.
+    expect(pickOf({ tour: t, section: null }).inclusions).toEqual([head]);
   });
 
   it("shows a repeated inclusion once, ignoring case and spaces, and skips first person texts", () => {

@@ -213,20 +213,20 @@ export function hubFactsOf(
 /**
  * A pick as the snapshot holds it (AC-S5): no rating, review count, price,
  * coordinate or affiliate URL. `imageAlt` falls back to the title when it is
- * empty or holds a leak term; inclusions are the first 3 clean texts, trimmed
- * to at most 120 characters, each shown once (case insensitive) and none in
- * the first person.
+ * empty or holds a leak term; inclusions are the first 3 clean texts, each
+ * trimmed, shown once (case insensitive), at most 120 characters (a longer
+ * text is skipped, never cut) and none in the first person.
  */
 export function pickOf(planned: SeoSlicePlannedPick | SeoSliceHubPick): SeoSlicePick {
   const { tour, section } = planned;
   const alt = tour.imageAlt?.trim();
   const seen = new Set<string>();
   const inclusions = inclusionTexts(tour.inclusions)
+    .map((text) => text.trim())
     .filter((text) => findLeakTerms(text).length === 0 && findFirstPerson(text).length === 0)
-    .map((text) => text.trim().slice(0, SEO_SLICE_INCLUSION_MAX_CHARS).trimEnd())
     .filter((text) => {
       const key = text.toLowerCase();
-      if (text.length === 0 || seen.has(key)) return false;
+      if (text.length === 0 || text.length > SEO_SLICE_INCLUSION_MAX_CHARS || seen.has(key)) return false;
       seen.add(key);
       return true;
     })

@@ -7,7 +7,7 @@ import type { SeoSliceSnapshot } from "@folio/shared";
 import { canonicalFileJson } from "./seo-slice-hash";
 import { parseSeoSliceManifest } from "./seo-slice-manifest-schema";
 import type { SeoSliceTourInput } from "./seo-slice-membership";
-import { planSnapshot, SEO_SLICE_EXCLUSION_LABELS, type SeoSnapshotPlan } from "./seo-snapshot";
+import { planSnapshot, SEO_SLICE_EXCLUSION_LABELS, SEO_SLICE_HUB_MIN_PAGES, type SeoSnapshotPlan } from "./seo-snapshot";
 
 /**
  * `seo:snapshot [--out <dir>]` (spec 0006 prod snapshot, scope row 20). Run as
@@ -156,6 +156,12 @@ function printReport(plan: SeoSnapshotPlan, out: (line: string) => void): void {
 function printNextSteps(plan: SeoSnapshotPlan, hubSlug: string, out: (line: string) => void): void {
   const steps: string[] = [];
   for (const slug of plan.thin) {
+    if (slug === hubSlug) {
+      steps.push(
+        `${slug} is thin: fewer than ${SEO_SLICE_HUB_MIN_PAGES} category pages give it cards, so its snapshot was not written (and any old one deleted). It stays out of the live set until enough category pages pass; rerun seo:snapshot after that.`,
+      );
+      continue;
+    }
     steps.push(
       `${slug} is thin, so its snapshot was not written (and any old one deleted). Set "held": true on it in manifest.json, then run doppler run -- pnpm --filter @folio/api hub-copy:run --page ${hubSlug} and approve the hub (hub-copy:approve --page ${hubSlug} --by <initials>), in this same PR.`,
     );

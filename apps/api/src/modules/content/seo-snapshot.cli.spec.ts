@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { SeoSliceSnapshot } from "@folio/shared";
 import { canonicalHash } from "./seo-slice-hash";
-import type { SeoSliceTourInput } from "./seo-slice-membership";
+import { parseSeoSliceManifest } from "./seo-slice-manifest-schema";
+import { exclusionOf, type SeoSliceTourInput } from "./seo-slice-membership";
+import { exclusionLabelOf, SEO_SLICE_EXCLUSION_LABELS } from "./seo-snapshot";
 import {
   bangkokDate,
   checkProdEndpoint,
@@ -333,6 +335,68 @@ describe("seo:snapshot files, statuses and reruns (AC-S6, AC-S7, AC-S9)", () => 
     expect(r.out).toMatch(/cruises is thin.*Set "held": true on it in manifest\.json.*hub-copy:run --page things-to-do/);
     // The hub is still written, from the pages that passed.
     expect(snapshotIn(files, "things-to-do").picks.map((p) => p.fromSlug)).not.toContain("cruises");
+  });
+});
+
+describe("seo:snapshot thin hub (AC-S6)", () => {
+  it("writes no hub file, deletes the old one and exits non zero when only 1 category page gives it cards", async () => {
+    const files = memoryFiles({ [fileOf("things-to-do")]: '{"old": true}\n' });
+    const r = await run({ tours: many(12, { title: "Grand Palace and Temples Walk", durationMin: 180 }), files });
+
+    expect(r.code).toBe(1);
+    expect(files.store.has(fileOf("temples"))).toBe(true);
+    expect(files.removes).toContain(fileOf("things-to-do"));
+    expect(files.store.has(fileOf("things-to-do"))).toBe(false);
+    expect(statusOf(r.out, "things-to-do")).toBe("thin (1 category pages give it cards, the floor is 2)");
+    expect(r.out).toMatch(/things-to-do is thin: fewer than 2 category pages give it cards/);
+  });
+
+  it("treats a hub with no contributing page as thin too", async () => {
+    const r = await run({ tours: [] });
+
+    expect(r.code).toBe(1);
+    expect(r.files.writes).toEqual([]);
+    expect(statusOf(r.out, "things-to-do")).toBe("thin (0 category pages give it cards, the floor is 2)");
+  });
+
+  it("writes the hub from exactly 2 contributing pages", async () => {
+    const tours = [
+      ...many(12, { title: "Grand Palace and Temples Walk", durationMin: 180 }),
+      ...many(12, { title: "Thai Cooking Class in Bangkok", durationMin: 200 }),
+    ];
+    const r = await run({ tours });
+
+    expect(statusOf(r.out, "things-to-do")).toBe("facts changed, picks changed");
+    expect(new Set(snapshotIn(r.files, "things-to-do").picks.map((p) => p.fromSlug))).toEqual(
+      new Set(["temples", "cooking-classes"]),
+    );
+  });
+});
+
+describe("seo:snapshot exclusion labels match the pool's exclusions (AC-S7, AC-M3)", () => {
+  it("excludes the same tours under exclusionLabelOf as under exclusionOf", () => {
+    const parsed = parseSeoSliceManifest(JSON.parse(MANIFEST_TEXT));
+    if (!parsed.ok) throw new Error(parsed.problems.join("; "));
+    const manifest = parsed.manifest;
+    const title = "Damnoen Saduak Floating Market Tour";
+    const cases: [SeoSliceTourInput, string | null][] = [
+      [tour({ title: "Pattaya Floating Market Tour" }), "off city"],
+      [tour({ title, tags: [11922] }), "multi day"],
+      [tour({ title, durationMin: 3000 }), "multi day"],
+      [tour({ title, tags: [12044] }), "transfers"],
+      ...[367651, 367656, 367657].map((t): [SeoSliceTourInput, string] => [tour({ title, tags: [t] }), "flagged"]),
+      [tour({ title: "Floating Market Tour, Free Cancellation" }), "leak term"],
+      [tour({ title, affiliateUrl: "https://evilviator.com/x" }), "non Viator link"],
+      // Hit by two: off city and multi day; counted under the first.
+      [tour({ title: "Pattaya Floating Market Tour", tags: [11922] }), "off city"],
+      [tour({ title }), null],
+    ];
+
+    expect(new Set(cases.map(([, label]) => label).filter(Boolean))).toEqual(new Set(SEO_SLICE_EXCLUSION_LABELS));
+    for (const [t, label] of cases) {
+      expect(exclusionLabelOf(t, manifest)).toBe(label);
+      expect(exclusionOf(t, manifest) === null).toBe(label === null);
+    }
   });
 });
 

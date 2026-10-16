@@ -29,6 +29,9 @@ import { findLeakTerms } from "./seo-slice-text";
 export const SEO_SLICE_MULTI_DAY_TAG = 11922;
 export const SEO_SLICE_TRANSFERS_TAG = 12044;
 
+/** The hub is thin when fewer category pages than this give it cards (AC-S6). */
+export const SEO_SLICE_HUB_MIN_PAGES = 2;
+
 /** The exclusion counts' labels, in the order a tour is checked; the first that hits wins. */
 export const SEO_SLICE_EXCLUSION_LABELS = [
   "off city",
@@ -164,7 +167,8 @@ function compareWithExisting(next: SeoSliceSnapshot, existing: SeoSliceSnapshot 
 /**
  * The run's plan. Category pages first; the hub after them, from the
  * category pages that passed (not held, not thin), so it never waits on a
- * thin page (AC-S6).
+ * thin page. The hub itself is thin when fewer than 2 of them give it cards
+ * (AC-S6).
  */
 export function planSnapshot(input: {
   tours: SeoSliceTourInput[];
@@ -231,6 +235,20 @@ export function planSnapshot(input: {
       continue;
     }
     const hubPicks = selectHubPicks(manifest, Object.fromEntries(passed.map((p) => [p.slug, p.picks])));
+    const contributing = new Set(hubPicks.map((p) => p.fromSlug)).size;
+    if (contributing < SEO_SLICE_HUB_MIN_PAGES) {
+      thin.push(page.slug);
+      pages.push({
+        slug: page.slug,
+        status: "thin",
+        write: null,
+        remove: Boolean(existing[page.slug]),
+        factsChanged: false,
+        picksChanged: false,
+        note: `${contributing} category pages give it cards, the floor is ${SEO_SLICE_HUB_MIN_PAGES}`,
+      });
+      continue;
+    }
     const next = snapshotOf(page.slug, today, hubFactsOf(passed, manifest), null, hubPicks.map(pickOf));
     pages.push(compareWithExisting(next, existing[page.slug] ?? null));
   }
