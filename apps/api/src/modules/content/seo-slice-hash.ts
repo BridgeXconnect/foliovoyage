@@ -24,6 +24,15 @@ export function canonicalHash(value: unknown): string {
   return `${SEO_SLICE_HASH_VERSION}:${digest}`;
 }
 
+/**
+ * A file's text: keys sorted at every level, arrays in their given order, two
+ * space indent and a trailing newline, so two runs on the same data give the
+ * same bytes (spec 0006 prod snapshot, AC-S9).
+ */
+export function canonicalFileJson(value: unknown): string {
+  return `${JSON.stringify(sortKeysDeep(value), null, 2)}\n`;
+}
+
 function sortKeysDeep(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeysDeep);
   if (value !== null && typeof value === "object") {

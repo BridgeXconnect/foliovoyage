@@ -69,8 +69,10 @@ describe("SEO slice pools and exclusions (AC-M2, AC-M2a, AC-M3)", () => {
       tour({ title: "Samui Temples and Floating Market Day Trip" }),
       tour({ title: "Pattaya Floating Market Tour from Bangkok" }),
       tour({ title: "Pattaya Floating Market and Sanctuary of Truth Day Trip" }),
+      tour({ title: "From Bangkok: Koh Samet 5-Island Hopping Tour with Snorkeling" }),
+      tour({ title: "Laem Chabang Port Shore Excursion : Grand Palace, WatPho, WatArun" }),
     ];
-    const ayutthaya = tour({ title: "Ayutthaya Day Trip from Bangkok", tags: [11889] });
+    const ayutthaya = tour({ title: "Ayutthaya Day Trip from Bangkok", tags: [] });
     const all = [...offCity, ayutthaya];
 
     for (const t of offCity) {
@@ -142,12 +144,35 @@ describe("SEO slice pools and exclusions (AC-M2, AC-M2a, AC-M3)", () => {
 
 describe("SEO slice page membership (AC-M4)", () => {
   it("takes a tour that matches by tag only and one that matches by title only", () => {
-    const byTag = tour({ title: "Damnoen Saduak Morning Boat Ride", tags: [20226] });
-    const byTitle = tour({ title: "Bangkok Floating Markets Tour", tags: [] });
+    const byTag = tour({ title: "Airport Transit Dayroom Bangkok", tags: [12078] });
+    const byTitle = tour({ title: "Traditional Thai Massage in Sukhumvit", tags: [] });
     const neither = tour({ title: "Bangkok Street Food Night", tags: [] });
     const { pages } = selectMembers([byTag, byTitle, neither], manifest);
 
-    expect(pages["floating-markets"].members.map((t) => t.id)).toEqual([byTag.id, byTitle.id]);
+    expect(pages["spa-and-massage"].members.map((t) => t.id)).toEqual([byTag.id, byTitle.id]);
+  });
+
+  it("matches a page with no tag ids by title alone, so a removed tag no longer lets a tour in", () => {
+    for (const slug of ["floating-markets", "temples", "day-trips", "cooking-classes", "cruises"]) {
+      expect(pageOf(slug).rule!.tagIds).toEqual([]);
+    }
+    const byTitle = tour({ title: "Damnoen Saduak Floating Market Tour", tags: [] });
+    const oldTagOnly = tour({ title: "Thai Cooking Class Bangkok: Choose 5 Dishes + Market Tour", tags: [20226] });
+    const oldTempleTag = tour({ title: "Bangkok Self-Guided Audio Tour", tags: [21518] });
+    const oldCookingTag = tour({ title: "Chinatown Street Food Night Tour by Tuk Tuk", tags: [12034] });
+    const oldDayTripTag = tour({ title: "Explore Bangkok Markets Tour", tags: [11889] });
+    const oldCruiseTag = tour({ title: "Bangkok Klong Longtail Boat Ride", tags: [11885, 21729] });
+    const khaoYai = tour({ title: "Khao Yai National Park Full Day Tour from Bangkok", tags: [] });
+    const { pages } = selectMembers(
+      [byTitle, oldTagOnly, oldTempleTag, oldCookingTag, oldDayTripTag, oldCruiseTag, khaoYai],
+      manifest,
+    );
+
+    expect(pages["floating-markets"].members.map((t) => t.id)).toEqual([byTitle.id]);
+    expect(pages.temples.members).toEqual([]);
+    expect(pages["cooking-classes"].members.map((t) => t.id)).toEqual([oldTagOnly.id]);
+    expect(pages["day-trips"].members.map((t) => t.id)).toEqual([byTitle.id, khaoYai.id]);
+    expect(pages.cruises.members).toEqual([]);
   });
 
   it("lists every category page, held ones included, and lets a member sit on more than one", () => {
@@ -192,23 +217,26 @@ describe("SEO slice sections and order (AC-M5)", () => {
     expect(result.picks.every((p) => p.section === null)).toBe(true);
   });
 
-  it("splits a section by length and takes from each length in turn", () => {
-    const under = [
-      tour({ title: "Damnoen Saduak Floating Market Tour", durationMin: 180 }),
-      tour({ title: "Damnoen Saduak Floating Market Tour", durationMin: 200 }),
-    ];
-    const fullDay = tour({ title: "Damnoen Saduak Floating Market Tour", durationMin: 600 });
-    const unknown = many(3, { title: "Damnoen Saduak Floating Market Tour", durationMin: null });
+  it("splits a section by length and takes from each length in turn, larger lengths first", () => {
+    const dn = (count: number, durationMin: number | null) =>
+      many(count, { title: "Damnoen Saduak Floating Market Tour", durationMin });
     const ayutthaya = many(4, { title: "Ayutthaya and Floating Market Tour" });
-    const result = picksFor([...under, fullDay, ...unknown, ...ayutthaya]);
+    const lengthsOf = (tours: SeoSliceTourInput[]) =>
+      picksFor([...tours, ...ayutthaya])
+        .picks.filter((p) => p.section === "damnoen-saduak")
+        .map((p) => lengthGroupOf(p.tour.durationMin));
 
     expect(lengthGroupOf(null)).toBe("unknown");
     expect(lengthGroupOf(239)).toBe("under4h");
     expect(lengthGroupOf(240)).toBe("4to8h");
     expect(lengthGroupOf(479)).toBe("4to8h");
     expect(lengthGroupOf(480)).toBe("fullDay");
-    const damnoen = result.picks.filter((p) => p.section === "damnoen-saduak");
-    expect(damnoen.map((p) => lengthGroupOf(p.tour.durationMin))).toEqual(["under4h", "fullDay", "unknown"]);
+    // Known lengths by eligible count, descending: 4to8h 3, fullDay 2, under4h 1.
+    expect(lengthsOf([...dn(1, 180), ...dn(3, 300), ...dn(2, 600), ...dn(4, null)])).toEqual(["4to8h", "fullDay", "under4h"]);
+    // Ties go under4h, 4to8h, fullDay.
+    expect(lengthsOf([...dn(2, 600), ...dn(2, 180), ...dn(2, 300)])).toEqual(["under4h", "4to8h", "fullDay"]);
+    // unknown comes last even when it is the largest.
+    expect(lengthsOf([...dn(5, null), ...dn(1, 600), ...dn(1, 180)])).toEqual(["under4h", "fullDay", "unknown"]);
   });
 
   it("ranks more keyword groups covered above more inclusions inside a length group", () => {
