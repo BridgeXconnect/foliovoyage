@@ -2,27 +2,18 @@
   "schemaVersion": 1,
   "city": { "slug": "bangkok", "countrySlug": "thailand", "name": "Bangkok", "destinationRef": "343" },
   "exclusions": {
-    "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh tao|phangan)\\b",
+    "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh samet|koh tao|phangan|laem chabang)\\b",
     "excludeTagIds": [11922, 12044, 367651, 367656, 367657],
     "maxDurationMin": 1440,
-    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Tao or Phangan), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
+    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Samet, Koh Tao, Phangan or Laem Chabang), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
   },
   "forbiddenNames": ["Roy", "Mkhabela", "Roy Mkhabela"],
   "tagNames": {
-    "11885": "Day Cruises",
-    "11887": "Night Cruises",
-    "11889": "Day Trips",
     "11922": "Multi-day Tours",
-    "11963": "Sunset Cruises",
-    "11965": "Dinner Cruises",
-    "12034": "Cooking Classes",
     "12044": "Airport & Hotel Transfers",
     "12078": "Spas",
-    "20226": "Markets",
     "20227": "Martial Arts Classes",
-    "21518": "Religious Tours",
     "21532": "Boxing Classes",
-    "21729": "Sightseeing Cruises",
     "367651": "DSA non-compliant",
     "367656": "Zombie",
     "367657": "Zombie Slice"
@@ -60,7 +51,13 @@
     "Taling Chan",
     "Khlong Lat Mayom"
   ],
-  "excludedExperiences": [],
+  "excludedExperiences": [
+    { "experienceId": "cmtod7zwd03p9qu18ukmdd0sv", "reason": "tour runs in Japanese" },
+    { "experienceId": "cmtodhi580cl3qu181j4vcdry", "reason": "tour runs in Japanese" },
+    { "experienceId": "cmtod5yh201wrqu18146ktvtu", "reason": "tour runs in Japanese" },
+    { "experienceId": "cmtod803503pfqu18xwmamm7i", "reason": "tour runs in Japanese" },
+    { "experienceId": "cmtocdz0n06toqu18iocjj66x", "reason": "tour runs in Japanese" }
+  ],
   "pages": [
     {
       "slug": "things-to-do",
@@ -75,7 +72,7 @@
       "targetQuery": "bangkok floating market",
       "h1": "Floating market tours from Bangkok",
       "rule": {
-        "tagIds": [20226],
+        "tagIds": [],
         "titlePattern": "\\bfloating markets?\\b",
         "plainWords": "floating market"
       },
@@ -94,7 +91,7 @@
       "targetQuery": "thailand temples bangkok",
       "h1": "Temple tours in Bangkok",
       "rule": {
-        "tagIds": [21518],
+        "tagIds": [],
         "titlePattern": "\\b(temples?|wat arun|wat pho|wat phra kaew|wat saket|wat traimit|grand palace|emerald buddha|reclining buddha)\\b",
         "plainWords": "temple, Wat Arun, Wat Pho, Wat Phra Kaew, Wat Saket, Wat Traimit, Grand Palace, Emerald Buddha or Reclining Buddha"
       },
@@ -141,14 +138,15 @@
       "targetQuery": "day trips from bangkok",
       "h1": "Day trips from Bangkok",
       "rule": {
-        "tagIds": [11889],
-        "titlePattern": "\\bday trips?\\b",
-        "plainWords": "day trip"
+        "tagIds": [],
+        "titlePattern": "\\b(day trips?|ayutthaya|kanchanaburi|river kwai|death railway|erawan national park|erawan falls|erawan waterfalls?|damnoen saduak|maeklong|railway market|floating markets?|khao yai)\\b",
+        "plainWords": "day trip, Ayutthaya, Kanchanaburi, River Kwai, Death Railway, Erawan National Park, Erawan Falls, Erawan waterfall, Damnoen Saduak, Maeklong, railway market, floating market or Khao Yai"
       },
       "groups": [
         { "id": "ayutthaya", "label": "Ayutthaya", "titlePattern": "\\bayutthaya\\b" },
-        { "id": "floating-markets", "label": "Floating markets", "titlePattern": "\\b(floating markets?|maeklong|railway market)\\b" },
-        { "id": "kanchanaburi", "label": "Kanchanaburi and Erawan", "titlePattern": "\\b(kanchanaburi|erawan|river kwai)\\b" }
+        { "id": "floating-markets", "label": "Floating markets", "titlePattern": "\\b(floating markets?|damnoen saduak|maeklong|railway market)\\b" },
+        { "id": "kanchanaburi", "label": "Kanchanaburi and Erawan", "titlePattern": "\\b(kanchanaburi|river kwai|death railway|erawan (national park|falls|waterfalls?))\\b" },
+        { "id": "khao-yai", "label": "Khao Yai", "titlePattern": "\\bkhao yai\\b" }
       ],
       "otherLabel": "Other day trips",
       "sourceFacts": []
@@ -159,7 +157,7 @@
       "targetQuery": "cooking class bangkok",
       "h1": "Cooking classes in Bangkok",
       "rule": {
-        "tagIds": [12034],
+        "tagIds": [],
         "titlePattern": "\\bcooking (class|classes|school|course)\\b",
         "plainWords": "cooking class, cooking school or cooking course"
       },
@@ -176,7 +174,7 @@
       "targetQuery": "bangkok cruise",
       "h1": "Bangkok cruises",
       "rule": {
-        "tagIds": [11885, 21729, 11887, 11963, 11965],
+        "tagIds": [],
         "titlePattern": "\\b(cruises?|dinner boat)\\b",
         "plainWords": "cruise or dinner boat"
       },

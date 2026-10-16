@@ -261,6 +261,13 @@ export const SEO_SLICE_LEAK_TERMS = {
   currencies: ["$", "€", "£", "฿", "USD", "THB", "EUR", "GBP"],
 } as const;
 
+/**
+ * First person words (spec 0006 AC-H3 `firstPerson`), each matched as a whole
+ * word, with curly apostrophes read as straight ones. Snapshot inclusions skip
+ * any text holding one (AC-S5).
+ */
+export const SEO_SLICE_FIRST_PERSON_WORDS = ["i", "i'm", "i've", "me", "my", "we", "we're", "we've", "us", "our", "ours"] as const;
+
 /** Wording that implies more people than exist (spec 0006 AC-7). */
 export const SEO_SLICE_TEAM_TERMS = [
   "our editors",

@@ -59,3 +59,22 @@ describe("category rule plain words match the title pattern (spec 0006 AC-M1)", 
     expect(missing).toEqual([]);
   });
 });
+
+describe("off city places in exclusions.plainWords match offCityTitlePattern (spec 0006 AC-M3)", () => {
+  // The places sit in the one parenthesised list in the exclusions' plain words.
+  const listed = /\(([^()]*)\)/.exec(manifest.exclusions.plainWords);
+  const places = listed ? phrases(listed[1]) : [];
+
+  it("lists the places in parentheses", () => {
+    expect(places.length).toBeGreaterThan(0);
+  });
+
+  it("each place in the plain words matches the pattern", () => {
+    const pattern = new RegExp(manifest.exclusions.offCityTitlePattern, "i");
+    expect(places.filter((p) => !pattern.test(p))).toEqual([]);
+  });
+
+  it("each pattern alternative appears in the plain words", () => {
+    expect(alternatives(manifest.exclusions.offCityTitlePattern).filter((alt) => !places.includes(alt))).toEqual([]);
+  });
+});
