@@ -1,0 +1,237 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": null,
+  "facts": {
+    "bandCounts": {
+      "4to8h": 225,
+      "fullDay": 286,
+      "under4h": 242,
+      "unknown": 253
+    },
+    "inclusionShares": {
+      "entryFee": {
+        "count": 313,
+        "of": 1006
+      },
+      "guide": {
+        "count": 669,
+        "of": 1006
+      },
+      "meal": {
+        "count": 342,
+        "of": 1006
+      },
+      "pickup": {
+        "count": 381,
+        "of": 1006
+      }
+    },
+    "memberCount": 1006,
+    "pages": [
+      {
+        "mainLength": "fullDay",
+        "memberCount": 170,
+        "slug": "floating-markets"
+      },
+      {
+        "mainLength": "4to8h",
+        "memberCount": 357,
+        "slug": "temples"
+      },
+      {
+        "mainLength": "fullDay",
+        "memberCount": 512,
+        "slug": "day-trips"
+      },
+      {
+        "mainLength": "under4h",
+        "memberCount": 43,
+        "slug": "cooking-classes"
+      },
+      {
+        "mainLength": "under4h",
+        "memberCount": 222,
+        "slug": "cruises"
+      }
+    ],
+    "strip": [
+      {
+        "count": 286,
+        "key": "fullDay",
+        "kind": "length",
+        "label": "a full day",
+        "of": 753
+      },
+      {
+        "count": 381,
+        "key": "pickup",
+        "kind": "keyword",
+        "label": "hotel pickup",
+        "of": 1006
+      },
+      {
+        "count": 342,
+        "key": "meal",
+        "kind": "keyword",
+        "label": "a meal",
+        "of": 1006
+      }
+    ]
+  },
+  "factsHash": "v1:c6847bb129c5537c110f48aa6a1fa04be301ca447f2279fb3a96189b61a9997f",
+  "picks": [
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodmi2p0h5hqu187eq8kqbl",
+      "fromSlug": "floating-markets",
+      "imageAlt": "Private Damnoen Saduak Floating Market and Train Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/32/6c/6e/d5/caption.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Bottled water",
+        "Snacks"
+      ],
+      "providerTourId": "52374P4",
+      "section": null,
+      "title": "Private Damnoen Saduak Floating Market and Train Market Tour"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtocjqvj0bruqu18g89k22z2",
+      "fromSlug": "floating-markets",
+      "imageAlt": "Floating markets",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/74/c8/e8.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Transport by private, air-conditioned minivan",
+        "Lunch"
+      ],
+      "providerTourId": "8183P5",
+      "section": null,
+      "title": "Private Tour: Damnoen Saduak Floating Market and Bangkok City Temples"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtock3bh0c2gqu182bw1frjm",
+      "fromSlug": "temples",
+      "imageAlt": "Private Half-Day Bangkok City Tour with The Grand Palace",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/32/9f/85.jpg",
+      "inclusions": [
+        "English speaking guide at the time of sightseeing",
+        "Hotel pickup and drop-off at Bangkok City area",
+        "All attractions entrance fee."
+      ],
+      "providerTourId": "102095P4",
+      "section": null,
+      "title": "Private Half Day Tour in Bangkok with the Grand Palace"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtoc6o5z00qwqu1853ebv7ws",
+      "fromSlug": "temples",
+      "imageAlt": "Bangkok City Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/71/1e/dc.jpg",
+      "inclusions": [
+        "Hotel pickup and drop off at your centrally located Bangkok hotel",
+        "Private tour",
+        "Entrance fee"
+      ],
+      "providerTourId": "36435P1",
+      "section": null,
+      "title": "Private Bangkok City Tour Full Day With The Grand Palace"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtoc67ce00diqu18q23rzk7b",
+      "fromSlug": "day-trips",
+      "imageAlt": "Wat Chaiwattanaram",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/17/0b/bb/60.jpg",
+      "inclusions": [
+        "Travel insurance",
+        "Admission fee",
+        "Bottled water"
+      ],
+      "providerTourId": "8374P61",
+      "section": null,
+      "title": "Bangkok Ayutthaya Heritage Express Train and Bus Day Trip"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtoddh3z08w1qu18zezi5nqh",
+      "fromSlug": "day-trips",
+      "imageAlt": "Historical park in Ayutthaya",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/7b/c1/29.jpg",
+      "inclusions": [
+        "Use of bicycle and helmet",
+        "Snack and bottled water",
+        "Use of bicycle"
+      ],
+      "providerTourId": "25446P3",
+      "section": null,
+      "title": "Half-Day Ayutthaya City Cultural Bike Tour"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodkqsx0fk1qu1810ur1efk",
+      "fromSlug": "cooking-classes",
+      "imageAlt": "Tingly Thai Cooking Class with Morning Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/e7/12/d6.jpg",
+      "inclusions": [
+        "All necessary equipment",
+        "English speaking instructor",
+        "All ingredients (Market tour- only morning class)"
+      ],
+      "providerTourId": "198444P1",
+      "section": null,
+      "title": "Tingly Thai Cooking Class with Morning Market Tour"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocwjs10njoqu185j36yfjw",
+      "fromSlug": "cooking-classes",
+      "imageAlt": "Local Thai Market Tour Included",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/7e/26/81.jpg",
+      "inclusions": [
+        "Thai cooking class",
+        "Recipes",
+        "Lunch or dinner"
+      ],
+      "providerTourId": "42433P1",
+      "section": null,
+      "title": "Pink Chili - Thai Cooking Class and Market Tour in Bangkok"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodej1r09vtqu18v28t1r7k",
+      "fromSlug": "cruises",
+      "imageAlt": "5 Star Luxury Bangkok Dinner Cruise On Wonderful Pearl Cruise",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0e/9f/0a/81.jpg",
+      "inclusions": [
+        "Entertain by live music band",
+        "Thai & International buffet dinner on board",
+        "Welcome drink"
+      ],
+      "providerTourId": "110534P592",
+      "section": null,
+      "title": "5 Star Luxury Bangkok Dinner Cruise On Wonderful Pearl Cruise"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocssip0jz8qu18qiu13lif",
+      "fromSlug": "cruises",
+      "imageAlt": "Bangkok Dinner Cruise with Intl Buffet, Live Music & Hotel Pickup",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/54/12/12.jpg",
+      "inclusions": [
+        "Private Roundtrip Hotel Transfer",
+        "Live Entertainment: A Duo of Harmonious Singers",
+        "An International Buffet Featuring Main Courses and Fresh Seafood"
+      ],
+      "providerTourId": "110403P22",
+      "section": null,
+      "title": "Bangkok Dinner Cruise with Intl Buffet, Live Music & Hotel Pickup"
+    }
+  ],
+  "picksHash": "v1:00c3456baaaef273dc3b68581cf0eda3b30db00da60e70d695decc1fdebc8c47",
+  "schemaVersion": 1,
+  "slug": "things-to-do"
+}

@@ -1,0 +1,249 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": {
+    "count": 43,
+    "sections": [
+      {
+        "count": 26,
+        "id": "dinner"
+      },
+      {
+        "count": 10,
+        "id": "ayutthaya"
+      },
+      {
+        "count": 7,
+        "id": "other"
+      }
+    ]
+  },
+  "facts": {
+    "bandCounts": {
+      "4to8h": 15,
+      "fullDay": 16,
+      "under4h": 158,
+      "unknown": 33
+    },
+    "inclusionShares": {
+      "buffet": {
+        "count": 158,
+        "of": 222
+      },
+      "guide": {
+        "count": 41,
+        "of": 222
+      },
+      "liveMusic": {
+        "count": 114,
+        "of": 222
+      },
+      "meal": {
+        "count": 149,
+        "of": 222
+      },
+      "pickup": {
+        "count": 34,
+        "of": 222
+      },
+      "welcomeDrink": {
+        "count": 79,
+        "of": 222
+      }
+    },
+    "memberCount": 222,
+    "sections": [
+      {
+        "id": "dinner",
+        "label": "Dinner cruises",
+        "memberCount": 155
+      },
+      {
+        "id": "ayutthaya",
+        "label": "River trips to Ayutthaya",
+        "memberCount": 22
+      },
+      {
+        "id": "other",
+        "label": "Other cruises",
+        "memberCount": 45
+      }
+    ],
+    "strip": [
+      {
+        "count": 114,
+        "key": "liveMusic",
+        "kind": "keyword",
+        "label": "live music",
+        "of": 222
+      },
+      {
+        "count": 79,
+        "key": "welcomeDrink",
+        "kind": "keyword",
+        "label": "a welcome drink",
+        "of": 222
+      },
+      {
+        "count": 149,
+        "key": "meal",
+        "kind": "keyword",
+        "label": "a meal",
+        "of": 222
+      }
+    ],
+    "topPlaces": [
+      {
+        "count": 93,
+        "name": "Chao Phraya"
+      },
+      {
+        "count": 22,
+        "name": "Ayutthaya"
+      },
+      {
+        "count": 3,
+        "name": "Wat Arun"
+      },
+      {
+        "count": 2,
+        "name": "Grand Palace"
+      },
+      {
+        "count": 2,
+        "name": "Wat Pho"
+      }
+    ]
+  },
+  "factsHash": "v1:2a4c7c4341ce6cb887cc37450eeb58ee360b2e8821c17f6ba4945eae8c8bfb36",
+  "picks": [
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodej1r09vtqu18v28t1r7k",
+      "imageAlt": "5 Star Luxury Bangkok Dinner Cruise On Wonderful Pearl Cruise",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0e/9f/0a/81.jpg",
+      "inclusions": [
+        "Entertain by live music band",
+        "Thai & International buffet dinner on board",
+        "Welcome drink"
+      ],
+      "providerTourId": "110534P592",
+      "section": "dinner",
+      "title": "5 Star Luxury Bangkok Dinner Cruise On Wonderful Pearl Cruise"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocssip0jz8qu18qiu13lif",
+      "imageAlt": "Bangkok Dinner Cruise with Intl Buffet, Live Music & Hotel Pickup",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/54/12/12.jpg",
+      "inclusions": [
+        "Private Roundtrip Hotel Transfer",
+        "Live Entertainment: A Duo of Harmonious Singers",
+        "An International Buffet Featuring Main Courses and Fresh Seafood"
+      ],
+      "providerTourId": "110403P22",
+      "section": "dinner",
+      "title": "Bangkok Dinner Cruise with Intl Buffet, Live Music & Hotel Pickup"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtocmgdi0e6qqu18t45bqixa",
+      "imageAlt": "Bangkok Chao Phraya River Buffet Dinner Cruise with Entertainment",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/51/fc/40.jpg",
+      "inclusions": [
+        "2 hours dinner cruise",
+        "Live music on the cruise",
+        "Welcome drink"
+      ],
+      "providerTourId": "110534P896",
+      "section": "dinner",
+      "title": "Bangkok Chao Phraya River Buffet Dinner Cruise with Entertainment"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtocn35d0ercqu18cbae3pxu",
+      "imageAlt": "Ayutthaya by Coach an Cruise",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/10/48/1b/ad.jpg",
+      "inclusions": [
+        "Buffet lunch",
+        "Professional guide",
+        "One way hotel pick up ( optional )"
+      ],
+      "providerTourId": "8374P19",
+      "section": "ayutthaya",
+      "title": "Ayutthaya Day Tour By Coach and Cruise"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtoco5po0fq6qu182hsuyywg",
+      "imageAlt": "Enjoy the cruise back to Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0b/ee/67/c3.jpg",
+      "inclusions": [
+        "All admission fees as mentioned in the itinerary.",
+        "Private air-conditioned minibus and driver",
+        "Private qualified and experienced English speaking guide"
+      ],
+      "providerTourId": "74668P17",
+      "section": "ayutthaya",
+      "title": "Private Tour : Ayutthaya Sightseeing by Coach return by Cruise"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtod7mpf03dnqu180z09oaz5",
+      "imageAlt": "Ayutthaya Highlights Tour with Scenic Grand Pearl River Cruise",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/df/ce/f9.jpg",
+      "inclusions": [
+        "Professional english speaking tour guide",
+        "Lunch",
+        "Air-conditioned vehicle"
+      ],
+      "providerTourId": "103612P20",
+      "section": "ayutthaya",
+      "title": "Ayutthaya Highlights Tour with Scenic Grand Pearl River Cruise"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtocg8p208ryqu18wip8bf37",
+      "imageAlt": "Chao Phraya Princess",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/a4/3c/e2.jpg",
+      "inclusions": [
+        "Admission Ticket",
+        "Live Music",
+        "Dance Performance"
+      ],
+      "providerTourId": "102252P22",
+      "section": "other",
+      "title": "Bangkok Chao Phraya Princess Sunset Cruise Tour Admission Ticket"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocdno706jyqu18157mla52",
+      "imageAlt": "Bangkok Local Canal Cruise & Artist Village by EV Boat",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/32/a9/25/0d/caption.jpg",
+      "inclusions": [
+        "Travel Insurance provides support in case of fatal accidents during travel.",
+        "Kudichin Thai-Portuguese Dessert",
+        "Entry Fees －Tickets"
+      ],
+      "providerTourId": "63670P136",
+      "section": "other",
+      "title": "Bangkok Local Canal Cruise & Artist Village by EV Boat"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodhpy90cs9qu18uos4ft91",
+      "imageAlt": "Bangkok Slow Boat Experience Private Cruise Through the Old Canal",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/4f/c4/f9.jpg",
+      "inclusions": [
+        "Travel insurance",
+        "Bottles of water",
+        "an English speaking tour guide"
+      ],
+      "providerTourId": "88184P10",
+      "section": "other",
+      "title": "Bangkok Slow Boat Experience Private Cruise Through the Old Canal"
+    }
+  ],
+  "picksHash": "v1:1ed968100f5033fbea7d14086f089646e915e3744c5f703d84c2629921b63fd5",
+  "schemaVersion": 1,
+  "slug": "cruises"
+}

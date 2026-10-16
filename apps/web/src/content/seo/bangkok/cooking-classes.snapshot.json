@@ -1,0 +1,173 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": {
+    "count": 20,
+    "sections": [
+      {
+        "count": 11,
+        "id": "market-visit"
+      },
+      {
+        "count": 9,
+        "id": "other"
+      }
+    ]
+  },
+  "facts": {
+    "bandCounts": {
+      "4to8h": 14,
+      "fullDay": 2,
+      "under4h": 26,
+      "unknown": 1
+    },
+    "inclusionShares": {
+      "marketVisit": {
+        "count": 19,
+        "of": 43
+      },
+      "meal": {
+        "count": 13,
+        "of": 43
+      },
+      "pickup": {
+        "count": 7,
+        "of": 43
+      },
+      "recipe": {
+        "count": 28,
+        "of": 43
+      },
+      "vegetarian": {
+        "count": 3,
+        "of": 43
+      }
+    },
+    "memberCount": 43,
+    "sections": [
+      {
+        "id": "market-visit",
+        "label": "With a market visit",
+        "memberCount": 20
+      },
+      {
+        "id": "other",
+        "label": "Other classes",
+        "memberCount": 23
+      }
+    ],
+    "strip": [
+      {
+        "count": 19,
+        "key": "marketVisit",
+        "kind": "keyword",
+        "label": "a market visit",
+        "of": 43
+      },
+      {
+        "count": 26,
+        "key": "under4h",
+        "kind": "length",
+        "label": "under 4 hours",
+        "of": 42
+      },
+      {
+        "count": 28,
+        "key": "recipe",
+        "kind": "keyword",
+        "label": "recipes to take home",
+        "of": 43
+      }
+    ],
+    "topPlaces": []
+  },
+  "factsHash": "v1:4bfab88f20a799f02dbbe60b823d1b9184e15940e2d7b7aec1507fb0d1b902bc",
+  "picks": [
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodkqsx0fk1qu1810ur1efk",
+      "imageAlt": "Tingly Thai Cooking Class with Morning Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/e7/12/d6.jpg",
+      "inclusions": [
+        "All necessary equipment",
+        "English speaking instructor",
+        "All ingredients (Market tour- only morning class)"
+      ],
+      "providerTourId": "198444P1",
+      "section": "market-visit",
+      "title": "Tingly Thai Cooking Class with Morning Market Tour"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocwjs10njoqu185j36yfjw",
+      "imageAlt": "Local Thai Market Tour Included",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/7e/26/81.jpg",
+      "inclusions": [
+        "Thai cooking class",
+        "Recipes",
+        "Lunch or dinner"
+      ],
+      "providerTourId": "42433P1",
+      "section": "market-visit",
+      "title": "Pink Chili - Thai Cooking Class and Market Tour in Bangkok"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtod77en0305qu18y144u9xd",
+      "imageAlt": "Thai Cooking Class Bangkok: Choose 5 Dishes + Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/3f/ad/ee.jpg",
+      "inclusions": [
+        "Choose and cook 5 dishes from 20+ options",
+        "Recipes + online access to cooking videos",
+        "Lunch (morning class) or dinner (afternoon class)"
+      ],
+      "providerTourId": "24407P4",
+      "section": "market-visit",
+      "title": "Thai Cooking Class Bangkok: Choose 5 Dishes + Market Tour"
+    },
+    {
+      "durationBand": "under4h",
+      "experienceId": "cmtodgb8t0bhvqu18ddsx9hhm",
+      "imageAlt": "Evening class at Tingly Thai cooking school",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/12/e7/16/e6.jpg",
+      "inclusions": [
+        "Bottled water",
+        "Kitchen Equipment",
+        "Dinner"
+      ],
+      "providerTourId": "198444P3",
+      "section": "other",
+      "title": "Tingly Thai Cooking School Evening Class"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocjhp20bk4qu18929oh29h",
+      "imageAlt": "Sompong Thai Cooking Class in Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0e/79/7d/cc.jpg",
+      "inclusions": [
+        "Recipe book",
+        "English speaking instructor",
+        "Market tour (for morning timing only)"
+      ],
+      "providerTourId": "150859P105",
+      "section": "other",
+      "title": "Sompong Thai Cooking School in Bangkok"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodl2io0futqu18t6393yli",
+      "imageAlt": "Mahanakorn Pad Thai & Tom Yum Cooking Class in Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/34/3d/a2/69/caption.jpg",
+      "inclusions": [
+        "Local chef/instructor",
+        "All ingredients",
+        "Bottled water"
+      ],
+      "providerTourId": "464103P2",
+      "section": "other",
+      "title": "Mahanakorn Pad Thai & Tom Yum Cooking Class in Bangkok"
+    }
+  ],
+  "picksHash": "v1:5b6b17ff9d227463655cb461580035d6a74e21879d1620141dd4881015c363b2",
+  "schemaVersion": 1,
+  "slug": "cooking-classes"
+}

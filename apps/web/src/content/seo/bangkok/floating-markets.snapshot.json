@@ -1,0 +1,292 @@
+{
+  "computedOn": "2026-10-16",
+  "eligible": {
+    "count": 77,
+    "sections": [
+      {
+        "count": 18,
+        "id": "damnoen-saduak"
+      },
+      {
+        "count": 28,
+        "id": "maeklong"
+      },
+      {
+        "count": 5,
+        "id": "ayutthaya"
+      },
+      {
+        "count": 26,
+        "id": "other"
+      }
+    ]
+  },
+  "facts": {
+    "bandCounts": {
+      "4to8h": 54,
+      "fullDay": 58,
+      "under4h": 0,
+      "unknown": 58
+    },
+    "inclusionShares": {
+      "entryFee": {
+        "count": 47,
+        "of": 170
+      },
+      "guide": {
+        "count": 149,
+        "of": 170
+      },
+      "meal": {
+        "count": 31,
+        "of": 170
+      },
+      "pickup": {
+        "count": 89,
+        "of": 170
+      }
+    },
+    "memberCount": 170,
+    "sections": [
+      {
+        "id": "damnoen-saduak",
+        "label": "Damnoen Saduak",
+        "memberCount": 39
+      },
+      {
+        "id": "maeklong",
+        "label": "With the Maeklong railway market",
+        "memberCount": 59
+      },
+      {
+        "id": "ayutthaya",
+        "label": "Combined with Ayutthaya",
+        "memberCount": 20
+      },
+      {
+        "id": "other",
+        "label": "Other floating market tours",
+        "memberCount": 52
+      }
+    ],
+    "strip": [
+      {
+        "count": 54,
+        "key": "4to8h",
+        "kind": "length",
+        "label": "4 to 8 hours",
+        "of": 112
+      },
+      {
+        "count": 58,
+        "key": "fullDay",
+        "kind": "length",
+        "label": "a full day",
+        "of": 112
+      },
+      {
+        "count": 89,
+        "key": "pickup",
+        "kind": "keyword",
+        "label": "hotel pickup",
+        "of": 170
+      }
+    ],
+    "topPlaces": [
+      {
+        "count": 39,
+        "name": "Damnoen Saduak"
+      },
+      {
+        "count": 28,
+        "name": "Ayutthaya"
+      },
+      {
+        "count": 16,
+        "name": "Maeklong Railway Market"
+      },
+      {
+        "count": 6,
+        "name": "Amphawa"
+      },
+      {
+        "count": 6,
+        "name": "Erawan"
+      }
+    ]
+  },
+  "factsHash": "v1:82db40b221850121f6206cdee584bf3aeb61abf80cd4ac4c670ecfdf9673d211",
+  "picks": [
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodmi2p0h5hqu187eq8kqbl",
+      "imageAlt": "Private Damnoen Saduak Floating Market and Train Market Tour",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/32/6c/6e/d5/caption.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Bottled water",
+        "Snacks"
+      ],
+      "providerTourId": "52374P4",
+      "section": "damnoen-saduak",
+      "title": "Private Damnoen Saduak Floating Market and Train Market Tour"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtocjqvj0bruqu18g89k22z2",
+      "imageAlt": "Floating markets",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/74/c8/e8.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Transport by private, air-conditioned minivan",
+        "Lunch"
+      ],
+      "providerTourId": "8183P5",
+      "section": "damnoen-saduak",
+      "title": "Private Tour: Damnoen Saduak Floating Market and Bangkok City Temples"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodarvl06b7qu18ews6wpix",
+      "imageAlt": "Damnoen Saduak Floating Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/07/a4/3b/9e.jpg",
+      "inclusions": [
+        "Long-tail boat ride to Damnoen Saduak floating market",
+        "Local guide",
+        "Air-conditioned vehicle"
+      ],
+      "providerTourId": "102252P25",
+      "section": "damnoen-saduak",
+      "title": "Maeklong Railway & Damnoen Saduak Floating Market Half-Day Tour"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtodmhnv0h55qu18a65x18wo",
+      "imageAlt": "Maek Long Railway Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/0a/ae/b7/8f.jpg",
+      "inclusions": [
+        "Transportation in A/C vehicle",
+        "Floating Market boat charge (about 30 minutes).",
+        "Bottled water"
+      ],
+      "providerTourId": "205208P8",
+      "section": "maeklong",
+      "title": "Private Maeklong Railway and Floating Market Highlight Tour"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtodhcvj0cg9qu18ji897dt7",
+      "imageAlt": "Bangkok Floating Market & Railway Market Tour with Private Car",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/15/d3/ac/b0.jpg",
+      "inclusions": [
+        "Tour guide－ English speaking tour guide",
+        "Hotel Pickup－ Pickup and drop off from hotel",
+        "Lunch－ Including lunch on trip"
+      ],
+      "providerTourId": "63670P131",
+      "section": "maeklong",
+      "title": "Bangkok Floating Market & Railway Market Tour with Private Car"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodmhgp0h4zqu18cuh95sw0",
+      "imageAlt": "Private Tour to Maeklong Railway Market and Floating Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/34/e2/94/01/caption.jpg",
+      "inclusions": [
+        "Pick up and drop-off at your hotel. (If your hotel is in the city center)",
+        "Entry/Admission - Railway Market",
+        "Thai desserts and bottled water"
+      ],
+      "providerTourId": "371426P11",
+      "section": "maeklong",
+      "title": "Private Tour to Maeklong Railway Market and Floating Market"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtocxfy50odcqu18a70ixcps",
+      "imageAlt": "Ayutthaya Temples and Ayothaya Floating Market From Bangkok",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/eb/b5/96.jpg",
+      "inclusions": [
+        "Local guide",
+        "Driver/guide",
+        "Air-conditioned vehicle"
+      ],
+      "providerTourId": "90513P1",
+      "section": "ayutthaya",
+      "title": "Ayutthaya Temples and Ayothaya Floating Market From Bangkok"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtodjrpp0enxqu18q0whm1s8",
+      "imageAlt": "Damnoendaduak Floating Market",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/10/03/79/57.jpg",
+      "inclusions": [
+        "Local lunch",
+        "All Fees and Taxes; All Fees and Taxes",
+        "One-way hotel pick up (if option selected)"
+      ],
+      "providerTourId": "8374P27",
+      "section": "ayutthaya",
+      "title": "Floating Market and Ayutthaya Guided Day Tour from Bangkok"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtod47oj00e5qu18epr6jozs",
+      "imageAlt": "Wat Lokaya Sutharam in Ayutthaya",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/17/10/d1/8d.jpg",
+      "inclusions": [
+        "Pick up & drop off at hotel in Bangkok (except hotel near airport or outside city area)",
+        "All admission, activity and transport fees as per itinerary",
+        "English speaking Guide service as itinerary"
+      ],
+      "providerTourId": "51641P186",
+      "section": "ayutthaya",
+      "title": "Private Excursion to Floating Market and Ayutthaya World Heritage"
+    },
+    {
+      "durationBand": "fullDay",
+      "experienceId": "cmtocq9620hlsqu18utp4vsjn",
+      "imageAlt": "Floating markets",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/74/c8/e8.jpg",
+      "inclusions": [
+        "Hotel pickup and drop-off",
+        "Local guide",
+        "Private tour"
+      ],
+      "providerTourId": "8183P2",
+      "section": "other",
+      "title": "Damnern Saduak Floating Market, Grand Palace and Wat Phra Keo Tour from Bangkok"
+    },
+    {
+      "durationBand": "4to8h",
+      "experienceId": "cmtoctqlj0kvkqu18t3btif41",
+      "imageAlt": "Railway & Floating Market Tour with Paddle Boat Ride",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/06/e0/54/17.jpg",
+      "inclusions": [
+        "Optional Hotel pick up (selected hotels only)",
+        "All Taxes",
+        "Professional, English and Thai speaking Guide"
+      ],
+      "providerTourId": "90546P83",
+      "section": "other",
+      "title": "Railway & Floating Market Tour with Paddle Boat Ride"
+    },
+    {
+      "durationBand": "unknown",
+      "experienceId": "cmtodmjoq0h6tqu18uvjk9ib2",
+      "imageAlt": "Private Tour to Railway and Floating Markets with Simple Brunch",
+      "imageUrl": "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-540x360/r/33/6a/cc/e2/caption.jpg",
+      "inclusions": [
+        "Accident insurance",
+        "Pick up and drop-off at your hotel. (If your hotel is in the city center)",
+        "Private vehicle - Car with cool A/C, and motor boat"
+      ],
+      "providerTourId": "371426P12",
+      "section": "other",
+      "title": "Private Tour to Railway and Floating Markets with Simple Brunch"
+    }
+  ],
+  "picksHash": "v1:c00ca4ac48d04b83fbec022bb41aaf3dc977a20114a1becf6453157f6b67c4dc",
+  "schemaVersion": 1,
+  "slug": "floating-markets"
+}
