@@ -5,7 +5,7 @@
     "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh tao|phangan)\\b",
     "excludeTagIds": [11922, 12044, 367651, 367656, 367657],
     "maxDurationMin": 1440,
-    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Tao or Phangan), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, and tours with no Viator booking link"
+    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Tao or Phangan), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
   },
   "forbiddenNames": ["Roy", "Mkhabela", "Roy Mkhabela"],
   "tagNames": {
