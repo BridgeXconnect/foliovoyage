@@ -138,6 +138,23 @@ describe("seo:snapshot read only guard (AC-S1)", () => {
     expect(r.out + r.err).not.toContain("secret");
   });
 
+  it("closes the client and runs no data query when the SHOW itself fails", async () => {
+    const client = fakeClient(baseTours());
+    const query = client.query;
+    client.query = async <R,>(sql: string) => {
+      if (sql.startsWith("SHOW")) throw new Error("connection reset");
+      return query<R>(sql);
+    };
+    const files = memoryFiles();
+
+    await expect(main([], ENV, { out: () => undefined, err: () => undefined }, { createClient: () => client, files })).rejects.toThrow(
+      "connection reset",
+    );
+    expect(client.ended).toBe(true);
+    expect(client.queries).toEqual(["SET default_transaction_read_only = on"]);
+    expect(files.writes).toEqual([]);
+  });
+
   it("sets read only, checks it, then runs the one data query on the same client", async () => {
     const r = await run({ tours: baseTours() });
 

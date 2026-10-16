@@ -15,6 +15,7 @@ import { canonicalHash, canonicalJson } from "./seo-slice-hash";
 import {
   matchesRule,
   representativeTours,
+  SEO_SLICE_FLOOR,
   selectHubPicks,
   selectMembers,
   selectPicks,
@@ -204,7 +205,7 @@ export function planSnapshot(input: {
         remove: Boolean(existing[page.slug]),
         factsChanged: false,
         picksChanged: false,
-        note: `${plan.eligibleCount} eligible members, the floor is 10`,
+        note: `${plan.eligibleCount} eligible members, the floor is ${SEO_SLICE_FLOOR}`,
       });
       continue;
     }

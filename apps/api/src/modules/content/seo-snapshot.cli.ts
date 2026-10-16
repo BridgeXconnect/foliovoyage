@@ -124,9 +124,16 @@ function parseArgs(argv: string[]): { outDir: string } | { error: string } {
  */
 export async function openReadOnly(client: SnapshotDbClient, err: (line: string) => void): Promise<SnapshotDbClient | null> {
   await client.connect();
-  await client.query("SET default_transaction_read_only = on");
-  const { rows } = await client.query<{ default_transaction_read_only: string }>("SHOW default_transaction_read_only");
-  const answer = rows[0]?.default_transaction_read_only;
+  let answer: string | undefined;
+  try {
+    await client.query("SET default_transaction_read_only = on");
+    const { rows } = await client.query<{ default_transaction_read_only: string }>("SHOW default_transaction_read_only");
+    answer = rows[0]?.default_transaction_read_only;
+  } catch (error) {
+    // Close the socket so the process can exit; main's caller prints the message only.
+    await client.end();
+    throw error;
+  }
   if (answer !== "on") {
     err(`seo:snapshot: the connection reports default_transaction_read_only = ${answer ?? "nothing"}, not on. No data was read.`);
     await client.end();
