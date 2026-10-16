@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "@jest/globals";
+import type { SeoSliceManifest } from "@folio/shared";
 import { fixtureContent, fixtureManifest } from "./fixture";
+import { SLICE_CONTENT_DIR } from "./index-files";
 import { findFirstPerson, findLeakTerms } from "./text-checks";
 import { validateContent, validateManifest } from "./validate";
 
@@ -35,6 +39,22 @@ describe("validateManifest", () => {
     expect(problems).toMatch(/forbiddenNames is empty/);
     expect(problems).toMatch(/exactly one stats page/);
     expect(problems).toMatch(/places\[2\] holds a digit/);
+  });
+});
+
+describe("validateManifest on the real manifest (spec 0006 AC-M1, AC-M10)", () => {
+  const real = JSON.parse(readFileSync(path.join(SLICE_CONTENT_DIR, "manifest.json"), "utf8")) as SeoSliceManifest;
+
+  it("accepts manifest.json as committed", () => {
+    expect(validateManifest(real)).toEqual([]);
+  });
+
+  it("rejects an image exclusion without a reason", () => {
+    const m = structuredClone(real);
+    m.excludedExperiences = [{ experienceId: "exp-1", reason: " " }];
+    expect(validateManifest(m)).toContain("manifest: excludedExperiences[0] has no reason");
+    m.excludedExperiences = [{ experienceId: "exp-1", reason: "image is a logo, not the tour" }];
+    expect(validateManifest(m)).toEqual([]);
   });
 });
 

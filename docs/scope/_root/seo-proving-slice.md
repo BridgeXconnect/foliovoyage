@@ -31,12 +31,12 @@ Let anonymous visitors and crawlers reach only the slice URLs, `/go/`, `/ingest`
 The manifest of the 9 pages, and the rule that decides which Bangkok tours belong on each page. Coordinates alone cannot decide it (612 of 2,589 Bangkok tours have none), and off city tours must stay out (Phuket, Phi Phi, Krabi, Samui, and 2 Pattaya floating market tours). The BRI-200 gate is a yes or no filter only; ordering uses static fields, never ratings. The manifest also holds each page's "How to choose" groups, the keyword groups and place list, and the image exclusions, and picks alternate across trip lengths inside each group so no page fills from one length (amended 16 Oct 2026).
 **Done when:** each page has a written membership rule and its groups, every live page has at least 10 eligible tours, none of the named off city tours appears on any page, and on a fixture with tours of every length no section's picks all come from one length group while another has eligible members.
 - [x] Design it (spec): [0006 manifest and membership](../../specs/_root/0006-seo-proving-slice/0006-page-manifest-membership.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
-- [ ] Build it: `/develop page list and tour membership rule`
-  - [ ] Manifest with the 9 pages, H1s, plain words, exclusions, tag names, groups, keyword groups, places, an empty `excludedExperiences` and Roy's `forbiddenNames`; spa and muay thai held (AC-M1, AC-M3)
-    - [ ] add a script level held case to live-guard.cli.spec once manifest.json exists
-  - [ ] `selectMembers` and `selectPicks` with the off city, section, round robin, exclusion and hub pick tests (AC-M2 to AC-M8, AC-M10)
-  - [ ] Slug test in apps/web (AC-M9)
-- [ ] Verify it: `/check verify page list and tour membership rule`
+- [x] Build it: `/develop page list and tour membership rule`
+  - [x] Manifest with the 9 pages, H1s, plain words, exclusions, tag names, groups, keyword groups, places, an empty `excludedExperiences` and Roy's `forbiddenNames`; spa and muay thai held (AC-M1, AC-M3)
+    - [x] add a script level held case to live-guard.cli.spec once manifest.json exists
+  - [x] `selectMembers` and `selectPicks` with the off city, section, round robin, exclusion and hub pick tests (AC-M2 to AC-M8, AC-M10)
+  - [x] Slug test in apps/web (AC-M9)
+- [x] Verify it: `/check verify page list and tour membership rule`
 
 ### 20. Snapshot files from prod, read only · in-progress
 A command that reads prod read only and writes one committed, dated snapshot file per page: its computed facts (including its sections and stat strip) and its pick list, with a computed on date and a grounding hash. A page that falls under the floor is thin: the command deletes its old file, exits with an error and says how to hold it, and the hub is regenerated and approved in the same PR. Pages build from these files, never from live database reads. It never reads or writes the notes files.
@@ -46,7 +46,9 @@ A command that reads prod read only and writes one committed, dated snapshot fil
   - [ ] Facts builder over printable members (sections, stat strip, keyword groups and places from the manifest) and the internal `eligible` block, with tests (AC-S4, AC-S4a, AC-S8)
   - [ ] `seo:snapshot` with the read only guard, manifest validation, writer and automatic index step (AC-S1 to AC-S3, AC-S5 to AC-S7, AC-S9)
     - [ ] For `factsHash` and `picksHash`, add the same pinned assertions against the shared fixture in apps/api (`packages/shared/fixtures/seo-slice-golden.json`, as pinned in `apps/web/src/lib/seo-slice/golden.spec.ts`)
+    - [ ] `seo:snapshot` under ts-node needs the moduleTypes cjs override that apps/web/scripts/tsconfig.seo.json uses. Checked 16 Oct 2026 from apps/api: plain ts-node fails to load seo-slice-membership with ERR_REQUIRE_ESM; with the override it loads and isViatorHost works, so give the script that override
   - [ ] First read only run against prod, files committed (umbrella AC-6)
+    - [ ] After that run, write a one-off membership review to ~/folio-logs/seo-slice/membership-review-{date}.md, outside the repo, with the items from the row 19 verify note: tag-only members per page (tags 20226, 21518, 11889 first); size of each page's other group and which groups fold; titles naming Ko Chang, Koh Samet, Khao Yai, Chiangmai, Siem Reap or Angkor; titles each off city word excludes; title only, tag only and both counts per page; how many real titles the leak term exclusion drops; whether any live page draws all its picks from one trip length
 - [ ] Verify it: `/check verify snapshot files from prod, read only`
 
 ## Slice 1: the Bangkok hub, end to end

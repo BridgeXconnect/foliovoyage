@@ -6,22 +6,11 @@
  */
 
 /**
- * True for an `https` URL whose host is exactly `viator.com` or a subdomain of
- * it. `evilviator.com`, `viator.com.evil.com`, `http://` and anything that does
- * not parse are all refused, so a bad value in the database can never become an
- * open redirect.
+ * `isViatorHost` lives in `@folio/shared` so the API's SEO slice membership
+ * rule (spec 0006 AC-M3) uses the same check. Re-exported here so both `/go`
+ * routes keep this import.
  */
-export function isViatorHost(value: string | null | undefined): value is string {
-  if (!value) return false;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:") return false;
-  return url.hostname === "viator.com" || url.hostname.endsWith(".viator.com");
-}
+export { isViatorHost } from "@folio/shared";
 
 /**
  * Sets `campaign` on an affiliate URL by string handling, never through

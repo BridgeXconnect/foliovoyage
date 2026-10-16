@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "city": { "slug": "bangkok", "countrySlug": "thailand", "name": "Bangkok", "destinationRef": "343" },
+  "exclusions": {
+    "offCityTitlePattern": "\\b(phuket|phi phi|krabi|samui|pattaya|chiang mai|chiang rai|hua hin|koh chang|koh tao|phangan)\\b",
+    "excludeTagIds": [11922, 12044, 367651, 367656, 367657],
+    "maxDurationMin": 1440,
+    "plainWords": "tours whose titles name another Thai destination (Phuket, Phi Phi, Krabi, Samui, Pattaya, Chiang Mai, Chiang Rai, Hua Hin, Koh Chang, Koh Tao or Phangan), multi day tours, airport and hotel transfers, tours longer than a day, listings Viator itself flags as broken or non compliant, tours whose titles make promotional claims, and tours with no Viator booking link"
+  },
+  "forbiddenNames": ["Roy", "Mkhabela", "Roy Mkhabela"],
+  "tagNames": {
+    "11885": "Day Cruises",
+    "11887": "Night Cruises",
+    "11889": "Day Trips",
+    "11922": "Multi-day Tours",
+    "11963": "Sunset Cruises",
+    "11965": "Dinner Cruises",
+    "12034": "Cooking Classes",
+    "12044": "Airport & Hotel Transfers",
+    "12078": "Spas",
+    "20226": "Markets",
+    "20227": "Martial Arts Classes",
+    "21518": "Religious Tours",
+    "21532": "Boxing Classes",
+    "21729": "Sightseeing Cruises",
+    "367651": "DSA non-compliant",
+    "367656": "Zombie",
+    "367657": "Zombie Slice"
+  },
+  "keywordGroups": {
+    "pickup": { "label": "hotel pickup", "phrases": ["pick up", "pickup", "pick-up", "hotel transfer", "drop off"] },
+    "meal": { "label": "a meal", "phrases": ["breakfast", "lunch", "dinner", "meal"] },
+    "entryFee": { "label": "entry fees", "phrases": ["entrance fee", "entry fee", "admission", "entrance ticket", "entry ticket"] },
+    "guide": { "label": "a guide", "phrases": ["guide"] },
+    "marketVisit": { "label": "a market visit", "phrases": ["market", "markets"] },
+    "recipe": { "label": "recipes to take home", "phrases": ["recipe", "recipes", "recipe book"] },
+    "vegetarian": { "label": "a vegetarian option", "phrases": ["vegetarian", "vegan"] },
+    "buffet": { "label": "a buffet", "phrases": ["buffet"] },
+    "liveMusic": { "label": "live music", "phrases": ["live music", "live band"] },
+    "welcomeDrink": { "label": "a welcome drink", "phrases": ["welcome drink"] }
+  },
+  "defaultKeywordGroupIds": ["pickup", "meal", "entryFee", "guide"],
+  "places": [
+    "Wat Arun",
+    "Wat Pho",
+    "Grand Palace",
+    "Wat Phra Kaew",
+    "Damnoen Saduak",
+    "Amphawa",
+    "Maeklong Railway Market",
+    "Ayutthaya",
+    "Chao Phraya",
+    "Chinatown",
+    "Khao San Road",
+    "Lumpini",
+    "Jim Thompson House",
+    "Kanchanaburi",
+    "Erawan",
+    "Floating Market",
+    "Taling Chan",
+    "Khlong Lat Mayom"
+  ],
+  "excludedExperiences": [],
+  "pages": [
+    {
+      "slug": "things-to-do",
+      "kind": "hub",
+      "targetQuery": "things to do in bangkok",
+      "h1": "Things to do in Bangkok",
+      "sourceFacts": []
+    },
+    {
+      "slug": "floating-markets",
+      "kind": "category",
+      "targetQuery": "bangkok floating market",
+      "h1": "Floating market tours from Bangkok",
+      "rule": {
+        "tagIds": [20226],
+        "titlePattern": "\\bfloating markets?\\b",
+        "plainWords": "floating market"
+      },
+      "groups": [
+        { "id": "damnoen-saduak", "label": "Damnoen Saduak", "titlePattern": "\\bdamnoen saduak\\b" },
+        { "id": "maeklong", "label": "With the Maeklong railway market", "titlePattern": "\\b(maeklong|railway market)\\b" },
+        { "id": "ayutthaya", "label": "Combined with Ayutthaya", "titlePattern": "\\bayutthaya\\b" }
+      ],
+      "otherLabel": "Other floating market tours",
+      "excludePlaces": ["Floating Market"],
+      "sourceFacts": []
+    },
+    {
+      "slug": "temples",
+      "kind": "category",
+      "targetQuery": "thailand temples bangkok",
+      "h1": "Temple tours in Bangkok",
+      "rule": {
+        "tagIds": [21518],
+        "titlePattern": "\\b(temples?|wat arun|wat pho|wat phra kaew|wat saket|wat traimit|grand palace|emerald buddha|reclining buddha)\\b",
+        "plainWords": "temple, Wat Arun, Wat Pho, Wat Phra Kaew, Wat Saket, Wat Traimit, Grand Palace, Emerald Buddha or Reclining Buddha"
+      },
+      "groups": [
+        { "id": "grand-palace", "label": "Grand Palace and Wat Phra Kaew", "titlePattern": "\\b(grand palace|wat phra kaew|emerald buddha)\\b" },
+        { "id": "wat-arun-wat-pho", "label": "Wat Arun and Wat Pho", "titlePattern": "\\b(wat arun|wat pho|reclining buddha)\\b" },
+        { "id": "ayutthaya", "label": "Temples of Ayutthaya", "titlePattern": "\\bayutthaya\\b" },
+        { "id": "tuk-tuk-or-walking", "label": "By tuk tuk or on foot", "titlePattern": "\\b(tuk[- ]?tuks?|walking)\\b" }
+      ],
+      "otherLabel": "Other temple tours",
+      "sourceFacts": []
+    },
+    {
+      "slug": "spa-and-massage",
+      "kind": "category",
+      "targetQuery": "spa and massage in bangkok",
+      "h1": "Spa and massage in Bangkok",
+      "held": true,
+      "rule": {
+        "tagIds": [12078],
+        "titlePattern": "\\b(spa|massages?)\\b",
+        "plainWords": "spa or massage"
+      },
+      "groups": [],
+      "sourceFacts": []
+    },
+    {
+      "slug": "muay-thai",
+      "kind": "category",
+      "targetQuery": "muay thai bangkok",
+      "h1": "Muay thai in Bangkok",
+      "held": true,
+      "rule": {
+        "tagIds": [21532, 20227],
+        "titlePattern": "\\b(muay thai|thai boxing)\\b",
+        "plainWords": "muay thai or Thai boxing"
+      },
+      "groups": [],
+      "sourceFacts": []
+    },
+    {
+      "slug": "day-trips",
+      "kind": "category",
+      "targetQuery": "day trips from bangkok",
+      "h1": "Day trips from Bangkok",
+      "rule": {
+        "tagIds": [11889],
+        "titlePattern": "\\bday trips?\\b",
+        "plainWords": "day trip"
+      },
+      "groups": [
+        { "id": "ayutthaya", "label": "Ayutthaya", "titlePattern": "\\bayutthaya\\b" },
+        { "id": "floating-markets", "label": "Floating markets", "titlePattern": "\\b(floating markets?|maeklong|railway market)\\b" },
+        { "id": "kanchanaburi", "label": "Kanchanaburi and Erawan", "titlePattern": "\\b(kanchanaburi|erawan|river kwai)\\b" }
+      ],
+      "otherLabel": "Other day trips",
+      "sourceFacts": []
+    },
+    {
+      "slug": "cooking-classes",
+      "kind": "category",
+      "targetQuery": "cooking class bangkok",
+      "h1": "Cooking classes in Bangkok",
+      "rule": {
+        "tagIds": [12034],
+        "titlePattern": "\\bcooking (class|classes|school|course)\\b",
+        "plainWords": "cooking class, cooking school or cooking course"
+      },
+      "groups": [
+        { "id": "market-visit", "label": "With a market visit", "titlePattern": "\\bmarkets?\\b" }
+      ],
+      "otherLabel": "Other classes",
+      "keywordGroupIds": ["pickup", "meal", "marketVisit", "recipe", "vegetarian"],
+      "sourceFacts": []
+    },
+    {
+      "slug": "cruises",
+      "kind": "category",
+      "targetQuery": "bangkok cruise",
+      "h1": "Bangkok cruises",
+      "rule": {
+        "tagIds": [11885, 21729, 11887, 11963, 11965],
+        "titlePattern": "\\b(cruises?|dinner boat)\\b",
+        "plainWords": "cruise or dinner boat"
+      },
+      "groups": [
+        { "id": "dinner", "label": "Dinner cruises", "titlePattern": "\\bdinner\\b" },
+        { "id": "ayutthaya", "label": "River trips to Ayutthaya", "titlePattern": "\\bayutthaya\\b" },
+        { "id": "sunset", "label": "Sunset cruises", "titlePattern": "\\bsunset\\b" }
+      ],
+      "otherLabel": "Other cruises",
+      "keywordGroupIds": ["pickup", "meal", "guide", "buffet", "liveMusic", "welcomeDrink"],
+      "sourceFacts": []
+    },
+    {
+      "slug": "stats",
+      "kind": "stats",
+      "targetQuery": null,
+      "h1": "Bangkok tours by the numbers",
+      "sourceFacts": []
+    }
+  ]
+}

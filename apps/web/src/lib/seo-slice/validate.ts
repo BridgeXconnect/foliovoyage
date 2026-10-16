@@ -71,6 +71,12 @@ export function validateManifest(manifest: SeoSliceManifest): string[] {
     }
   }
 
+  // Image exclusions (AC-M10): each names an Experience and says why.
+  (manifest.excludedExperiences ?? []).forEach((e, i) => {
+    if (typeof e.experienceId !== "string" || !e.experienceId.trim()) problems.push(`manifest: excludedExperiences[${i}] has no experienceId`);
+    if (typeof e.reason !== "string" || !e.reason.trim()) problems.push(`manifest: excludedExperiences[${i}] has no reason`);
+  });
+
   if (!isValidRegExp(manifest.exclusions?.offCityTitlePattern)) problems.push("manifest: exclusions.offCityTitlePattern is not a valid pattern");
   if (!manifest.exclusions?.plainWords?.trim()) problems.push("manifest: exclusions.plainWords is missing");
 
