@@ -309,6 +309,10 @@ export class ImportPipeline {
     let lastPageProducts = 0;
     const run = options.runContext;
 
+    // A failed first page must persist the cursor that started this segment,
+    // so the next run can retry that page.
+    counts.cursor = options.startCursor ?? null;
+
     for await (const page of this.client.fetchModifiedSince({
       modifiedSince: options.modifiedSince,
       startCursor: options.startCursor,
@@ -316,11 +320,6 @@ export class ImportPipeline {
       date: options.fetchedAt.slice(0, 10),
     })) {
       counts.fetched += page.products.length;
-      counts.cursor = page.nextCursor ?? null;
-      counts.lastPage = page.page;
-      if (page.nextCursor) {
-        counts.lastCursor = page.nextCursor;
-      }
       lastPageProducts = page.products.length;
 
       // BRI-227: one line per page request, so a crawl that ends early leaves
@@ -373,6 +372,14 @@ export class ImportPipeline {
       skippedNotCurated += processed.skippedNotCurated;
       skippedInactive += processed.skippedInactive;
       skippedManualConfirmation += processed.skippedManualConfirmation;
+
+      // Commit the page boundary only after every processing stage succeeds.
+      // The worker persists these counts when a later page fails.
+      counts.cursor = page.nextCursor ?? null;
+      counts.lastPage = page.page;
+      if (page.nextCursor) {
+        counts.lastCursor = page.nextCursor;
+      }
 
       // BRI-176/BRI-182: stop this segment — leaving the rest for a fresh
       // process (see class docstring) — on whichever of two independent

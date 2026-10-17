@@ -5,6 +5,7 @@ import type { CategoryResolver } from "./category-resolver";
 import type { ViatorClient, ViatorPage } from "./clients/viator.client";
 import type { ViatorProduct } from "./clients/viator.types";
 import type { LocationResolver } from "./location-resolver";
+import { incrementData } from "./increment-data";
 import { ImportPipeline, ImportRunCounts } from "./import.pipeline";
 import type { TourDTO } from "./normalizer";
 import type { PriceResolver } from "./price-resolver";
@@ -402,6 +403,39 @@ describe("ImportPipeline", () => {
     expect(counts.normalized).toBe(2);
     expect(counts.upserted).toBe(1); // only page 1's batch committed
     expect(batchCalls).toHaveLength(1);
+    expect(counts.cursor).toBe("cursor-1"); // retry page 2, not the page after it
+    expect(counts.lastCursor).toBe("cursor-1");
+    expect(counts.lastPage).toBe(1);
+    expect(incrementData(counts)).toMatchObject({
+      cursor: "cursor-1",
+      lastCursor: "cursor-1",
+      lastPage: 1,
+    });
+  });
+
+  it("keeps the segment's start cursor when its first page fails", async () => {
+    const { client } = fakeResumableClient([[rawProduct("A")], [rawProduct("B")]]);
+    const upsert = {
+      async upsertBatch(): Promise<UpsertBatchResult> {
+        throw new Error("boom");
+      },
+    } as unknown as TourUpsertService;
+    const pipeline = new ImportPipeline(client, passthroughResolver, pricingResolver, passthroughReferencePriceResolver, passthroughCategoryResolver, validator, upsert);
+    const counts = new ImportRunCounts();
+
+    await expect(pipeline.runSegment(counts, {
+      fetchedAt: FETCHED_AT,
+      restartEveryNPages: NEVER_STOPS_EARLY,
+      startCursor: "cursor-1",
+      startPage: 1,
+    })).rejects.toThrow("boom");
+
+    expect(counts.cursor).toBe("cursor-1");
+    expect(counts.lastCursor).toBeNull();
+    expect(counts.lastPage).toBeNull();
+    expect(incrementData(counts)).toMatchObject({ cursor: "cursor-1" });
+    expect(incrementData(counts)).not.toHaveProperty("lastCursor");
+    expect(incrementData(counts)).not.toHaveProperty("lastPage");
   });
 
   describe("BRI-176: segment bounding", () => {
