@@ -115,8 +115,10 @@ export type NotReadyReason = "held" | "no snapshot" | "no copy" | "not fact chec
 export interface LiveSetResult {
   /** Live slugs in manifest order. */
   liveSlugs: string[];
-  /** Why each page that is not live is not live. */
+  /** Why each page that is not live is not live: the first reason. */
   notLive: Record<string, string>;
+  /** Every reason each page that is not live is not live (the preview banner, AC-T15). */
+  notLiveReasons: Record<string, string[]>;
   /** Pages (not held, with both files) whose copy no longer matches its snapshot and manifest. */
   staleGrounding: string[];
   /** Snapshots whose `facts` no longer hash to their `factsHash`. */
@@ -135,7 +137,7 @@ function readiness(content: SliceContent, page: SeoSliceManifestPage): NotReadyR
 
 /** AC-2: ready pages, then liveness through the links between pages. */
 export function deriveLiveSet(content: SliceContent): LiveSetResult {
-  const result: LiveSetResult = { liveSlugs: [], notLive: {}, staleGrounding: [], staleFacts: [] };
+  const result: LiveSetResult = { liveSlugs: [], notLive: {}, notLiveReasons: {}, staleGrounding: [], staleFacts: [] };
   const manifest = content.manifest;
   if (!manifest) return result;
 
@@ -155,17 +157,21 @@ export function deriveLiveSet(content: SliceContent): LiveSetResult {
   const hubLive = hubReason === null && listedNotReady.length === 0;
 
   for (const page of manifest.pages) {
+    const all: string[] = [];
     const own = reasons.get(page.slug);
-    if (own) {
-      result.notLive[page.slug] = own;
-    } else if (page.kind === "hub" && !hubLive) {
-      result.notLive[page.slug] = `a page it lists is not ready: ${listedNotReady
-        .map((p) => `${p.slug} (${reasons.get(p.slug)})`)
-        .join(", ")}`;
+    if (own) all.push(own);
+    if (page.kind === "hub" && listedNotReady.length > 0) {
+      all.push(
+        `a page it lists is not ready: ${listedNotReady.map((p) => `${p.slug} (${reasons.get(p.slug)})`).join(", ")}`,
+      );
     } else if (page.kind !== "hub" && !hubLive) {
-      result.notLive[page.slug] = "the hub is not live";
-    } else {
+      all.push("the hub is not live");
+    }
+    if (all.length === 0) {
       result.liveSlugs.push(page.slug);
+    } else {
+      result.notLive[page.slug] = all[0];
+      result.notLiveReasons[page.slug] = all;
     }
   }
   return result;

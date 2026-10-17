@@ -206,7 +206,7 @@ export function buildPageModel(source: SliceSource, slug: string): SlicePageMode
     { name: page.h1, href: null },
   ];
 
-  const notLive = source.preview ? deriveLiveSet(content).notLive : {};
+  const notLiveReasons = source.preview ? deriveLiveSet(content).notLiveReasons : {};
 
   return {
     slug,
@@ -234,7 +234,7 @@ export function buildPageModel(source: SliceSource, slug: string): SlicePageMode
     computedOn: `Computed on ${formatCalendarDate(snapshot.computedOn)}`,
     breadcrumbs,
     itemNames,
-    preview: source.preview ? { reasons: notLive[slug] ? [notLive[slug]] : [], noCopy: placeholder } : null,
+    preview: source.preview ? { reasons: notLiveReasons[slug] ?? [], noCopy: placeholder } : null,
   };
 }
 

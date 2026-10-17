@@ -231,6 +231,7 @@ describe("local preview (AC-T15)", () => {
     const { html } = render(sourceFrom(content, { preview: true }), "food-tours");
     expect(html).toContain("Not approved: local preview only");
     expect(html).toContain("Not live: not fact checked");
+    expect(html).toContain("Not live: the hub is not live");
     expect(html).toContain("Not checked yet");
     expect(html).not.toContain("No copy yet");
     expect(html).toContain("An intro for food-tours.");
