@@ -5,13 +5,16 @@ import { describe, expect, it } from "@jest/globals";
 /**
  * Spec 0006 AC-G3 on the built output, not the source: the edge middleware
  * bundle that `next build` emits has no `fs` import. Needs a build first
- * (`pnpm --filter @folio/web build`). Without one the suite is skipped and
+ * (`pnpm --filter @folio/web build`). Without a production build the suite is skipped and
  * says so in its name, so a skip is visible in the run output.
  */
 
 const NEXT_DIR = path.resolve(__dirname, "../.next");
 const MANIFEST = path.join(NEXT_DIR, "server/middleware-manifest.json");
-const built = existsSync(MANIFEST);
+// Only a production build writes BUILD_ID. `next dev` (seo:preview) also writes a
+// middleware manifest, but its bundle carries dev tooling that imports fs, so
+// checking it would fail for a reason that never ships. Skip unless BUILD_ID exists.
+const built = existsSync(path.join(NEXT_DIR, "BUILD_ID")) && existsSync(MANIFEST);
 
 interface MiddlewareManifest {
   middleware: Record<string, { files: string[]; name: string }>;
@@ -28,7 +31,7 @@ const read = (file: string) => readFileSync(path.join(NEXT_DIR, file), "utf8");
 const FS_IMPORT = /["'`](?:node:)?fs(?:\/promises)?["'`]/;
 
 (built ? describe : describe.skip)(
-  built ? "built edge middleware bundle (spec 0006 AC-G3)" : "built edge middleware bundle (SKIPPED: no .next build)",
+  built ? "built edge middleware bundle (spec 0006 AC-G3)" : "built edge middleware bundle (SKIPPED: no production .next build, BUILD_ID missing)",
   () => {
     it("is registered as the edge middleware for every path", () => {
       const files = bundleFiles();

@@ -26,6 +26,21 @@ describe("deriveLiveSet (spec 0006 AC-2)", () => {
     expect(result.notLive["things-to-do"]).toMatch(/food-tours \(not fact checked\)/);
     expect(result.notLive["floating-markets"]).toBe("the hub is not live");
     expect(result.notLive["tour-facts"]).toBe("the hub is not live");
+    expect(result.notLiveReasons["food-tours"]).toEqual(["not fact checked", "the hub is not live"]);
+    expect(result.notLiveReasons["floating-markets"]).toEqual(["the hub is not live"]);
+  });
+
+  it("lists every reason a page is not live, not only the first", () => {
+    const content = fixtureContent();
+    delete content.copies["food-tours"].factCheck;
+    delete content.copies["things-to-do"];
+    const result = deriveLiveSet(content);
+    expect(result.notLive["things-to-do"]).toBe("no copy");
+    expect(result.notLiveReasons["things-to-do"]).toEqual([
+      "no copy",
+      "a page it lists is not ready: food-tours (not fact checked)",
+    ]);
+    expect(result.notLiveReasons["food-tours"]).toEqual(["not fact checked", "the hub is not live"]);
   });
 
   it("a held category leaves the hub list, so the rest stay live without it", () => {

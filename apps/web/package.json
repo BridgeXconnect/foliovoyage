@@ -11,7 +11,9 @@
     "test": "jest",
     "link-health:check": "ts-node --project scripts/tsconfig.json scripts/check-link-health.ts",
     "seo:index": "ts-node --project scripts/tsconfig.seo.json scripts/seo-index.ts",
-    "seo:live-guard": "ts-node --project scripts/tsconfig.seo.json scripts/seo-live-guard.ts"
+    "seo:live-guard": "ts-node --project scripts/tsconfig.seo.json scripts/seo-live-guard.ts",
+    "seo:leak-scan": "ts-node --project scripts/tsconfig.seo.json scripts/seo-leak-scan.ts",
+    "seo:preview": "SEO_SLICE_PREVIEW=1 next dev -p 3000"
   },
   "dependencies": {
     "@folio/shared": "workspace:*",
