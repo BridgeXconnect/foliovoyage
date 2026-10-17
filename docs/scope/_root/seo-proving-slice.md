@@ -114,6 +114,7 @@ One page of facts computed across Bangkok's tours (trip lengths with a median pe
   - [ ] Stats body from fixed templates (AC-D2 to AC-D4)
   - [ ] Number trace test (AC-D5)
   - [ ] Stats copy generated and fact checked, or the page held (AC-D6)
+  - [ ] Once stats.snapshot.json exists, the preview lists stats; handle it (render the stats page or skip it) so the preview does not throw
 - [ ] Verify it: `/check verify stats page`
 
 ## Slice 3: measure it

@@ -56,6 +56,7 @@ Reuses the page route (`[page]` with `kind: "stats"` switching the body componen
 2. `StatsBody` with templates, satisfies **AC-D2**, **AC-D3**, **AC-D4**.
 3. Number trace test, satisfies **AC-D5**.
 4. Generate and fact check the stats copy; hold the page if it fails, satisfies **AC-D6**.
+5. Once stats.snapshot.json exists, the preview lists stats; handle it (render the stats page or skip it) so the preview does not throw.
 
 ## Rationale (short)
 
