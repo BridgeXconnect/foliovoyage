@@ -27,7 +27,7 @@ Let anonymous visitors and crawlers reach only the slice URLs, `/go/`, `/ingest`
 - [x] Verify it: `/check verify gate allowlist, robots and a slice only sitemap`
 - [x] Test it: `/test gate allowlist, robots and a slice only sitemap`
 
-### 19. Page list and tour membership rule · in-progress
+### 19. Page list and tour membership rule · done · Alpha
 The manifest of the 9 pages, and the rule that decides which Bangkok tours belong on each page. Coordinates alone cannot decide it (612 of 2,589 Bangkok tours have none), and off city tours must stay out (Phuket, Phi Phi, Krabi, Samui, and 2 Pattaya floating market tours). The BRI-200 gate is a yes or no filter only; ordering uses static fields, never ratings. The manifest also holds each page's "How to choose" groups, the keyword groups and place list, and the image exclusions, and picks alternate across trip lengths inside each group so no page fills from one length (amended 16 Oct 2026).
 **Done when:** each page has a written membership rule and its groups, every live page has at least 10 eligible tours, none of the named off city tours appears on any page, and on a fixture with tours of every length no section's picks all come from one length group while another has eligible members.
 - [x] Design it (spec): [0006 manifest and membership](../../specs/_root/0006-seo-proving-slice/0006-page-manifest-membership.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
@@ -53,19 +53,19 @@ A command that reads prod read only and writes one committed, dated snapshot fil
 
 ## Slice 1: the Bangkok hub, end to end
 
-### 21. Hub page template and URL · in-progress
+### 21. Hub page template and URL · done · Alpha
 The route and the one page template, proven first on "things to do in bangkok": URL, layout, breadcrumbs, `ItemList` and breadcrumb structured data with no ratings and no author, the rule line with "Checked by the Folio team", the stat strip, "How to choose" sections, Local notes, Good to know, the affiliate disclosure in Folio Voyage's name, the "computed on" date and the "How this page was made" note. The hub is a category index on the same template. The default URL is `/destinations/bangkok/{page}`, which has to live alongside the `[slug]/[city]` redirect handler. No personal name appears anywhere on a page.
 **Done when:** the hub renders statically from its snapshot at its final URL as a category index, it also renders in the local preview before approval (never in a production build), and a scan of its server HTML, its attribute values (meta, alt, aria-label, title) and its JSON-LD finds no rating, review count, price, availability or cancellation term, no "Atlas", no name on the `forbiddenNames` list and no "our editors" style wording.
 - [x] Design it (spec): [0006 page template](../../specs/_root/0006-seo-proving-slice/0006-page-template.md), umbrella [0006](../../specs/_root/0006-seo-proving-slice/index.md)
-- [ ] Build it: `/develop hub page template and URL`
-  - [ ] Static route, slice layout and the shared template, proven on the hub as a category index (AC-T1, AC-T3, AC-T5, AC-T10)
-  - [ ] Rule line, checked line, stat strip, note, disclosure and breadcrumbs (AC-T4, AC-T8, AC-T11 to AC-T13)
-  - [ ] How to choose sections, Local notes and Good to know (AC-T3, AC-T14)
-  - [ ] JSON-LD with no author (AC-T7)
-  - [ ] Leak, name and team scan on the built HTML and attribute values with its CI step, link audit and route regression tests (AC-T2, AC-T6, AC-T9)
-    - [ ] also run middleware.edge-bundle.spec after the build
-  - [ ] Local preview, `seo:preview`, with its "not approved" banner and the test that it never runs in a production build (AC-T15)
-- [ ] Verify it: `/check verify hub page template and URL`
+- [x] Build it: `/develop hub page template and URL`
+  - [x] Static route, slice layout and the shared template, proven on the hub as a category index (AC-T1, AC-T3, AC-T5, AC-T10)
+  - [x] Rule line, checked line, stat strip, note, disclosure and breadcrumbs (AC-T4, AC-T8, AC-T11 to AC-T13)
+  - [x] How to choose sections, Local notes and Good to know (AC-T3, AC-T14)
+  - [x] JSON-LD with no author (AC-T7)
+  - [x] Leak, name and team scan on the built HTML and attribute values with its CI step, link audit and route regression tests (AC-T2, AC-T6, AC-T9)
+    - [x] also run middleware.edge-bundle.spec after the build
+  - [x] Local preview, `seo:preview`, with its "not approved" banner and the test that it never runs in a production build (AC-T15)
+- [x] Verify it: `/check verify hub page template and URL`
 
 ### 22. Rating free pick card and campaign tagged click out · in-progress
 A pick card with no price, availability, cancellation or rating, that links only to `/go/tours/*` (never to a `/tours/` or experience page), and a click out that records which slice page sent it, checked against an allowlist of slice page ids so it cannot become an open tagging route. Today `tour-go.ts` hardcodes `canvas-tour`.
@@ -148,6 +148,7 @@ Separate work this slice depends on. Each ships on its own, not in this build or
 - **Consent and privacy**: a cookie consent flow (PostHog replay samples about 50% today). A launch prerequisite, its own task.
 - **BRI-254, experience page `AggregateRating`**: has a Google basis as well as Viator's. Does not block the slice (those pages stay gated and unlinked) but blocks any wider launch.
 - **Vercel Pro**: the project is on Hobby (non commercial), needed at public launch.
+- **Site URL for Production**: set NEXT_PUBLIC_SITE_URL to https://www.foliovoyage.com in Vercel Production before the first slice page goes live. Unset, it falls back on Vercel to the *.vercel.app production domain (VERCEL_PROJECT_PRODUCTION_URL), and off Vercel to http://localhost:3000; either is wrong for canonical, og:url and the sitemap loc (and the leak scan does not audit <link> tags). After the first page is live, check anonymously that its canonical, og:url and the sitemap loc all use https://www.foliovoyage.com.
 - **Personal names list, Roy's task**: fill the manifest's `forbiddenNames` with the names that must never appear on a page. An empty list fails validation, so `seo:snapshot` cannot run until it is filled.
 - **Deploy**: nothing here deploys without Roy's go ahead.
 
