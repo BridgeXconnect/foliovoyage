@@ -25,18 +25,21 @@ type ViatorEnrichment = {
   /** Provider commerce signals from the matched product summary (BRI-168). */
   fromPrice?: number;
   currency?: string;
-  rating?: number;
-  ratingCount?: number;
   freeCancel?: boolean;
 };
 
 const links = viatorLinks as Record<string, ViatorEnrichment>;
 
 function enrichExperience(slug: string, e: Experience): Experience {
+  // Strip ratings even if a hand-authored record gains them later. Every
+  // destination returned here may be serialized into an indexable page.
+  const publicExperience = { ...e };
+  delete publicExperience.rating;
+  delete publicExperience.ratingCount;
   const hit = links[`${slug}/${e.id}`];
-  if (!hit?.affiliateUrl) return e;
+  if (!hit?.affiliateUrl) return publicExperience;
   return {
-    ...e,
+    ...publicExperience,
     affiliateUrl: hit.affiliateUrl,
     provider: hit.provider ?? "Viator",
     ...(hit.priceBand ? { priceBand: hit.priceBand } : {}),
@@ -44,10 +47,8 @@ function enrichExperience(slug: string, e: Experience): Experience {
     // Provider commerce signals (BRI-168) — additive; editorial fields untouched.
     ...(typeof hit.fromPrice === "number" ? { fromPrice: hit.fromPrice } : {}),
     ...(hit.currency ? { currency: hit.currency } : {}),
-    ...(typeof hit.rating === "number" ? { rating: hit.rating } : {}),
-    ...(typeof hit.ratingCount === "number"
-      ? { ratingCount: hit.ratingCount }
-      : {}),
+    // Viator ratings are protected content (BRI-204). Never merge them into
+    // public destinations: those objects cross server/client boundaries.
     ...(hit.freeCancel ? { freeCancel: true } : {}),
   };
 }
@@ -61,13 +62,10 @@ function enrichDestination(d: Destination): Destination {
 
 /**
  * Destinations with Viator affiliate links merged in. Computed once at module
- * load; when the enrichment file is empty this is referentially the same shape
- * as the raw data.
+ * load. Protected rating data is never included in the public destination
+ * objects, including when the enrichment file is empty.
  */
-const destinations: Destination[] =
-  Object.keys(links).length === 0
-    ? rawDestinations
-    : rawDestinations.map(enrichDestination);
+const destinations: Destination[] = rawDestinations.map(enrichDestination);
 
 export function getAllDestinations(): Destination[] {
   return destinations;

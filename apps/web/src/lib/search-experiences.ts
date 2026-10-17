@@ -71,15 +71,14 @@ export function durationBucketOf(label: string | undefined): DurationBucket | nu
 
 /**
  * True when any experience-only filter is set. Destinations carry no price,
- * category, duration, or rating, so when this is true destinations are dropped
+ * category, or duration, so when this is true destinations are dropped
  * entirely — mirroring the API's `hasExperienceFilters` AND-contract exception.
  */
 export function hasExperienceFilters(state: SearchState): boolean {
   return Boolean(
     state.priceBands.length ||
       state.categories.length ||
-      state.durations.length ||
-      state.minRating !== undefined,
+      state.durations.length,
   );
 }
 
@@ -149,9 +148,6 @@ function matchesFilters(r: SearchResultExperience, state: SearchState): boolean 
   if (state.durations.length) {
     const bucket = durationBucketOf(e.duration);
     if (bucket === null || !state.durations.includes(bucket)) return false;
-  }
-  if (state.minRating !== undefined) {
-    if (typeof e.rating !== "number" || e.rating < state.minRating) return false;
   }
   return true;
 }

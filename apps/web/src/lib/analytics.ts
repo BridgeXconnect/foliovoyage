@@ -86,7 +86,6 @@ export type SearchAnalyticsInput = {
   priceBands: string[];
   categories: string[];
   durations: string[];
-  minRating?: number;
 };
 
 export function trackSearch(input: SearchAnalyticsInput): void {
@@ -98,12 +97,10 @@ export function trackSearch(input: SearchAnalyticsInput): void {
     price_bands: input.priceBands,
     categories: input.categories,
     durations: input.durations,
-    min_rating: input.minRating,
     filter_count:
       input.priceBands.length +
       input.categories.length +
-      input.durations.length +
-      (input.minRating !== undefined ? 1 : 0),
+      input.durations.length,
   });
 }
 

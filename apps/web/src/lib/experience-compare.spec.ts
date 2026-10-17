@@ -111,7 +111,6 @@ describe("buildComparison", () => {
     expect(m.rows.map((r) => r.key)).toEqual([
       "price",
       "duration",
-      "rating",
       "provider",
       "freeCancel",
     ]);
@@ -134,26 +133,23 @@ describe("buildComparison", () => {
     const val = (k: string) => m.rows.find((r) => r.key === k)!.values[0];
     expect(val("price")).toBe("From $28");
     expect(val("duration")).toBe("2–3 hours");
-    expect(val("rating")).toBe("4.7 (1,200)");
     expect(val("provider")).toBe("Viator");
     expect(val("freeCancel")).toBe("Yes");
   });
 
   it("emits null (honest absence) for facts a sparse tour lacks", () => {
-    // 'd' is sparse: no provider/price/rating/freeCancel; only priceBand + duration.
+    // 'd' is sparse: no provider/price/freeCancel; only priceBand + duration.
     const m = buildComparison(dest, ["d"]);
     const val = (k: string) => m.rows.find((r) => r.key === k)!.values[0];
     expect(val("price")).toBe("$"); // editorial priceBand, never fabricated
     expect(val("duration")).toBe("Half day");
-    expect(val("rating")).toBeNull();
     expect(val("provider")).toBeNull();
     expect(val("freeCancel")).toBeNull(); // unknown policy → null, not "No"
   });
 
   it("keeps per-tour nulls aligned when the set mixes live + sparse", () => {
     const m = buildComparison(dest, ["a", "d"]);
-    const rating = m.rows.find((r) => r.key === "rating")!;
-    expect(rating.values).toEqual(["4.7 (1,200)", null]);
+    expect(JSON.stringify(m)).not.toMatch(/4\.7|1,200|"rating"/);
     const provider = m.rows.find((r) => r.key === "provider")!;
     expect(provider.values).toEqual(["Viator", null]);
   });

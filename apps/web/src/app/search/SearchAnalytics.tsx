@@ -21,7 +21,6 @@ export function SearchAnalytics({
     state.priceBands,
     state.categories,
     state.durations,
-    state.minRating,
     resultCount,
   ]);
   const last = useRef<string | null>(null);
@@ -34,8 +33,7 @@ export function SearchAnalytics({
       !state.q &&
       !state.priceBands.length &&
       !state.categories.length &&
-      !state.durations.length &&
-      state.minRating === undefined
+      !state.durations.length
     ) {
       return;
     }
@@ -45,7 +43,6 @@ export function SearchAnalytics({
       priceBands: state.priceBands,
       categories: state.categories,
       durations: state.durations,
-      minRating: state.minRating,
     });
   }, [key, state, resultCount]);
 
