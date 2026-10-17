@@ -42,13 +42,11 @@ describe("buildExperienceMetadata", () => {
 });
 
 describe("buildExperienceProductLd", () => {
-  it("emits Product with aggregateRating + offers for a rich experience", () => {
+  it("omits protected ratings from Product even when supplied, while keeping offers", () => {
     const ld = buildExperienceProductLd(SITE, dest, rich) as Record<string, unknown>;
     expect(ld["@type"]).toBe("Product");
     expect(ld.name).toBe(rich.title);
-    expect(ld.aggregateRating).toEqual({
-      "@type": "AggregateRating", ratingValue: 4.7, reviewCount: 1200,
-    });
+    expect(JSON.stringify(ld)).not.toMatch(/aggregateRating|AggregateRating|ratingValue|reviewCount|4\.7|1200/);
     expect(ld.offers).toMatchObject({
       "@type": "Offer", price: "28", priceCurrency: "USD",
       url: `${SITE}/destinations/bangkok/experiences/wat-arun-sunset`,

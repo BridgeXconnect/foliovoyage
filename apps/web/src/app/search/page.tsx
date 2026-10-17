@@ -25,8 +25,7 @@ export async function generateMetadata({
     Boolean(state.q) ||
     state.priceBands.length > 0 ||
     state.categories.length > 0 ||
-    state.durations.length > 0 ||
-    state.minRating !== undefined;
+    state.durations.length > 0;
   const title = state.q ? `Search: ${state.q}` : "Search experiences";
   return {
     title,

@@ -34,7 +34,6 @@ describe("hasExperienceFilters", () => {
     expect(hasExperienceFilters(state({ priceBands: ["$"] }))).toBe(true);
     expect(hasExperienceFilters(state({ categories: ["Food & Drink"] }))).toBe(true);
     expect(hasExperienceFilters(state({ durations: ["short"] }))).toBe(true);
-    expect(hasExperienceFilters(state({ minRating: 4 }))).toBe(true);
   });
 });
 
@@ -102,16 +101,6 @@ describe("runSearch — filters", () => {
     }
   });
 
-  it("minRating excludes experiences with no rating (honest partial data)", () => {
-    // viator-links.json is empty today → no static experience has a rating →
-    // a minRating filter legitimately yields zero results.
-    const out = runSearch(state({ minRating: 4 }), 200);
-    for (const r of out.results) {
-      if (r.type !== "experience") continue;
-      expect(typeof r.experience.rating).toBe("number");
-      expect(r.experience.rating!).toBeGreaterThanOrEqual(4);
-    }
-  });
 });
 
 describe("runSearch — facets & pagination", () => {

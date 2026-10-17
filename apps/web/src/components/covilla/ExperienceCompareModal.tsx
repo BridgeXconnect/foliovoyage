@@ -9,7 +9,7 @@ import { buildComparison } from "@/lib/experience-compare";
 import {
   experienceGoHref,
   experienceDetailAffiliateInput,
-} from "@/lib/experience-detail";
+} from "@/lib/experience-detail-public";
 import { trackAffiliateClick } from "@/lib/analytics";
 
 /**

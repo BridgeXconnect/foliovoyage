@@ -36,7 +36,6 @@ export type AffiliateClickInput = AffiliateClickContext & {
   provider?: string;
   category?: string;
   priceBand?: string;
-  hasRating?: boolean;
   freeCancel?: boolean;
   /** Which surface the CTA sits on, e.g. `tour_page`. Omitted by older cards. */
   source?: string;
@@ -50,7 +49,6 @@ export function trackAffiliateClick(input: AffiliateClickInput): void {
     provider: input.provider,
     category: input.category,
     price_band: input.priceBand,
-    has_rating: input.hasRating ?? false,
     free_cancel: input.freeCancel ?? false,
     city: input.city,
     country: input.country,
@@ -86,7 +84,6 @@ export type SearchAnalyticsInput = {
   priceBands: string[];
   categories: string[];
   durations: string[];
-  minRating?: number;
 };
 
 export function trackSearch(input: SearchAnalyticsInput): void {
@@ -98,12 +95,10 @@ export function trackSearch(input: SearchAnalyticsInput): void {
     price_bands: input.priceBands,
     categories: input.categories,
     durations: input.durations,
-    min_rating: input.minRating,
     filter_count:
       input.priceBands.length +
       input.categories.length +
-      input.durations.length +
-      (input.minRating !== undefined ? 1 : 0),
+      input.durations.length,
   });
 }
 

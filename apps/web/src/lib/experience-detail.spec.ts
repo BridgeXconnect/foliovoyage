@@ -124,7 +124,6 @@ describe("experienceDetailAffiliateInput", () => {
       provider: "Viator",
       category: "Food & Drink",
       priceBand: "$$",
-      hasRating: true,
       freeCancel: true,
       city: baseDestination.city,
       country: baseDestination.country,
@@ -132,14 +131,14 @@ describe("experienceDetailAffiliateInput", () => {
     });
   });
 
-  it("reports hasRating=false and freeCancel=false when those fields are absent", () => {
+  it("omits protected rating state and reports freeCancel=false when absent", () => {
     const input = experienceDetailAffiliateInput(baseDestination, {
       ...baseExperience,
       id: "x2",
       rating: undefined,
       freeCancel: undefined,
     });
-    expect(input.hasRating).toBe(false);
+    expect(input).not.toHaveProperty("hasRating");
     expect(input.freeCancel).toBe(false);
   });
 });

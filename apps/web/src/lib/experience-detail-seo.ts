@@ -6,7 +6,7 @@
  *
  * `siteUrl` is a parameter (not read from `@/lib/site` here) so these are
  * deterministic under test and free of `next`/env coupling. Nullable provider
- * signals are emitted only when present — no fabricated rating/price (docs/02
+ * signals are emitted only when present — no protected rating data or fabricated price (docs/02
  * §1.3, plan Findings §6).
  */
 import type { Metadata } from "next";
@@ -63,14 +63,6 @@ export function buildExperienceProductLd(
     category: e.category,
     url,
   };
-
-  if (typeof e.rating === "number" && typeof e.ratingCount === "number") {
-    ld.aggregateRating = {
-      "@type": "AggregateRating",
-      ratingValue: e.rating,
-      reviewCount: e.ratingCount,
-    };
-  }
 
   // Offer: always present (the page has a booking affordance), but price is
   // included only when a real "from" price exists — never fabricated.

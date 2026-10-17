@@ -12,7 +12,7 @@
  * Any fact a tour lacks is `null` here and an em-dash in the UI — never invented.
  */
 import type { Destination, Experience } from "@folio/shared";
-import { formatFromPrice, experienceDetailPath } from "@/lib/experience-detail";
+import { formatFromPrice, experienceDetailPath } from "@/lib/experience-detail-public";
 
 export const MIN_COMPARE = 2;
 export const MAX_COMPARE = 4;
@@ -52,7 +52,7 @@ export interface CompareTour {
 }
 
 export interface CompareRow {
-  key: "price" | "duration" | "rating" | "provider" | "freeCancel";
+  key: "price" | "duration" | "provider" | "freeCancel";
   label: string;
   /** One cell per tour, in the same order as `tours`. `null` = not available. */
   values: (string | null)[];
@@ -67,15 +67,6 @@ function priceOf(e: Experience): string {
   return typeof e.fromPrice === "number" && e.fromPrice > 0
     ? `From ${formatFromPrice(e.fromPrice, e.currency)}`
     : e.priceBand;
-}
-
-function ratingOf(e: Experience): string | null {
-  if (typeof e.rating !== "number" || e.rating <= 0) return null;
-  const count =
-    typeof e.ratingCount === "number"
-      ? ` (${e.ratingCount.toLocaleString("en-US")})`
-      : "";
-  return `${e.rating.toFixed(1)}${count}`;
 }
 
 /**
@@ -103,7 +94,6 @@ export function buildComparison(
   const rows: CompareRow[] = [
     { key: "price", label: "Price", values: picked.map(priceOf) },
     { key: "duration", label: "Duration", values: picked.map((e) => e.duration ?? null) },
-    { key: "rating", label: "Rating", values: picked.map(ratingOf) },
     { key: "provider", label: "Provider", values: picked.map((e) => e.provider ?? null) },
     {
       key: "freeCancel",

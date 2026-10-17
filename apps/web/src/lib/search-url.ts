@@ -2,9 +2,9 @@
  * Pure URL-state contract for /search (ST-16: "state is in the URL; reloading
  * reproduces results"). No next/posthog imports, so ts-jest runs it in node.
  *
- * Param names mirror the API's `GET /v1/search` verbatim where they overlap
- * (`q`, `priceBand`, `minRating`, `page`) so a future swap to the live endpoint
- * is a data-source change, not a URL rebuild. `category` and `duration` are
+ * Param names mirror the API's `GET /v1/search` where the public static corpus
+ * supports them (`q`, `priceBand`, `page`). Provider ratings are protected, so
+ * the static search does not accept a rating filter. `category` and `duration` are
  * additive facets the static content system carries; `duration` uses categorical
  * buckets because the static `Experience.duration` is free-text labels, not
  * minutes (mapping labels to fake minutes would invent data — see the plan's
@@ -39,7 +39,6 @@ export interface SearchState {
   priceBands: PriceBand[];
   categories: ExperienceCategory[];
   durations: DurationBucket[];
-  minRating?: number;
   page: number;
 }
 
@@ -75,17 +74,11 @@ export function parseSearchState(
   const categories = tokens(params.category, VALID_CATEGORIES);
   const durations = tokens(params.duration, VALID_DURATIONS);
 
-  const rawRating = first(params.minRating);
-  const parsedRating = rawRating !== undefined ? Number(rawRating) : NaN;
-  const minRating = Number.isFinite(parsedRating)
-    ? Math.min(5, Math.max(0, parsedRating))
-    : undefined;
-
   const rawPage = first(params.page);
   const parsedPage = rawPage !== undefined ? Number(rawPage) : NaN;
   const page = Number.isFinite(parsedPage) ? Math.max(1, Math.trunc(parsedPage)) : 1;
 
-  return { q, priceBands, categories, durations, minRating, page };
+  return { q, priceBands, categories, durations, page };
 }
 
 export function searchStateToQuery(state: SearchState): string {
@@ -94,7 +87,6 @@ export function searchStateToQuery(state: SearchState): string {
   if (state.priceBands.length) p.set("priceBand", state.priceBands.join(","));
   if (state.categories.length) p.set("category", state.categories.join(","));
   if (state.durations.length) p.set("duration", state.durations.join(","));
-  if (state.minRating !== undefined) p.set("minRating", String(state.minRating));
   if (state.page > 1) p.set("page", String(state.page));
   return p.toString();
 }

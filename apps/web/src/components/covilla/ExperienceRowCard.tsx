@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Star, ShieldCheck, CheckSquare, Square } from "lucide-react";
+import { ArrowUpRight, ShieldCheck, CheckSquare, Square } from "lucide-react";
 import { trackAffiliateClick } from "@/lib/analytics";
-import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail";
+import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail-public";
 import type { Experience } from "@/data/types";
 
 /**
@@ -16,7 +16,7 @@ import type { Experience } from "@/data/types";
  * a provider-search fallback (BRI-138 / ST-26) — never a dead end.
  *
  * When a card is matched to a real Viator product (BRI-168) it surfaces the
- * provider's commerce signals — "from" price, aggregate rating, free-cancellation
+ * provider's public commerce signals — "from" price and free-cancellation
  * — as additive badges. These never replace the editorial `title`/`description`
  * ("match, don't overwrite", docs/07); an unmatched card renders exactly as before
  * apart from the CTA.
@@ -41,7 +41,6 @@ export function ExperienceRowCard({
 }) {
   const live = Boolean(e.affiliateUrl);
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
-  const hasRating = typeof e.rating === "number" && e.rating > 0;
   // Route the click through /go (log-before-redirect); the raw deep link (or
   // the BRI-138 fallback search page, for an unmatched experience) is the
   // 302 target resolved server-side, never the clicked href.
@@ -97,26 +96,12 @@ export function ExperienceRowCard({
         </p>
 
         {/* Provider signals (BRI-168) — only when matched to a real product. */}
-        {(hasRating || e.freeCancel) && (
+        {e.freeCancel && (
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-            {hasRating && (
-              <span className="inline-flex items-center gap-1 text-ink">
-                <Star size={14} className="fill-current text-amber-500" aria-hidden />
-                <span className="font-medium">{e.rating!.toFixed(1)}</span>
-                {typeof e.ratingCount === "number" && (
-                  <span className="text-muted">
-                    ({e.ratingCount.toLocaleString("en-US")})
-                  </span>
-                )}
-                <span className="sr-only">average rating</span>
-              </span>
-            )}
-            {e.freeCancel && (
-              <span className="inline-flex items-center gap-1 text-emerald-700">
-                <ShieldCheck size={14} aria-hidden />
-                Free cancellation
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <ShieldCheck size={14} aria-hidden />
+              Free cancellation
+            </span>
           </div>
         )}
 
@@ -146,7 +131,6 @@ export function ExperienceRowCard({
                 provider: e.provider,
                 category: e.category,
                 priceBand: e.priceBand,
-                hasRating: typeof e.rating === "number",
                 freeCancel: Boolean(e.freeCancel),
                 city: destination.city,
                 country: destination.country,

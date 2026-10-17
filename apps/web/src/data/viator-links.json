@@ -4,8 +4,6 @@
     "provider": "Viator",
     "fromPrice": 233.81,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 94,
     "freeCancel": true
   },
   "bangkok/wat-pho-reclining-buddha": {
@@ -13,8 +11,6 @@
     "provider": "Viator",
     "fromPrice": 233.81,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 94,
     "freeCancel": true
   },
   "bangkok/wat-arun-sunset": {
@@ -22,8 +18,6 @@
     "provider": "Viator",
     "fromPrice": 159,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 51,
     "freeCancel": true
   },
   "bangkok/damnoen-saduak-floating-market": {
@@ -31,8 +25,6 @@
     "provider": "Viator",
     "fromPrice": 180,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 110,
     "freeCancel": true
   },
   "kyoto/fushimi-inari": {
@@ -40,8 +32,6 @@
     "provider": "Viator",
     "fromPrice": 93.64,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 40,
     "freeCancel": true
   },
   "kyoto/arashiyama-bamboo": {
@@ -49,42 +39,32 @@
     "provider": "Viator",
     "fromPrice": 436.98,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 32,
     "freeCancel": true
   },
   "kyoto/tea-ceremony": {
     "affiliateUrl": "https://www.viator.com/tours/Kyoto/Tea-ceremony-and-sake-tasting-in-300-year-old-Kyoto-samurai-house/d332-402518P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=kyoto-card",
     "provider": "Viator",
     "fromPrice": 124.85,
-    "currency": "USD",
-    "rating": 5,
-    "ratingCount": 189
+    "currency": "USD"
   },
   "lisbon/sintra-day-trip": {
     "affiliateUrl": "https://www.viator.com/tours/Lisbon/Full-day-tour-Sintra-Cape-Roca-Cascais-and-Estoril/d538-373150P2?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=lisbon-card",
     "provider": "Viator",
     "fromPrice": 579.53,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 109,
     "freeCancel": true
   },
   "rome/colosseum-forum": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/Full-day-private-guided-tour-of-Rome-by-golf-cart-and-Colosseum-and-Roman-Forum/d511-7377P19?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
     "provider": "Viator",
     "fromPrice": 1581.64,
-    "currency": "USD",
-    "rating": 5,
-    "ratingCount": 88
+    "currency": "USD"
   },
   "rome/roman-forum-walk": {
     "affiliateUrl": "https://www.viator.com/tours/Rome/7-hour-Ancient-Rome-driving-tour/d511-20217P4?mcid=42383&pid=P00309945&medium=api&api_version=2.0&campaign=rome-card",
     "provider": "Viator",
     "fromPrice": 448.67,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 161,
     "freeCancel": true
   },
   "rome/pantheon": {
@@ -92,8 +72,6 @@
     "provider": "Viator",
     "fromPrice": 149.52,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 108,
     "freeCancel": true
   },
   "rome/roman-cooking-class": {
@@ -101,8 +79,6 @@
     "provider": "Viator",
     "fromPrice": 161.11,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 106,
     "freeCancel": true
   },
   "hanoi/old-quarter-street-food": {
@@ -110,8 +86,6 @@
     "provider": "Viator",
     "fromPrice": 46.73,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 83,
     "freeCancel": true
   },
   "hanoi/train-street": {
@@ -119,8 +93,6 @@
     "provider": "Viator",
     "fromPrice": 55,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 83,
     "freeCancel": true
   },
   "hanoi/ha-long-bay": {
@@ -128,8 +100,6 @@
     "provider": "Viator",
     "fromPrice": 179,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 79,
     "freeCancel": true
   },
   "hanoi/ninh-binh": {
@@ -137,8 +107,6 @@
     "provider": "Viator",
     "fromPrice": 80,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 294,
     "freeCancel": true
   },
   "bali/tanah-lot": {
@@ -146,8 +114,6 @@
     "provider": "Viator",
     "fromPrice": 127,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 93,
     "freeCancel": true
   },
   "bali/monkey-forest-ubud": {
@@ -155,8 +121,6 @@
     "provider": "Viator",
     "fromPrice": 36,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 90,
     "freeCancel": true
   },
   "bali/mount-batur-sunrise": {
@@ -164,8 +128,6 @@
     "provider": "Viator",
     "fromPrice": 19,
     "currency": "USD",
-    "rating": 5,
-    "ratingCount": 99,
     "freeCancel": true
   }
 }

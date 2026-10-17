@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Clock, Star, ShieldCheck } from "lucide-react";
+import { MapPin, Clock, ShieldCheck } from "lucide-react";
 
 import { CovillaHeader } from "@/components/covilla/CovillaHeader";
 import { CovillaFooter } from "@/components/covilla/CovillaFooter";
@@ -56,7 +56,6 @@ export default async function ExperienceDetailPage({
   const breadcrumbLd = buildExperienceBreadcrumbLd(site.url, d, e);
 
   const hasPrice = typeof e.fromPrice === "number" && e.fromPrice > 0;
-  const hasRating = typeof e.rating === "number" && e.rating > 0;
 
   return (
     <>
@@ -98,19 +97,6 @@ export default async function ExperienceDetailPage({
               <Clock size={15} className="text-muted" />
               <dt className="sr-only">Duration</dt>
               <dd>{e.duration}</dd>
-            </div>
-          )}
-          {hasRating && (
-            <div className="inline-flex items-center gap-1.5">
-              <Star size={15} className="fill-current text-amber-500" aria-hidden />
-              <dt className="sr-only">Rating</dt>
-              <dd>
-                <span className="font-medium">{e.rating!.toFixed(1)}</span>
-                {typeof e.ratingCount === "number" && (
-                  <span className="text-muted"> ({e.ratingCount.toLocaleString("en-US")})</span>
-                )}
-                {e.provider && <span className="text-muted"> · via {e.provider}</span>}
-              </dd>
             </div>
           )}
           {e.freeCancel && (
