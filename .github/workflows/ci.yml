@@ -69,6 +69,18 @@ jobs:
         if: github.event_name == 'pull_request'
         run: pnpm --filter @folio/web seo:live-guard --base ${{ github.event.pull_request.base.sha }}
 
+      # Spec 0006 page template AC-T6, AC-T15: a production build of the web app
+      # with SEO_SLICE_PREVIEW=1 set on purpose (a production build must ignore
+      # it), then the leak scan over the prerendered slice pages. After the build,
+      # the specs that need one: the edge middleware bundle (AC-G3) and the
+      # Bangkok route regression (AC-T1, AC-T2). Needs no secrets: the slice
+      # reads only committed files.
+      - name: SEO slice build, leak scan and built route specs
+        run: |
+          SEO_SLICE_PREVIEW=1 pnpm --filter @folio/web build
+          pnpm --filter @folio/web seo:leak-scan
+          SEO_SLICE_ROUTE_TEST=1 pnpm --filter @folio/web exec jest middleware.edge-bundle routes.built
+
   migrate:
     name: migrate
     runs-on: ubuntu-latest
