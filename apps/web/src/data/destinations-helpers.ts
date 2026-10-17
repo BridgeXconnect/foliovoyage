@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { Destination, Experience } from "./types";
 import { destinations as rawDestinations } from "./destinations";
 import viatorLinks from "./viator-links.json";

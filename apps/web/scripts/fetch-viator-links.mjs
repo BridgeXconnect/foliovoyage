@@ -12,14 +12,14 @@
 //   4. Write the results to two files the app reads at build time:
 //        src/data/viator-destinations.json  — { slug: destinationId }
 //        src/data/viator-links.json         — { "<slug>/<expId>": { affiliateUrl,
-//          provider, fromPrice?, currency?, rating?, ratingCount?, freeCancel? } }
+//          provider, fromPrice?, currency?, freeCancel? } }
 //          (the commerce fields are additive card badges — BRI-168.)
 //
 // It never touches the editorial title/description, never rewrites Viator's
 // pid/mcid/medium params, and needs no database (that's Full Access territory).
 //
 // A re-run PRESERVES every already-curated match and only refreshes its commerce
-// badges (fromPrice/rating/freeCancel) — it never silently re-points a reviewed
+// badges (fromPrice/freeCancel) — it never silently re-points a reviewed
 // card. Auto-matching only fills experiences that still have no link. Set
 // ENRICH_ONLY=1 to refresh badges alone and add no new (uncurated) matches.
 //
@@ -229,8 +229,8 @@ function withCampaign(productUrl, slug) {
 // card badges. All optional and only included when present — this is pure
 // enrichment (docs/07 "match, don't overwrite"); nothing here touches the
 // editorial title/description. `fromPrice`/`currency` come from the summary's
-// `pricing.summary.fromPrice` + `pricing.currency`; `rating`/`ratingCount` from
-// the aggregate `reviews` object; `freeCancel` from the `FREE_CANCELLATION` flag.
+// `pricing.summary.fromPrice` + `pricing.currency`; `freeCancel` from the
+// `FREE_CANCELLATION` flag. Review/rating data is protected and never written.
 // Pull the Viator productCode out of a stored affiliate URL, e.g.
 // ".../d343-66102P2?mcid=..." → "66102P2". Used to re-find a *curated* match in
 // fresh search results so its badges can be refreshed without re-matching.
@@ -245,14 +245,6 @@ function commerceFields(p) {
   if (typeof fromPrice === "number" && Number.isFinite(fromPrice)) {
     out.fromPrice = fromPrice;
     if (typeof p?.pricing?.currency === "string") out.currency = p.pricing.currency;
-  }
-  const rating = p?.reviews?.combinedAverageRating;
-  if (typeof rating === "number" && Number.isFinite(rating)) {
-    out.rating = Math.round(rating * 10) / 10;
-    const count = p?.reviews?.totalReviews;
-    if (typeof count === "number" && Number.isFinite(count)) {
-      out.ratingCount = Math.trunc(count);
-    }
   }
   if (Array.isArray(p?.flags) && p.flags.includes("FREE_CANCELLATION")) {
     out.freeCancel = true;
@@ -324,7 +316,12 @@ async function main() {
       const prior = existingLinks[key];
       if (prior?.affiliateUrl) {
         const prod = byCode.get(productCodeFromUrl(prior.affiliateUrl));
-        links[key] = { ...prior, ...(prod ? commerceFields(prod) : {}) };
+        // Old curated files may still contain protected fields. Never carry
+        // them forward, including when the product is absent from this search.
+        const publicPrior = { ...prior };
+        delete publicPrior.rating;
+        delete publicPrior.ratingCount;
+        links[key] = { ...publicPrior, ...(prod ? commerceFields(prod) : {}) };
         enriched += 1;
         console.log(
           `  ↻ ${exp.title} — kept curated match, ` +

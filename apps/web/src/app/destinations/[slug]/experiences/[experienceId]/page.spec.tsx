@@ -5,7 +5,7 @@ import viatorLinks from "@/data/viator-links.json";
 
 describe("indexable experience detail page", () => {
   it("omits Viator rating and review data from server HTML and JSON-LD", async () => {
-    const entry = Object.entries(viatorLinks).find(([, link]) => "rating" in link && "ratingCount" in link);
+    const entry = Object.entries(viatorLinks).find(([, link]) => "affiliateUrl" in link);
     expect(entry).toBeDefined();
     const [key] = entry!;
     const [slug, experienceId] = key.split("/");

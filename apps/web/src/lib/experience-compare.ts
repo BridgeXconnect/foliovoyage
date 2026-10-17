@@ -12,7 +12,7 @@
  * Any fact a tour lacks is `null` here and an em-dash in the UI — never invented.
  */
 import type { Destination, Experience } from "@folio/shared";
-import { formatFromPrice, experienceDetailPath } from "@/lib/experience-detail";
+import { formatFromPrice, experienceDetailPath } from "@/lib/experience-detail-public";
 
 export const MIN_COMPARE = 2;
 export const MAX_COMPARE = 4;

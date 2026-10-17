@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ShieldCheck, CheckSquare, Square } from "lucide-react";
 import { trackAffiliateClick } from "@/lib/analytics";
-import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail";
+import { experienceDetailPath, formatFromPrice } from "@/lib/experience-detail-public";
 import type { Experience } from "@/data/types";
 
 /**
@@ -131,7 +131,6 @@ export function ExperienceRowCard({
                 provider: e.provider,
                 category: e.category,
                 priceBand: e.priceBand,
-                hasRating: typeof e.rating === "number",
                 freeCancel: Boolean(e.freeCancel),
                 city: destination.city,
                 country: destination.country,

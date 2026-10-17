@@ -19,6 +19,7 @@ module.exports = {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: "<rootDir>/../tsconfig.jest.json" }],
   },
   moduleNameMapper: {
+    "^server-only$": "<rootDir>/../test/server-only.js",
     "^@/(.*)$": "<rootDir>/$1",
     "^@folio/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
   },
